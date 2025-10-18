@@ -6,10 +6,12 @@ import { useAuth } from '../../contexts/AuthContext';
 import useLocations from '../../hooks/useLocations';
 import useParticipants from '../../hooks/useParticipants';
 import useConferences from '../../hooks/useConferences';
+import useRecommendedPresentations from '../../hooks/useRecommendedPresentations';
 import Button from '../../components/ui/Button';
 import QrScanButton from './components/QrScanButton';
 import VenueMap from './components/VenueMap';
 import ParticipantList from './components/ParticipantList';
+import RecommendedPresentations from './components/RecommendedPresentations';
 
 const Dashboard = () => {
     const { conferenceId: routeConferenceId } = useParams();
@@ -42,6 +44,13 @@ const Dashboard = () => {
         error: participantsError,
         refetch: refetchParticipants
     } = useParticipants(conferenceId);
+
+    const {
+        data: recommendedPresentations = [],
+        isLoading: presentationsLoading,
+        error: presentationsError,
+        refetch: refetchPresentations
+    } = useRecommendedPresentations(user?.id, conferenceId);
 
     const conferenceMeta = useMemo(() => {
         if (!conferenceId) {
@@ -215,6 +224,16 @@ const Dashboard = () => {
                             onRetry={refetchParticipants}
                         />
                     </div>
+                </div>
+
+                {/* 興味のある発表セクション */}
+                <div className="mt-6">
+                    <RecommendedPresentations
+                        presentations={recommendedPresentations}
+                        isLoading={presentationsLoading}
+                        error={presentationsError}
+                        onRetry={refetchPresentations}
+                    />
                 </div>
             </main>
 
