@@ -17,10 +17,10 @@ const Header = () => {
                         </div>
                         <div className="flex flex-col">
                             <h1 className="text-lg font-heading font-semibold text-foreground">
-                                Conference Intro Builder
+                                Sympo Link
                             </h1>
                             <p className="text-xs font-caption text-muted-foreground hidden sm:block">
-                                Prepare with confidence
+                                シンポジウムを楽しいものに！
                             </p>
                         </div>
                     </div>
