@@ -1,0 +1,165 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        /* Core Colors */
+        --color-background: #FEFEFE;
+        /* near-white */
+        --color-foreground: #2D3748;
+        /* dark-gray-700 */
+        --color-border: #E2E8F0;
+        /* gray-200 */
+        --color-input: #F8FAFB;
+        /* blue-tinted-surface */
+        --color-ring: #4A90A4;
+        /* calm-blue */
+
+        /* Card Colors */
+        --color-card: #FFFFFF;
+        /* white */
+        --color-card-foreground: #2D3748;
+        /* dark-gray-700 */
+
+        /* Popover Colors */
+        --color-popover: #FFFFFF;
+        /* white */
+        --color-popover-foreground: #2D3748;
+        /* dark-gray-700 */
+
+        /* Muted Colors */
+        --color-muted: #F8FAFB;
+        /* blue-tinted-surface */
+        --color-muted-foreground: #718096;
+        /* gray-500 */
+
+        /* Primary Colors */
+        --color-primary: #4A90A4;
+        /* calm-blue */
+        --color-primary-foreground: #FFFFFF;
+        /* white */
+
+        /* Secondary Colors */
+        --color-secondary: #7FB069;
+        /* soft-green */
+        --color-secondary-foreground: #FFFFFF;
+        /* white */
+
+        /* Destructive Colors */
+        --color-destructive: #FC8181;
+        /* muted-red */
+        --color-destructive-foreground: #FFFFFF;
+        /* white */
+
+        /* Accent Colors */
+        --color-accent: #F4A261;
+        /* warm-orange */
+        --color-accent-foreground: #FFFFFF;
+        /* white */
+
+        /* Success Colors */
+        --color-success: #68D391;
+        /* gentle-green */
+        --color-success-foreground: #FFFFFF;
+        /* white */
+
+        /* Warning Colors */
+        --color-warning: #F6AD55;
+        /* soft-orange */
+        --color-warning-foreground: #FFFFFF;
+        /* white */
+
+        /* Error Colors */
+        --color-error: #FC8181;
+        /* muted-red */
+        --color-error-foreground: #FFFFFF;
+        /* white */
+
+        /* Surface Color */
+        --color-surface: #F8FAFB;
+        /* blue-tinted-surface */
+
+        /* Text Colors */
+        --color-text-primary: #2D3748;
+        /* dark-gray-700 */
+        --color-text-secondary: #718096;
+        /* gray-500 */
+    }
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+
+    body {
+        @apply bg-background text-foreground;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        font-family: 'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+    }
+
+    .font-mono {
+        font-family: 'JetBrains Mono', 'Consolas', 'Monaco', 'Courier New', monospace;
+    }
+
+    .font-caption {
+        font-family: 'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+        font-weight: 300;
+    }
+}
+
+@layer utilities {
+    .shadow-soft {
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+    }
+
+    .shadow-medium {
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.06);
+    }
+
+    .animate-breathing {
+        animation: breathing 2s ease-in-out infinite;
+    }
+
+    @keyframes breathing {
+
+        0%,
+        100% {
+            transform: scale(1);
+        }
+
+        50% {
+            transform: scale(1.02);
+        }
+    }
+
+    .transition-gentle {
+        transition: all 200ms ease-out;
+    }
+
+    .transition-smooth {
+        transition: all 300ms ease-out;
+    }
+
+    .touch-target {
+        min-height: 44px;
+        min-width: 44px;
+    }
+
+    .press-feedback:active {
+        transform: scale(0.98);
+    }
+}
