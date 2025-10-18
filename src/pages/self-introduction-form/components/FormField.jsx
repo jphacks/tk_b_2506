@@ -13,22 +13,28 @@ const FormField = ({
     description,
     maxLength,
     showCharacterCounter = false,
-    className = ""
+    className = "",
+    children // 追加
 }) => {
     return (
         <div className={`space-y-2 ${className}`}>
-            <Input
-                type={type}
-                label={label}
-                name={name}
-                value={value}
-                onChange={onChange}
-                placeholder={placeholder}
-                required={required}
-                error={error}
-                description={description}
-                maxLength={maxLength}
-            />
+            {label && <label className="block text-sm font-medium text-gray-700">{label}</label>}
+
+            {/* children があればそれをレンダリング、なければ既存の Input */}
+            {children ? (
+                children
+            ) : (
+                <Input
+                    type={type}
+                    name={name}
+                    value={value}
+                    onChange={onChange}
+                    placeholder={placeholder}
+                    required={required}
+                    error={error}
+                    maxLength={maxLength}
+                />
+            )}
 
             {showCharacterCounter && maxLength && (
                 <CharacterCounter
@@ -36,6 +42,13 @@ const FormField = ({
                     max={maxLength}
                     className="px-1"
                 />
+            )}
+
+            {/* description */}
+            {description && (
+                <p className="mt-1 text-[10px] text-gray-500">
+                    {description}
+                </p>
             )}
         </div>
     );

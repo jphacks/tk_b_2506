@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Header from '../../components/ui/Header';
+import Input from '../../components/ui/Input';
 import Toast from '../../components/ui/Toast';
 import FormActions from './components/FormActions';
 import FormField from './components/FormField';
@@ -13,7 +14,9 @@ const SelfIntroductionForm = () => {
         affiliation: '',
         researchTopic: '',
         interests: '',
-        oneLiner: ''
+        oneLiner: '',
+        occupation: '',
+        occupationOther: '' // 追加：その他入力用
     });
 
     // UI state
@@ -106,7 +109,9 @@ const SelfIntroductionForm = () => {
             affiliation: '',
             researchTopic: '',
             interests: '',
-            oneLiner: ''
+            oneLiner: '',
+            occupation: '',
+            occupationOther: ''
         });
         setIsPublic(true);
         setErrors({});
@@ -151,6 +156,41 @@ const SelfIntroductionForm = () => {
                                 error={errors?.affiliation}
                                 maxLength={undefined}
                             />
+                            {/* 職業: 選択式、その他の場合は入力を表示 */}
+                            <FormField
+                                label="職業"
+                                name="occupation"
+                                error={errors?.occupation}
+                                description="当てはまる職業を選択してください（「その他」を選んだ場合は具体的に記入）"
+                            >
+                                <select
+                                    name="occupation"
+                                    value={formData.occupation}
+                                    onChange={handleInputChange}
+                                    className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary"
+                                >
+                                    <option value="">選択してください</option>
+                                    <option value="学士課程">学士課程</option>
+                                    <option value="修士課程">修士課程</option>
+                                    <option value="博士課程">博士課程</option>
+                                    <option value="ポスドク">ポスドク</option>
+                                    <option value="教員">教員</option>
+                                    <option value="研究者">研究者</option>
+                                    <option value="企業">企業</option>
+                                    <option value="スタッフ">スタッフ</option>
+                                    <option value="その他">その他</option>
+                                </select>
+
+                                {formData.occupation === 'その他' && (
+                                    <Input
+                                        name="occupationOther"
+                                        value={formData.occupationOther}
+                                        onChange={handleInputChange}
+                                        placeholder="具体的に入力してください（例: フリーランス）"
+                                        className="mt-2"
+                                    />
+                                )}
+                            </FormField>
 
                             {/* Research Topic Field - Optional */}
                             <FormField
