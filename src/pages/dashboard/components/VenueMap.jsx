@@ -109,12 +109,6 @@ const VenueMap = ({
                     </div>
                 )}
 
-                {currentLocation && (
-                    <div className="absolute top-4 left-4 bg-primary/90 text-primary-foreground text-xs font-semibold px-3 py-1 rounded-full shadow-soft">
-                        現在地: {currentLocation.name}
-                    </div>
-                )}
-
                 {isLoading && (
                     <div className="absolute inset-0 bg-background/70 backdrop-blur-sm flex items-center justify-center">
                         <div className="flex flex-col items-center gap-2">
