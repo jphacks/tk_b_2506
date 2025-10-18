@@ -1,7 +1,7 @@
 import { createPortal } from 'react-dom';
 import { useEffect } from 'react';
 
-import Button from 'components/ui/Button';
+import Button from '../../../components/ui/Button';
 
 const ProfileField = ({ label, value }) => (
     <div className="space-y-1">
