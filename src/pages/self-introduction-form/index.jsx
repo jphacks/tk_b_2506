@@ -169,7 +169,7 @@ const SelfIntroductionForm = () => {
                                     onChange={handleInputChange}
                                     className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary"
                                 >
-                                    <option value="">選択してください</option>
+                                    <option value="" disabled>選択してください</option>
                                     <option value="学士課程">学士課程</option>
                                     <option value="修士課程">修士課程</option>
                                     <option value="博士課程">博士課程</option>
