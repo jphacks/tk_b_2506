@@ -262,6 +262,94 @@ export const db = {
 
         if (error) throw error;
         return data;
+    },
+
+    // タグ一覧を取得
+    async getTags() {
+        const { data, error } = await supabase
+            .from('tags')
+            .select('id, name, description')
+            .order('name');
+
+        if (error) throw error;
+        return data ?? [];
+    },
+
+    // ユーザーの興味タグを取得
+    async getUserInterests(userId) {
+        const { data, error } = await supabase
+            .from('user_interests')
+            .select(`
+                id,
+                tag_id,
+                tags (
+                    id,
+                    name,
+                    description
+                )
+            `)
+            .eq('user_id', userId);
+
+        if (error) throw error;
+        return data ?? [];
+    },
+
+    // ユーザーの興味タグを追加
+    async addUserInterest(userId, tagId) {
+        const { data, error } = await supabase
+            .from('user_interests')
+            .insert({
+                user_id: userId,
+                tag_id: tagId
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    },
+
+    // ユーザーの興味タグを削除
+    async removeUserInterest(userId, tagId) {
+        const { error } = await supabase
+            .from('user_interests')
+            .delete()
+            .eq('user_id', userId)
+            .eq('tag_id', tagId);
+
+        if (error) throw error;
+    },
+
+    // ユーザーの興味に基づいてプレゼンテーションを検索
+    async searchPresentationsByUserInterests(userId, conferenceId) {
+        const { data, error } = await supabase
+            .rpc('search_presentations_by_user_interests', {
+                p_user_id: userId,
+                p_conference_id: conferenceId
+            });
+
+        if (error) throw error;
+        return data ?? [];
+    },
+
+    // プレゼンテーション一覧を取得（学会別）
+    async getPresentations(conferenceId, options = {}) {
+        const { presentationType = null } = options;
+
+        let query = supabase
+            .from('presentations')
+            .select('*')
+            .eq('conference_id', conferenceId)
+            .order('scheduled_at', { ascending: true, nullsFirst: false });
+
+        if (presentationType) {
+            query = query.eq('presentation_type', presentationType);
+        }
+
+        const { data, error } = await query;
+
+        if (error) throw error;
+        return data ?? [];
     }
 };
 
