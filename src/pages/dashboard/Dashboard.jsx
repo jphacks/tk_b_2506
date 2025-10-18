@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import Header from '../../components/ui/Header';
 import Toast from '../../components/ui/Toast';
 import { useAuth } from '../../contexts/AuthContext';
 import useLocations from '../../hooks/useLocations';
 import useParticipants from '../../hooks/useParticipants';
+import useConferences from '../../hooks/useConferences';
+import Button from '../../components/ui/Button';
 import QrScanButton from './components/QrScanButton';
 import VenueMap from './components/VenueMap';
 import ParticipantList from './components/ParticipantList';
@@ -13,12 +15,19 @@ const Dashboard = () => {
     const { conferenceId: routeConferenceId } = useParams();
     const conferenceId = routeConferenceId;
     const { user } = useAuth();
+    const navigate = useNavigate();
 
     const [toast, setToast] = useState({
         isVisible: false,
         message: '',
         type: 'success'
     });
+
+    const {
+        data: conferences = [],
+        isLoading: conferencesLoading,
+        error: conferencesError
+    } = useConferences({ includeInactive: true });
 
     const {
         data: locations = [],
@@ -33,6 +42,13 @@ const Dashboard = () => {
         error: participantsError,
         refetch: refetchParticipants
     } = useParticipants(conferenceId);
+
+    const conferenceMeta = useMemo(() => {
+        if (!conferenceId) {
+            return null;
+        }
+        return conferences.find(conference => conference.id === conferenceId) || null;
+    }, [conferenceId, conferences]);
 
     const currentParticipant = useMemo(() => {
         if (!user) {
@@ -77,6 +93,15 @@ const Dashboard = () => {
         });
     };
 
+    const handleConferenceReselect = () => {
+        navigate('/select-conference', {
+            state: {
+                requiresSelection: true,
+                reason: '選択済みの学会が見つかりませんでした。再度選択してください。'
+            }
+        });
+    };
+
     if (!conferenceId) {
         return (
             <div className="min-h-screen bg-background">
@@ -98,15 +123,44 @@ const Dashboard = () => {
             <Header />
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
                 <div className="flex flex-col gap-2">
-                    <h1 className="text-2xl font-semibold text-foreground">参加者ダッシュボード</h1>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <h1 className="text-2xl font-semibold text-foreground">参加者ダッシュボード</h1>
+                        <span className="inline-flex items-center rounded-full bg-primary/10 text-primary px-3 py-1 text-xs font-medium border border-primary/20">
+                            {conferenceMeta?.name
+                                ? conferenceMeta.name
+                                : conferencesLoading
+                                    ? '学会情報を読み込み中…'
+                                    : `学会情報未取得${conferenceId ? ` (ID: ${conferenceId})` : ''}`}
+                        </span>
+                    </div>
                     <p className="text-sm text-muted-foreground">
-                        {conferenceId} のカンファレンス情報をリアルタイムに確認できます。
+                        {conferenceMeta?.name
+                            ? `${conferenceMeta.name} のカンファレンス情報をリアルタイムに確認できます。`
+                            : conferencesLoading
+                                ? '学会情報を読み込み中です…'
+                                : 'カンファレンス情報をリアルタイムに確認できます。'}
                     </p>
+                    {!conferenceMeta && !conferencesLoading && (
+                        <div>
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={handleConferenceReselect}
+                            >
+                                学会を再選択する
+                            </Button>
+                        </div>
+                    )}
                 </div>
 
-                {(locationsError || participantsError) && (
+                {(conferencesError || locationsError || participantsError) && (
                     <div className="bg-error/10 text-error border border-error/30 rounded-lg px-4 py-3 text-sm">
                         データの取得中にエラーが発生しました。必要に応じてリロードしてください。
+                        {conferencesError && (
+                            <div className="mt-1">
+                                学会情報: {conferencesError.message}
+                            </div>
+                        )}
                     </div>
                 )}
 

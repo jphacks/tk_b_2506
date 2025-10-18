@@ -9,6 +9,26 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // データベース操作のヘルパー関数
 export const db = {
+    // 学会一覧を取得
+    async getConferences(options = {}) {
+        const { includeInactive = false } = options;
+
+        let query = supabase
+            .from('conferences')
+            .select('id, name, description, start_date, end_date, location, is_active');
+
+        if (!includeInactive) {
+            query = query.eq('is_active', true);
+        }
+
+        query = query.order('start_date', { ascending: true });
+
+        const { data, error } = await query;
+
+        if (error) throw error;
+        return data ?? [];
+    },
+
     // 自己紹介を取得
     async getIntroductions() {
         const { data, error } = await supabase
@@ -48,6 +68,63 @@ export const db = {
         }
 
         const { data, error } = response;
+
+        if (error) throw error;
+        return data;
+    },
+
+    // 参加者プロフィールを取得
+    async getParticipantByUser(userId) {
+        if (!userId) {
+            return null;
+        }
+
+        const { data, error } = await supabase
+            .from('participants')
+            .select('*')
+            .eq('user_id', userId)
+            .order('updated_at', { ascending: false })
+            .maybeSingle();
+
+        if (error && error.code !== 'PGRST116') {
+            throw error;
+        }
+
+        return data;
+    },
+
+    // 参加者の学会選択を保存
+    async setParticipantConference({ userId, conferenceId }) {
+        if (!userId || !conferenceId) {
+            throw new Error('participant conference update requires userId and conferenceId.');
+        }
+
+        const existing = await db.getParticipantByUser(userId);
+
+        if (existing?.id) {
+            const { data, error } = await supabase
+                .from('participants')
+                .update({
+                    conference_id: conferenceId,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', existing.id)
+                .select()
+                .maybeSingle();
+
+            if (error) throw error;
+            return data;
+        }
+
+        const { data, error } = await supabase
+            .from('participants')
+            .insert({
+                user_id: userId,
+                conference_id: conferenceId,
+                registered_at: new Date().toISOString()
+            })
+            .select()
+            .maybeSingle();
 
         if (error) throw error;
         return data;

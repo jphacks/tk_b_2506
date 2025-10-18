@@ -1,11 +1,14 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Header from '../../components/ui/Header';
 import Input from '../../components/ui/Input';
+import Select from '../../components/ui/Select';
 import Toast from '../../components/ui/Toast';
 import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../lib/supabase';
-import { DEFAULT_CONFERENCE_ID } from '../../constants/conference';
+import { getStoredConferenceId, setStoredConferenceId } from '../../constants/conference';
+import useConferences from '../../hooks/useConferences';
+import useParticipantProfile from '../../hooks/useParticipantProfile';
 import FormActions from './components/FormActions';
 import FormField from './components/FormField';
 import FormHeader from './components/FormHeader';
@@ -14,6 +17,8 @@ import VisibilityToggle from './components/VisibilityToggle';
 const SelfIntroductionForm = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
+    const preferredConferenceId = location?.state?.preferredConferenceId || '';
 
     // Form state
     const [formData, setFormData] = useState({
@@ -35,6 +40,63 @@ const SelfIntroductionForm = () => {
         message: '',
         type: 'success'
     });
+    const [selectedConferenceId, setSelectedConferenceId] = useState(preferredConferenceId || '');
+
+    const {
+        data: conferences = [],
+        isLoading: isConferencesLoading,
+        isError: isConferencesError,
+        error: conferencesError
+    } = useConferences();
+
+    const {
+        data: participantProfile,
+        refetch: refetchParticipantProfile
+    } = useParticipantProfile(user?.id);
+
+    const conferenceOptions = useMemo(() => {
+        return conferences?.map((conf) => {
+            const details = [
+                conf?.start_date && conf?.end_date
+                    ? `${conf.start_date} ~ ${conf.end_date}`
+                    : null,
+                conf?.location || null
+            ].filter(Boolean).join(' / ');
+
+            return {
+                value: conf?.id,
+                label: conf?.name,
+                description: details || undefined
+            };
+        }) ?? [];
+    }, [conferences]);
+
+    useEffect(() => {
+        if (!conferences?.length) {
+            return;
+        }
+
+        const hasValidSelection = selectedConferenceId &&
+            conferences.some((conf) => conf?.id === selectedConferenceId);
+
+        if (hasValidSelection) {
+            return;
+        }
+
+        const candidates = [
+            preferredConferenceId,
+            participantProfile?.conference_id || null,
+            getStoredConferenceId()
+        ].filter(Boolean);
+
+        const fallbackConferenceId = candidates.find(candidate =>
+            conferences.some(conf => conf?.id === candidate)
+        ) || conferences[0]?.id || '';
+
+        if (fallbackConferenceId) {
+            setSelectedConferenceId(fallbackConferenceId);
+        }
+    }, [conferences, participantProfile, preferredConferenceId, selectedConferenceId]);
 
     // Form validation
     const validateForm = () => {
@@ -46,6 +108,10 @@ const SelfIntroductionForm = () => {
 
         if (formData?.oneLiner?.length > 120) {
             newErrors.oneLiner = "一言メッセージは120文字以内で入力してください";
+        }
+
+        if (!selectedConferenceId) {
+            newErrors.conference = "参加する学会を選択してください";
         }
 
         setErrors(newErrors);
@@ -65,6 +131,18 @@ const SelfIntroductionForm = () => {
             setErrors(prev => ({
                 ...prev,
                 [name]: ''
+            }));
+        }
+    };
+
+    const handleConferenceChange = (value) => {
+        setSelectedConferenceId(value);
+        setStoredConferenceId(value);
+
+        if (errors?.conference) {
+            setErrors(prev => ({
+                ...prev,
+                conference: ''
             }));
         }
     };
@@ -89,6 +167,8 @@ const SelfIntroductionForm = () => {
         setIsLoading(true);
 
         try {
+            const conferenceIdToUse = selectedConferenceId || null;
+
             // Prepare data for Supabase
             const introductionData = {
                 name: formData.name.trim(),
@@ -100,7 +180,7 @@ const SelfIntroductionForm = () => {
                 occupation_other: formData.occupationOther?.trim() || null,
                 is_public: isPublic,
                 created_by: user.id || null,
-                conference_id: DEFAULT_CONFERENCE_ID || null
+                conference_id: conferenceIdToUse
             };
 
             // Save to Supabase
@@ -114,8 +194,17 @@ const SelfIntroductionForm = () => {
                 type: 'success'
             });
 
+            await db.setParticipantConference({
+                userId: user.id,
+                conferenceId: conferenceIdToUse
+            });
+            setStoredConferenceId(conferenceIdToUse);
+            refetchParticipantProfile?.();
+
             handleReset();
-            navigate(`/dashboard/${DEFAULT_CONFERENCE_ID}`);
+            if (conferenceIdToUse) {
+                navigate(`/dashboard/${conferenceIdToUse}`);
+            }
 
         } catch (error) {
             console.error('Error saving introduction:', error);
@@ -145,7 +234,10 @@ const SelfIntroductionForm = () => {
     };
 
     // Check if form is valid
-    const isFormValid = formData?.name?.trim()?.length > 0 && formData?.oneLiner?.length <= 120;
+    const isFormValid =
+        formData?.name?.trim()?.length > 0 &&
+        formData?.oneLiner?.length <= 120 &&
+        Boolean(selectedConferenceId);
 
     return (
         <div className="min-h-screen bg-background">
@@ -158,6 +250,30 @@ const SelfIntroductionForm = () => {
                     {/* Main Form */}
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="bg-card border border-border rounded-xl p-6 shadow-soft space-y-6">
+                            <Select
+                                label="参加する学会"
+                                name="conference"
+                                value={selectedConferenceId}
+                                onChange={handleConferenceChange}
+                                options={conferenceOptions}
+                                placeholder="学会を選択してください"
+                                required
+                                searchable
+                                loading={isConferencesLoading}
+                                disabled={isConferencesLoading && !conferenceOptions?.length}
+                                error={
+                                    errors?.conference ||
+                                    (isConferencesError
+                                        ? (conferencesError?.message || '学会リストの取得に失敗しました')
+                                        : undefined)
+                                }
+                                description={
+                                    isConferencesError
+                                        ? undefined
+                                        : "参加予定の学会を選択してください"
+                                }
+                            />
+
                             {/* Name Field - Required */}
                             <FormField
                                 type="text"
