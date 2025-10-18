@@ -22,12 +22,32 @@ export const db = {
     },
 
     // ユーザーの自己紹介を取得
-    async getUserIntroductions(userId) {
-        const { data, error } = await supabase
+    async getUserIntroductions(userId, options = {}) {
+        const { conferenceId = null } = options;
+
+        const buildBaseQuery = () => supabase
             .from('introductions')
             .select('*')
             .eq('created_by', userId)
             .order('created_at', { ascending: false });
+
+        let response;
+        if (conferenceId) {
+            response = await buildBaseQuery().eq('conference_id', conferenceId);
+
+            // 古いスキーマで conference_id カラムが存在しない場合はフィルタなしで再取得
+            if (response?.error?.message?.includes('introductions.conference_id')) {
+                console.warn(
+                    '[db.getUserIntroductions] conference_id column not found on introductions. ' +
+                    'Fallback to non-filtered query. Please apply migration 010_add_conference_reference_to_introductions.'
+                );
+                response = await buildBaseQuery();
+            }
+        } else {
+            response = await buildBaseQuery();
+        }
+
+        const { data, error } = response;
 
         if (error) throw error;
         return data;
@@ -35,11 +55,25 @@ export const db = {
 
     // 自己紹介を作成
     async createIntroduction(introductionData) {
-        const { data, error } = await supabase
+        const insert = async (payload) => supabase
             .from('introductions')
-            .insert([introductionData])
+            .insert([payload])
             .select()
             .single();
+
+        let response = await insert(introductionData);
+
+        if (response?.error?.message?.includes('introductions.conference_id')) {
+            console.warn(
+                '[db.createIntroduction] conference_id column not found on introductions. ' +
+                'Retrying without conference_id. Please apply migration 010_add_conference_reference_to_introductions.'
+            );
+            const fallbackPayload = { ...introductionData };
+            delete fallbackPayload.conference_id;
+            response = await insert(fallbackPayload);
+        }
+
+        const { data, error } = response;
 
         if (error) throw error;
         return data;
@@ -47,12 +81,26 @@ export const db = {
 
     // 自己紹介を更新
     async updateIntroduction(id, updates) {
-        const { data, error } = await supabase
+        const update = async (payload) => supabase
             .from('introductions')
-            .update(updates)
+            .update(payload)
             .eq('id', id)
             .select()
             .single();
+
+        let response = await update(updates);
+
+        if (response?.error?.message?.includes('introductions.conference_id')) {
+            console.warn(
+                '[db.updateIntroduction] conference_id column not found on introductions. ' +
+                'Retrying without conference_id. Please apply migration 010_add_conference_reference_to_introductions.'
+            );
+            const fallbackPayload = { ...updates };
+            delete fallbackPayload.conference_id;
+            response = await update(fallbackPayload);
+        }
+
+        const { data, error } = response;
 
         if (error) throw error;
         return data;

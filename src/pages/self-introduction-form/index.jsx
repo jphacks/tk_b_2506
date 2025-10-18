@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Header from '../../components/ui/Header';
 import Input from '../../components/ui/Input';
 import Toast from '../../components/ui/Toast';
 import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../lib/supabase';
+import { DEFAULT_CONFERENCE_ID } from '../../constants/conference';
 import FormActions from './components/FormActions';
 import FormField from './components/FormField';
 import FormHeader from './components/FormHeader';
@@ -11,6 +13,7 @@ import VisibilityToggle from './components/VisibilityToggle';
 
 const SelfIntroductionForm = () => {
     const { user } = useAuth();
+    const navigate = useNavigate();
 
     // Form state
     const [formData, setFormData] = useState({
@@ -74,6 +77,15 @@ const SelfIntroductionForm = () => {
             return;
         }
 
+        if (!user?.id) {
+            setToast({
+                isVisible: true,
+                message: 'ログインしてから自己紹介を登録してください。',
+                type: 'error'
+            });
+            return;
+        }
+
         setIsLoading(true);
 
         try {
@@ -87,7 +99,8 @@ const SelfIntroductionForm = () => {
                 occupation: formData.occupation || null,
                 occupation_other: formData.occupationOther?.trim() || null,
                 is_public: isPublic,
-                created_by: user?.id || null
+                created_by: user.id || null,
+                conference_id: DEFAULT_CONFERENCE_ID || null
             };
 
             // Save to Supabase
@@ -101,10 +114,8 @@ const SelfIntroductionForm = () => {
                 type: 'success'
             });
 
-            // Reset form after successful submission
-            setTimeout(() => {
-                handleReset();
-            }, 3000);
+            handleReset();
+            navigate(`/dashboard/${DEFAULT_CONFERENCE_ID}`);
 
         } catch (error) {
             console.error('Error saving introduction:', error);

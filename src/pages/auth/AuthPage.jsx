@@ -6,6 +6,8 @@ import Header from '../../components/ui/Header';
 import Input from '../../components/ui/Input';
 import Toast from '../../components/ui/Toast';
 import { useAuth } from '../../contexts/AuthContext';
+import { db, auth as supabaseAuth } from '../../lib/supabase';
+import { DEFAULT_CONFERENCE_ID } from '../../constants/conference';
 
 const AuthPage = () => {
     const { login, signup } = useAuth();
@@ -88,16 +90,35 @@ const AuthPage = () => {
             }
 
             if (result.success) {
-                setToast({
-                    isVisible: true,
-                    message: isLogin ? "ログインしました！" : "アカウントが作成されました！",
-                    type: 'success'
-                });
+                try {
+                    const { data: userData, error: userError } = await supabaseAuth.getCurrentUser();
+                    if (userError || !userData?.user) {
+                        throw new Error('ユーザー情報の取得に失敗しました。');
+                    }
 
-                // Redirect to new introduction form
-                setTimeout(() => {
-                    navigate('/new-introduction');
-                }, 2000);
+                    const introductions = await db.getUserIntroductions(userData.user.id, {
+                        conferenceId: DEFAULT_CONFERENCE_ID
+                    });
+
+                    const destination = introductions.length > 0
+                        ? `/dashboard/${DEFAULT_CONFERENCE_ID}`
+                        : '/self-introduction-form';
+
+                    setToast({
+                        isVisible: true,
+                        message: isLogin ? "ログインしました！" : "アカウントが作成されました！",
+                        type: 'success'
+                    });
+
+                    navigate(destination, { replace: true });
+                } catch (postAuthError) {
+                    console.error('Post-auth navigation error:', postAuthError);
+                    setToast({
+                        isVisible: true,
+                        message: postAuthError.message || 'ログイン後の処理に失敗しました。',
+                        type: 'error'
+                    });
+                }
             } else {
                 setToast({
                     isVisible: true,
