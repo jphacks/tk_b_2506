@@ -1,0 +1,109 @@
+import Button from '../../../components/ui/Button';
+import { cn } from '../../../utils/cn';
+
+const ParticipantCardSkeleton = () => (
+    <div className="border border-border rounded-lg p-4 bg-muted/40 animate-pulse">
+        <div className="h-4 w-32 bg-muted rounded mb-2" />
+        <div className="h-3 w-48 bg-muted rounded mb-4" />
+        <div className="h-3 w-40 bg-muted rounded" />
+    </div>
+);
+
+const ParticipantList = ({
+    participants,
+    isLoading,
+    error,
+    onRetry
+}) => {
+    if (isLoading) {
+        return (
+            <div className="bg-card border border-border rounded-xl shadow-soft p-6">
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-semibold text-foreground">参加者</h2>
+                </div>
+                <div className="space-y-3">
+                    {[...Array(4).keys()].map(key => (
+                        <ParticipantCardSkeleton key={key} />
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="bg-card border border-border rounded-xl shadow-soft p-6">
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-semibold text-foreground">参加者</h2>
+                </div>
+                <p className="text-sm text-error mb-4">
+                    参加者情報を取得できませんでした: {error.message}
+                </p>
+                {onRetry && (
+                    <Button variant="secondary" size="sm" onClick={onRetry}>
+                        再試行
+                    </Button>
+                )}
+            </div>
+        );
+    }
+
+    return (
+        <div className="bg-card border border-border rounded-xl shadow-soft p-6">
+            <div className="flex items-center justify-between mb-4">
+                <div>
+                    <h2 className="text-lg font-semibold text-foreground">参加者</h2>
+                    <p className="text-sm text-muted-foreground">
+                        {participants?.length || 0} 名がこのカンファレンスに登録しています。
+                    </p>
+                </div>
+            </div>
+            {participants?.length === 0 ? (
+                <div className="text-sm text-muted-foreground">
+                    まだ参加者がいません。QRコードを共有して参加登録を促しましょう。
+                </div>
+            ) : (
+                <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
+                    {participants.map(participant => {
+                        const introduction = participant.introduction;
+                        const location = participant.location;
+                        const name = introduction?.name || '匿名参加者';
+                        const affiliation = introduction?.affiliation || '所属未設定';
+                        const oneLiner = introduction?.one_liner || introduction?.research_topic || introduction?.interests;
+
+                        return (
+                            <div
+                                key={participant.id}
+                                className="border border-border rounded-lg p-4 bg-background hover:bg-muted/40 transition-colors"
+                            >
+                                <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                        <div className="text-base font-semibold text-foreground">{name}</div>
+                                        <div className="text-xs text-muted-foreground mt-1">{affiliation}</div>
+                                    </div>
+                                    <span
+                                        className={cn(
+                                            'inline-flex items-center rounded-full px-3 py-1 text-xs font-medium border',
+                                            location
+                                                ? 'bg-primary/10 text-primary border-primary/40'
+                                                : 'bg-muted text-muted-foreground border-border'
+                                        )}
+                                    >
+                                        {location ? location.name : '位置未登録'}
+                                    </span>
+                                </div>
+                                {oneLiner && (
+                                    <div className="text-sm text-muted-foreground mt-3">
+                                        {oneLiner}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default ParticipantList;

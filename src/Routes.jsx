@@ -4,6 +4,7 @@ import ScrollToTop from "./components/ScrollToTop";
 import NotFound from "./pages/NotFound";
 import AuthPage from "./pages/auth/AuthPage";
 import SelfIntroductionForm from './pages/self-introduction-form/index';
+import Dashboard from "./pages/dashboard/Dashboard";
 
 const Routes = () => {
     return (
@@ -18,6 +19,9 @@ const Routes = () => {
                     {/* Self Introduction Routes */}
                     <Route path="/new-introduction" element={<SelfIntroductionForm />} />
                     <Route path="/self-introduction-form" element={<SelfIntroductionForm />} />
+
+                    {/* Dashboard */}
+                    <Route path="/dashboard/:conferenceId" element={<Dashboard />} />
 
                     {/* 404 Route */}
                     <Route path="*" element={<NotFound />} />
