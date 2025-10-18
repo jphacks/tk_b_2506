@@ -84,6 +84,8 @@ const SelfIntroductionForm = () => {
                 research_topic: formData.researchTopic?.trim() || null,
                 interests: formData.interests?.trim() || null,
                 one_liner: formData.oneLiner?.trim() || null,
+                occupation: formData.occupation || null,
+                occupation_other: formData.occupationOther?.trim() || null,
                 is_public: isPublic,
                 created_by: user?.id || null
             };
