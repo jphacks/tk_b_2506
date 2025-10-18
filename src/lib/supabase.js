@@ -15,7 +15,7 @@ export const db = {
 
         let query = supabase
             .from('conferences')
-            .select('id, name, description, start_date, end_date, location, is_active');
+            .select('id, name, description, start_date, end_date, location, is_active, join_password');
 
         if (!includeInactive) {
             query = query.eq('is_active', true);
