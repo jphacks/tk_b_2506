@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Icon from 'components/AppIcon';
 import Button from 'components/ui/Button';
 import Input from 'components/ui/Input';
+import MultiSelect from 'components/ui/MultiSelect';
 import Select from 'components/ui/Select';
 import Textarea from 'components/ui/Textarea';
 import Toast from 'components/ui/Toast';
@@ -14,7 +15,6 @@ const initialIntroForm = {
     name: '',
     affiliation: '',
     researchTopic: '',
-    interests: '',
     comment: '',
     occupation: '',
     occupationOther: ''
@@ -48,6 +48,10 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout }) => {
     const [isIntroLoading, setIsIntroLoading] = useState(false);
     const [isSavingIntro, setIsSavingIntro] = useState(false);
     const [introLoadError, setIntroLoadError] = useState(null);
+    const [tags, setTags] = useState([]);
+    const [selectedTagIds, setSelectedTagIds] = useState([]);
+    const [isTagsLoading, setIsTagsLoading] = useState(false);
+    const [tagLoadError, setTagLoadError] = useState(null);
 
     const [passwordForm, setPasswordForm] = useState(initialPasswordForm);
     const [passwordErrors, setPasswordErrors] = useState({});
@@ -118,7 +122,6 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout }) => {
                         name: introduction.name || '',
                         affiliation: introduction.affiliation || '',
                         researchTopic: introduction.research_topic || '',
-                        interests: introduction.interests || '',
                         comment: introduction.one_liner || '',
                         occupation: introduction.occupation || '',
                         occupationOther: introduction.occupation_other || ''
@@ -147,6 +150,57 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout }) => {
             isMounted = false;
         };
     }, [isOpen, user?.id]);
+
+    useEffect(() => {
+        if (!isOpen || !user?.id) {
+            return;
+        }
+
+        let isMounted = true;
+
+        const loadTags = async () => {
+            setIsTagsLoading(true);
+            setTagLoadError(null);
+
+            try {
+                const [fetchedTags, userInterests] = await Promise.all([
+                    db.getTags(),
+                    db.getUserInterests(user.id)
+                ]);
+
+                if (!isMounted) {
+                    return;
+                }
+
+                setTags(fetchedTags ?? []);
+                setSelectedTagIds(userInterests?.map((interest) => interest.tag_id) ?? []);
+            } catch (error) {
+                if (isMounted) {
+                    setTags([]);
+                    setSelectedTagIds([]);
+                    setTagLoadError(error.message || '興味タグの読み込みに失敗しました。');
+                }
+            } finally {
+                if (isMounted) {
+                    setIsTagsLoading(false);
+                }
+            }
+        };
+
+        loadTags();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [isOpen, user?.id]);
+
+    const tagOptions = useMemo(() => {
+        return tags.map((tag) => ({
+            value: tag.id,
+            label: tag.name,
+            description: tag.description || undefined
+        }));
+    }, [tags]);
 
     const showToast = (message, type = 'success') => {
         setToast({
@@ -233,7 +287,6 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout }) => {
             name: introForm.name.trim(),
             affiliation: introForm.affiliation?.trim() || null,
             research_topic: introForm.researchTopic?.trim() || null,
-            interests: introForm.interests?.trim() || null,
             one_liner: introForm.comment?.trim() || null,
             occupation: introForm.occupation || null,
             occupation_other: introForm.occupationOther?.trim() || null,
@@ -242,14 +295,41 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout }) => {
         };
 
         try {
+            let successMessage = '自己紹介を保存しました。';
             if (introId) {
                 await db.updateIntroduction(introId, payload);
-                showToast('自己紹介を更新しました。', 'success');
+                successMessage = '自己紹介を更新しました。';
             } else {
                 payload.created_by = user.id;
                 const created = await db.createIntroduction(payload);
                 setIntroId(created?.id || null);
-                showToast('自己紹介を保存しました。', 'success');
+                setConferenceId(payload.conference_id || null);
+            }
+
+            let tagsUpdateFailed = false;
+            try {
+                const existingInterests = await db.getUserInterests(user.id);
+                const existingTagIds = existingInterests?.map((interest) => interest.tag_id) ?? [];
+
+                const tagsToRemove = existingTagIds.filter((tagId) => !selectedTagIds.includes(tagId));
+                const tagsToAdd = selectedTagIds.filter((tagId) => !existingTagIds.includes(tagId));
+
+                await Promise.all(
+                    tagsToRemove.map((tagId) => db.removeUserInterest(user.id, tagId))
+                );
+
+                await Promise.all(
+                    tagsToAdd.map((tagId) => db.addUserInterest(user.id, tagId))
+                );
+            } catch (tagError) {
+                console.error('Failed to update user interests:', tagError);
+                tagsUpdateFailed = true;
+            }
+
+            if (tagsUpdateFailed) {
+                showToast('自己紹介は保存されましたが、興味タグの更新に失敗しました。', 'warning');
+            } else {
+                showToast(successMessage, 'success');
             }
         } catch (error) {
             showToast(error.message || '自己紹介の保存に失敗しました。', 'error');
@@ -463,12 +543,16 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout }) => {
                                         label="研究テーマ"
                                         placeholder="現在取り組んでいる研究分野"
                                     />
-                                    <Input
-                                        name="interests"
-                                        value={introForm.interests}
-                                        onChange={handleIntroChange}
+                                    <MultiSelect
                                         label="興味・関心"
-                                        placeholder="研究テーマ・興味のある話題など"
+                                        name="interests"
+                                        options={tagOptions}
+                                        value={selectedTagIds}
+                                        onChange={setSelectedTagIds}
+                                        placeholder="興味のあるタグを選択してください"
+                                        description="複数選択可能です。選択したタグに基づいて関連する発表が推奨されます"
+                                        loading={isTagsLoading}
+                                        error={tagLoadError}
                                     />
                                     <Textarea
                                         name="comment"

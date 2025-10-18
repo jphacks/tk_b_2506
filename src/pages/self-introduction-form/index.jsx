@@ -3,12 +3,14 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import Header from '../../components/ui/Header';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
+import MultiSelect from '../../components/ui/MultiSelect';
 import Toast from '../../components/ui/Toast';
 import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../lib/supabase';
 import { getStoredConferenceId, setStoredConferenceId } from '../../constants/conference';
 import useConferences from '../../hooks/useConferences';
 import useParticipantProfile from '../../hooks/useParticipantProfile';
+import useTags from '../../hooks/useTags';
 import FormActions from './components/FormActions';
 import FormField from './components/FormField';
 import FormHeader from './components/FormHeader';
@@ -26,11 +28,13 @@ const SelfIntroductionForm = () => {
         name: '',
         affiliation: '',
         researchTopic: '',
-        interests: '',
         oneLiner: '',
         occupation: '',
         occupationOther: '' // 追加：その他入力用
     });
+
+    // 興味タグの選択状態（tag IDの配列）
+    const [selectedTags, setSelectedTags] = useState([]);
 
     // UI state
     const [isPublic, setIsPublic] = useState(true);
@@ -57,6 +61,13 @@ const SelfIntroductionForm = () => {
         refetch: refetchParticipantProfile
     } = useParticipantProfile(user?.id);
 
+    const {
+        data: tags = [],
+        isLoading: isTagsLoading,
+        isError: isTagsError,
+        error: tagsError
+    } = useTags();
+
     const conferenceOptions = useMemo(() => {
         return conferences?.map((conf) => {
             const details = [
@@ -73,6 +84,14 @@ const SelfIntroductionForm = () => {
             };
         }) ?? [];
     }, [conferences]);
+
+    const tagOptions = useMemo(() => {
+        return tags?.map((tag) => ({
+            value: tag.id,
+            label: tag.name,
+            description: tag.description || undefined
+        })) ?? [];
+    }, [tags]);
 
     useEffect(() => {
         if (!conferences?.length) {
@@ -101,7 +120,7 @@ const SelfIntroductionForm = () => {
         }
     }, [conferences, participantProfile, preferredConferenceId, selectedConferenceId]);
 
-    // 編集モードの場合、既存の自己紹介データを取得
+    // 編集モードの場合、既存の自己紹介データとタグを取得
     useEffect(() => {
         if (!isEditMode || !user?.id) {
             return;
@@ -123,7 +142,6 @@ const SelfIntroductionForm = () => {
                         name: introduction.name || '',
                         affiliation: introduction.affiliation || '',
                         researchTopic: introduction.research_topic || '',
-                        interests: introduction.interests || '',
                         oneLiner: introduction.one_liner || '',
                         occupation: introduction.occupation || '',
                         occupationOther: introduction.occupation_other || ''
@@ -144,6 +162,12 @@ const SelfIntroductionForm = () => {
                         type: 'info'
                     });
                 }
+
+                // ユーザーの興味タグを取得
+                const userInterests = await db.getUserInterests(user.id);
+                const tagIds = userInterests.map(interest => interest.tag_id);
+                setSelectedTags(tagIds);
+
             } catch (error) {
                 console.error('Failed to load introduction:', error);
                 setToast({
@@ -230,12 +254,11 @@ const SelfIntroductionForm = () => {
         try {
             const conferenceIdToUse = selectedConferenceId || null;
 
-            // Prepare data for Supabase
+            // Prepare data for Supabase (interestsは削除)
             const introductionData = {
                 name: formData.name.trim(),
                 affiliation: formData.affiliation?.trim() || null,
                 research_topic: formData.researchTopic?.trim() || null,
-                interests: formData.interests?.trim() || null,
                 one_liner: formData.oneLiner?.trim() || null,
                 occupation: formData.occupation || null,
                 occupation_other: formData.occupationOther?.trim() || null,
@@ -268,6 +291,25 @@ const SelfIntroductionForm = () => {
             }
 
             console.log(savedIntroduction);
+
+            // ユーザーの興味タグを保存（user_interestsテーブル）
+            // 既存のタグをすべて削除してから新しいタグを追加
+            try {
+                const existingInterests = await db.getUserInterests(user.id);
+
+                // 既存のタグを削除
+                for (const interest of existingInterests) {
+                    await db.removeUserInterest(user.id, interest.tag_id);
+                }
+
+                // 新しく選択されたタグを追加
+                for (const tagId of selectedTags) {
+                    await db.addUserInterest(user.id, tagId);
+                }
+            } catch (tagError) {
+                console.error('Failed to update user interests:', tagError);
+                // タグの保存に失敗してもエラーにはしない（自己紹介は保存されているため）
+            }
 
             await db.setParticipantConference({
                 userId: user.id,
@@ -306,11 +348,11 @@ const SelfIntroductionForm = () => {
             name: '',
             affiliation: '',
             researchTopic: '',
-            interests: '',
             oneLiner: '',
             occupation: '',
             occupationOther: ''
         });
+        setSelectedTags([]);
         setIsPublic(true);
         setErrors({});
     };
@@ -440,17 +482,21 @@ const SelfIntroductionForm = () => {
                                 maxLength={undefined}
                             />
 
-                            {/* Interests Field - Optional */}
-                            <FormField
-                                type="text"
+                            {/* Interests Field - MultiSelect */}
+                            <MultiSelect
                                 label="興味・関心"
                                 name="interests"
-                                value={formData?.interests}
-                                onChange={handleInputChange}
-                                placeholder="深層学習, コンピュータビジョン, 自然言語処理"
-                                description="カンマ区切りで複数入力可能"
-                                error={errors?.interests}
-                                maxLength={undefined}
+                                options={tagOptions}
+                                value={selectedTags}
+                                onChange={setSelectedTags}
+                                placeholder="興味のあるタグを選択してください"
+                                description="複数選択可能です。選択したタグに基づいて関連する発表が推奨されます"
+                                loading={isTagsLoading}
+                                error={
+                                    isTagsError
+                                        ? (tagsError?.message || 'タグリストの取得に失敗しました')
+                                        : undefined
+                                }
                             />
 
                             {/* One-liner Message Field - Optional with character limit */}
