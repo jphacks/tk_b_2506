@@ -1,15 +1,15 @@
 import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import Icon from 'components/AppIcon';
-import Button from 'components/ui/Button';
-import Input from 'components/ui/Input';
-import MultiSelect from 'components/ui/MultiSelect';
-import Select from 'components/ui/Select';
-import Textarea from 'components/ui/Textarea';
-import Toast from 'components/ui/Toast';
-import { db, supabase } from 'lib/supabase';
-import { cn } from 'utils/cn';
-import VisibilityToggle from 'pages/self-introduction-form/components/VisibilityToggle';
+import Icon from '../AppIcon';
+import Button from '../ui/Button';
+import Input from '../ui/Input';
+import MultiSelect from '../ui/MultiSelect';
+import Select from '../ui/Select';
+import Textarea from '../ui/Textarea';
+import Toast from '../ui/Toast';
+import { db, supabase } from '../../lib/supabase';
+import { cn } from '../../utils/cn';
+import VisibilityToggle from '../../pages/self-introduction-form/components/VisibilityToggle';
 
 const initialIntroForm = {
     name: '',
