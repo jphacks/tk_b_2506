@@ -21,7 +21,7 @@ const FormActions = ({
                 iconName={isLoading ? undefined : "Send"}
                 iconPosition="right"
             >
-                {isLoading ? "送信中..." : "自己紹介を保存"}
+                {isLoading ? "作成中..." : "自己紹介を作成"}
             </Button>
 
             {/* Reset Button */}
