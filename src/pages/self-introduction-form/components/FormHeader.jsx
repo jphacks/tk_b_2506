@@ -18,10 +18,10 @@ const FormHeader = ({ className = "" }) => {
             {/* Title */}
             <div className="space-y-2">
                 <h1 className="text-2xl sm:text-3xl font-heading font-semibold text-foreground">
-                    自己紹介フォーム
+                    新しい自己紹介を作成
                 </h1>
                 <p className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-md mx-auto">
-                    学会での自己紹介を事前に準備して、自信を持って参加者との交流を楽しみましょう
+                    学会での自己紹介を新しく作成して、参加者との交流を準備しましょう
                 </p>
             </div>
         </div>

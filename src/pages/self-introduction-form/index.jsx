@@ -1,12 +1,16 @@
 import { useState } from 'react';
 import Header from '../../components/ui/Header';
 import Toast from '../../components/ui/Toast';
+import { useAuth } from '../../contexts/AuthContext';
+import { db } from '../../lib/supabase';
 import FormActions from './components/FormActions';
 import FormField from './components/FormField';
 import FormHeader from './components/FormHeader';
 import VisibilityToggle from './components/VisibilityToggle';
 
 const SelfIntroductionForm = () => {
+    const { user } = useAuth();
+
     // Form state
     const [formData, setFormData] = useState({
         name: '',
@@ -70,16 +74,25 @@ const SelfIntroductionForm = () => {
         setIsLoading(true);
 
         try {
-            // Simulate API call with mock data
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            // Prepare data for Supabase
+            const introductionData = {
+                name: formData.name.trim(),
+                affiliation: formData.affiliation?.trim() || null,
+                research_topic: formData.researchTopic?.trim() || null,
+                interests: formData.interests?.trim() || null,
+                one_liner: formData.oneLiner?.trim() || null,
+                is_public: isPublic,
+                created_by: user?.id || null
+            };
 
-            // Generate mock ID
-            const generatedId = `INTRO-${Date.now()?.toString()?.slice(-6)}`;
+            // Save to Supabase
+            const savedIntroduction = await db.createIntroduction(introductionData);
+            console.log(savedIntroduction);
 
             // Show success toast
             setToast({
                 isVisible: true,
-                message: `自己紹介が保存されました！ID: ${generatedId}`,
+                message: `自己紹介が保存されました！ID: ${savedIntroduction.id.slice(-6)}`,
                 type: 'success'
             });
 
@@ -89,9 +102,10 @@ const SelfIntroductionForm = () => {
             }, 3000);
 
         } catch (error) {
+            console.error('Error saving introduction:', error);
             setToast({
                 isVisible: true,
-                message: "保存中にエラーが発生しました。もう一度お試しください。",
+                message: `保存中にエラーが発生しました: ${error.message}`,
                 type: 'error'
             });
         } finally {
