@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Header from '../../components/ui/Header';
 import Select from '../../components/ui/Select';
+import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import Toast from '../../components/ui/Toast';
 import { useAuth } from '../../contexts/AuthContext';
@@ -16,6 +17,7 @@ const SelectConferencePage = () => {
     const { user } = useAuth();
 
     const [selectedConferenceId, setSelectedConferenceId] = useState('');
+    const [password, setPassword] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [toast, setToast] = useState({
         isVisible: false,
@@ -90,7 +92,21 @@ const SelectConferencePage = () => {
 
     const handleConferenceChange = (value) => {
         setSelectedConferenceId(value);
+        setPassword(''); // パスワードをリセット
     };
+
+    // 選択された学会の情報を取得
+    const selectedConference = useMemo(() => {
+        if (!selectedConferenceId || !conferences?.length) {
+            return null;
+        }
+        return conferences.find(conf => conf?.id === selectedConferenceId) || null;
+    }, [selectedConferenceId, conferences]);
+
+    // 選択された学会がパスワード必須かどうか
+    const requiresPassword = useMemo(() => {
+        return selectedConference?.join_password && selectedConference.join_password.trim() !== '';
+    }, [selectedConference]);
 
     const handleSubmit = async () => {
         if (!user?.id) {
@@ -111,40 +127,64 @@ const SelectConferencePage = () => {
             return;
         }
 
+        // パスワードが必須の場合は入力チェック
+        if (requiresPassword && !password.trim()) {
+            setToast({
+                isVisible: true,
+                message: 'この学会への参加にはパスワードが必要です。',
+                type: 'error'
+            });
+            return;
+        }
+
         setIsSubmitting(true);
 
         try {
-            await db.setParticipantConference({
+            // パスワード検証付きで学会に参加登録
+            await db.joinConferenceWithPassword({
                 userId: user.id,
-                conferenceId: selectedConferenceId
+                conferenceId: selectedConferenceId,
+                password: password.trim(),
+                introductionId: null
             });
+
             setStoredConferenceId(selectedConferenceId);
 
+            setToast({
+                isVisible: true,
+                message: `${selectedConference?.name || '学会'}への参加登録が完了しました！`,
+                type: 'success'
+            });
+
+            // 自己紹介の有無を確認
             const introductions = await db.getUserIntroductions(user.id, {
                 conferenceId: selectedConferenceId
             });
             const hasIntroduction = introductions?.length > 0;
 
-            navigate(
-                hasIntroduction ? `/dashboard/${selectedConferenceId}` : '/self-introduction-form',
-                {
-                    replace: true,
-                    state: hasIntroduction ? {} : { preferredConferenceId: selectedConferenceId }
-                }
-            );
+            // 少し待ってから遷移
+            setTimeout(() => {
+                navigate(
+                    hasIntroduction ? `/dashboard/${selectedConferenceId}` : '/self-introduction-form',
+                    {
+                        replace: true,
+                        state: hasIntroduction ? {} : { preferredConferenceId: selectedConferenceId }
+                    }
+                );
+            }, 1000);
+
         } catch (error) {
-            console.error('Failed to store conference selection:', error);
+            console.error('Failed to join conference:', error);
             setToast({
                 isVisible: true,
-                message: error?.message || '学会の選択保存に失敗しました。',
+                message: error?.message || '学会への参加登録に失敗しました。',
                 type: 'error'
             });
-        } finally {
             setIsSubmitting(false);
         }
     };
 
-    const isSubmitDisabled = isSubmitting || isConferencesLoading || !selectedConferenceId;
+    const isSubmitDisabled = isSubmitting || isConferencesLoading || !selectedConferenceId || (requiresPassword && !password.trim());
 
     return (
         <div className="min-h-screen bg-background">
@@ -189,6 +229,32 @@ const SelectConferencePage = () => {
                                 : '参加予定の学会を選択してください。後から変更することも可能です。'
                         }
                     />
+
+                    {/* パスワード入力フィールド（パスワードが設定されている学会の場合のみ表示） */}
+                    {requiresPassword && (
+                        <div className="space-y-2">
+                            <Input
+                                label="学会参加パスワード"
+                                name="password"
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder="学会主催者から共有されたパスワードを入力"
+                                required
+                                disabled={isSubmitting}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                この学会への参加にはパスワードが必要です。主催者から共有されたパスワードを入力してください。
+                            </p>
+                        </div>
+                    )}
+
+                    {/* パスワード不要の場合の説明 */}
+                    {selectedConferenceId && !requiresPassword && (
+                        <div className="text-xs text-muted-foreground bg-secondary/20 border border-border rounded-md px-3 py-2">
+                            この学会への参加にパスワードは不要です。
+                        </div>
+                    )}
 
                     <Button
                         variant="default"

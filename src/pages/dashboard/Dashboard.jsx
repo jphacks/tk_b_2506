@@ -102,6 +102,16 @@ const Dashboard = () => {
         });
     };
 
+    const handleConferenceSwitch = () => {
+        navigate('/select-conference', {
+            state: {
+                requiresSelection: false,
+                currentConferenceId: conferenceId,
+                reason: '別の学会に切り替えます。パスワードを入力してください。'
+            }
+        });
+    };
+
     if (!conferenceId) {
         return (
             <div className="min-h-screen bg-background">
@@ -123,15 +133,29 @@ const Dashboard = () => {
             <Header />
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
                 <div className="flex flex-col gap-2">
-                    <div className="flex flex-wrap items-center gap-3">
-                        <h1 className="text-2xl font-semibold text-foreground">参加者ダッシュボード</h1>
-                        <span className="inline-flex items-center rounded-full bg-primary/10 text-primary px-3 py-1 text-xs font-medium border border-primary/20">
-                            {conferenceMeta?.name
-                                ? conferenceMeta.name
-                                : conferencesLoading
-                                    ? '学会情報を読み込み中…'
-                                    : `学会情報未取得${conferenceId ? ` (ID: ${conferenceId})` : ''}`}
-                        </span>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex flex-wrap items-center gap-3">
+                            <h1 className="text-2xl font-semibold text-foreground">参加者ダッシュボード</h1>
+                            <span className="inline-flex items-center rounded-full bg-primary/10 text-primary px-3 py-1 text-xs font-medium border border-primary/20">
+                                {conferenceMeta?.name
+                                    ? conferenceMeta.name
+                                    : conferencesLoading
+                                        ? '学会情報を読み込み中…'
+                                        : `学会情報未取得${conferenceId ? ` (ID: ${conferenceId})` : ''}`}
+                            </span>
+                        </div>
+                        {/* 学会切り替えボタン */}
+                        {conferenceMeta && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleConferenceSwitch}
+                                iconName="RefreshCw"
+                                iconPosition="left"
+                            >
+                                学会を切り替え
+                            </Button>
+                        )}
                     </div>
                     <p className="text-sm text-muted-foreground">
                         {conferenceMeta?.name

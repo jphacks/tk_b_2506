@@ -15,7 +15,7 @@ export const db = {
 
         let query = supabase
             .from('conferences')
-            .select('id, name, description, start_date, end_date, location, is_active');
+            .select('id, name, description, start_date, end_date, location, is_active, join_password');
 
         if (!includeInactive) {
             query = query.eq('is_active', true);
@@ -121,6 +121,68 @@ export const db = {
             .insert({
                 user_id: userId,
                 conference_id: conferenceId,
+                registered_at: new Date().toISOString()
+            })
+            .select()
+            .maybeSingle();
+
+        if (error) throw error;
+        return data;
+    },
+
+    // パスワード検証付きで学会に参加登録
+    async joinConferenceWithPassword({ userId, conferenceId, password, introductionId = null }) {
+        if (!userId || !conferenceId) {
+            throw new Error('userId and conferenceId are required.');
+        }
+
+        // 学会情報とパスワードを取得
+        const { data: conference, error: confError } = await supabase
+            .from('conferences')
+            .select('join_password, name')
+            .eq('id', conferenceId)
+            .single();
+
+        if (confError) {
+            throw new Error('学会が見つかりませんでした');
+        }
+
+        // パスワードが設定されている場合は検証
+        if (conference.join_password && conference.join_password.trim() !== '') {
+            if (!password) {
+                throw new Error('この学会への参加にはパスワードが必要です');
+            }
+            if (conference.join_password !== password.trim()) {
+                throw new Error('パスワードが正しくありません');
+            }
+        }
+
+        // 既に参加済みかチェック
+        const existing = await db.getParticipantByUser(userId);
+
+        // 参加登録または更新
+        if (existing?.id) {
+            const { data, error } = await supabase
+                .from('participants')
+                .update({
+                    conference_id: conferenceId,
+                    introduction_id: introductionId,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', existing.id)
+                .select()
+                .maybeSingle();
+
+            if (error) throw error;
+            return data;
+        }
+
+        const { data, error } = await supabase
+            .from('participants')
+            .insert({
+                user_id: userId,
+                conference_id: conferenceId,
+                introduction_id: introductionId,
                 registered_at: new Date().toISOString()
             })
             .select()
