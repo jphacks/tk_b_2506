@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import Header from '../../components/ui/Header';
 import Select from '../../components/ui/Select';
 import Input from '../../components/ui/Input';
@@ -13,7 +13,6 @@ import useParticipantProfile from '../../hooks/useParticipantProfile';
 
 const SelectConferencePage = () => {
     const navigate = useNavigate();
-    const location = useLocation();
     const { user } = useAuth();
 
     const [selectedConferenceId, setSelectedConferenceId] = useState('');
@@ -36,9 +35,6 @@ const SelectConferencePage = () => {
         data: participantProfile,
         isLoading: isParticipantLoading
     } = useParticipantProfile(user?.id);
-
-    const selectionReason = location?.state?.reason || null;
-    const requiresSelection = location?.state?.requiresSelection ?? false;
 
     useEffect(() => {
         if (!user && !isParticipantLoading) {
@@ -196,11 +192,6 @@ const SelectConferencePage = () => {
                         <p className="text-sm text-muted-foreground">
                             ログイン後にアクセスするダッシュボードを決定するため、参加予定の学会を選択してください。
                         </p>
-                        {(selectionReason || requiresSelection) && (
-                            <div className="text-xs text-warning-foreground bg-warning/10 border border-warning/30 rounded-md px-3 py-2">
-                                {selectionReason || '学会が未選択のため、ご希望の学会を選択してください。'}
-                            </div>
-                        )}
                     </div>
 
                     <Select
