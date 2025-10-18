@@ -111,6 +111,42 @@ describe('SettingsPanel', () => {
         });
     });
 
+    it('allows toggling introduction visibility before saving', async () => {
+        mockGetUserIntroductions.mockResolvedValueOnce([{
+            id: 'intro-visibility',
+            name: 'Visibility Test',
+            affiliation: '',
+            interests: '',
+            one_liner: '',
+            conference_id: null,
+            is_public: true
+        }]);
+        mockUpdateIntroduction.mockResolvedValueOnce({});
+
+        const user = userEvent.setup();
+
+        render(
+            <SettingsPanel
+                isOpen
+                onClose={vi.fn()}
+                onLogout={vi.fn()}
+                user={baseUser}
+            />
+        );
+
+        const toggleButton = await screen.findByRole('button', { name: '公開設定を無効にする' });
+        await user.click(toggleButton);
+
+        const saveButton = screen.getByRole('button', { name: '自己紹介を保存' });
+        await user.click(saveButton);
+
+        await waitFor(() => {
+            expect(mockUpdateIntroduction).toHaveBeenCalledWith('intro-visibility', expect.objectContaining({
+                is_public: false
+            }));
+        });
+    });
+
     it('updates password via Supabase when form is submitted', async () => {
         mockGetUserIntroductions.mockResolvedValueOnce([]);
         mockSignInWithPassword.mockResolvedValueOnce({ error: null });
