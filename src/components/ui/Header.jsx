@@ -1,6 +1,23 @@
+import { useNavigate } from 'react-router-dom';
 import Icon from '../AppIcon';
+import { useAuth } from '../../contexts/AuthContext';
 
 const Header = () => {
+    const navigate = useNavigate();
+    const { user } = useAuth();
+
+    const handleSettingsClick = () => {
+        if (!user) {
+            // ログインしていない場合は認証ページに遷移
+            navigate('/auth');
+            return;
+        }
+        // 自己紹介編集ページに遷移（編集モード）
+        navigate('/self-introduction-form', {
+            state: { isEditMode: true }
+        });
+    };
+
     return (
         <header className="bg-card border-b border-border shadow-soft">
             <div className="w-full px-4 sm:px-6 lg:px-8">
@@ -42,6 +59,7 @@ const Header = () => {
 
                         {/* Settings Button */}
                         <button
+                            onClick={handleSettingsClick}
                             className="flex items-center justify-center w-10 h-10 rounded-lg bg-muted hover:bg-muted/80 transition-gentle press-feedback touch-target"
                             aria-label="Settings"
                         >

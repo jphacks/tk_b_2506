@@ -19,6 +19,7 @@ const SelfIntroductionForm = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const preferredConferenceId = location?.state?.preferredConferenceId || '';
+    const isEditMode = location?.state?.isEditMode || false;
 
     // Form state
     const [formData, setFormData] = useState({
@@ -34,6 +35,7 @@ const SelfIntroductionForm = () => {
     // UI state
     const [isPublic, setIsPublic] = useState(true);
     const [isLoading, setIsLoading] = useState(false);
+    const [isLoadingData, setIsLoadingData] = useState(false);
     const [errors, setErrors] = useState({});
     const [toast, setToast] = useState({
         isVisible: false,
@@ -41,6 +43,7 @@ const SelfIntroductionForm = () => {
         type: 'success'
     });
     const [selectedConferenceId, setSelectedConferenceId] = useState(preferredConferenceId || '');
+    const [existingIntroductionId, setExistingIntroductionId] = useState(null);
 
     const {
         data: conferences = [],
@@ -97,6 +100,64 @@ const SelfIntroductionForm = () => {
             setSelectedConferenceId(fallbackConferenceId);
         }
     }, [conferences, participantProfile, preferredConferenceId, selectedConferenceId]);
+
+    // 編集モードの場合、既存の自己紹介データを取得
+    useEffect(() => {
+        if (!isEditMode || !user?.id) {
+            return;
+        }
+
+        const loadExistingIntroduction = async () => {
+            setIsLoadingData(true);
+            try {
+                // ユーザーの自己紹介を取得（最新のものを1つ）
+                const introductions = await db.getUserIntroductions(user.id, {
+                    conferenceId: selectedConferenceId || null
+                });
+
+                if (introductions && introductions.length > 0) {
+                    const introduction = introductions[0]; // 最新のものを使用
+
+                    // フォームデータに設定
+                    setFormData({
+                        name: introduction.name || '',
+                        affiliation: introduction.affiliation || '',
+                        researchTopic: introduction.research_topic || '',
+                        interests: introduction.interests || '',
+                        oneLiner: introduction.one_liner || '',
+                        occupation: introduction.occupation || '',
+                        occupationOther: introduction.occupation_other || ''
+                    });
+
+                    setIsPublic(introduction.is_public ?? true);
+                    setExistingIntroductionId(introduction.id);
+
+                    // 学会IDが設定されている場合は選択
+                    if (introduction.conference_id) {
+                        setSelectedConferenceId(introduction.conference_id);
+                    }
+                } else {
+                    // 既存データがない場合は新規作成モードに切り替え
+                    setToast({
+                        isVisible: true,
+                        message: '既存の自己紹介が見つかりませんでした。新規作成してください。',
+                        type: 'info'
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to load introduction:', error);
+                setToast({
+                    isVisible: true,
+                    message: `データの読み込みに失敗しました: ${error.message}`,
+                    type: 'error'
+                });
+            } finally {
+                setIsLoadingData(false);
+            }
+        };
+
+        loadExistingIntroduction();
+    }, [isEditMode, user?.id]);
 
     // Form validation
     const validateForm = () => {
@@ -179,20 +240,34 @@ const SelfIntroductionForm = () => {
                 occupation: formData.occupation || null,
                 occupation_other: formData.occupationOther?.trim() || null,
                 is_public: isPublic,
-                created_by: user.id || null,
                 conference_id: conferenceIdToUse
             };
 
-            // Save to Supabase
-            const savedIntroduction = await db.createIntroduction(introductionData);
-            console.log(savedIntroduction);
+            let savedIntroduction;
 
-            // Show success toast
-            setToast({
-                isVisible: true,
-                message: `自己紹介が保存されました！ID: ${savedIntroduction.id.slice(-6)}`,
-                type: 'success'
-            });
+            // 編集モードか新規作成モードかで処理を分岐
+            if (isEditMode && existingIntroductionId) {
+                // 更新処理
+                savedIntroduction = await db.updateIntroduction(existingIntroductionId, introductionData);
+
+                setToast({
+                    isVisible: true,
+                    message: '自己紹介を更新しました！',
+                    type: 'success'
+                });
+            } else {
+                // 新規作成処理
+                introductionData.created_by = user.id || null;
+                savedIntroduction = await db.createIntroduction(introductionData);
+
+                setToast({
+                    isVisible: true,
+                    message: `自己紹介が保存されました！ID: ${savedIntroduction.id.slice(-6)}`,
+                    type: 'success'
+                });
+            }
+
+            console.log(savedIntroduction);
 
             await db.setParticipantConference({
                 userId: user.id,
@@ -201,9 +276,16 @@ const SelfIntroductionForm = () => {
             setStoredConferenceId(conferenceIdToUse);
             refetchParticipantProfile?.();
 
-            handleReset();
+            // 編集モードの場合はリセットせず、新規作成の場合のみリセット
+            if (!isEditMode) {
+                handleReset();
+            }
+
+            // ダッシュボードに遷移
             if (conferenceIdToUse) {
-                navigate(`/dashboard/${conferenceIdToUse}`);
+                setTimeout(() => {
+                    navigate(`/dashboard/${conferenceIdToUse}`);
+                }, 1000);
             }
 
         } catch (error) {
@@ -245,7 +327,17 @@ const SelfIntroductionForm = () => {
             <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
                 <div className="max-w-2xl mx-auto">
                     {/* Form Header */}
-                    <FormHeader className="mb-8" />
+                    <FormHeader className="mb-8" isEditMode={isEditMode} />
+
+                    {/* データ読み込み中の表示 */}
+                    {isLoadingData && (
+                        <div className="bg-card border border-border rounded-xl p-6 shadow-soft text-center">
+                            <div className="flex flex-col items-center space-y-3">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                                <p className="text-sm text-muted-foreground">自己紹介データを読み込み中...</p>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Main Form */}
                     <form onSubmit={handleSubmit} className="space-y-6">
@@ -388,6 +480,7 @@ const SelfIntroductionForm = () => {
                             onReset={handleReset}
                             isLoading={isLoading}
                             isValid={isFormValid}
+                            isEditMode={isEditMode}
                         />
                     </form>
                 </div>
