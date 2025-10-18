@@ -1,0 +1,53 @@
+-- Create participants and participant location tracking tables
+-- Migration: 008_create_participants.sql
+-- Description: Creates tables for managing conference participants and their location history via QR scans
+
+-- Create participants table
+CREATE TABLE IF NOT EXISTS public.participants (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    conference_id UUID REFERENCES public.conferences(id) ON DELETE CASCADE NOT NULL,
+    introduction_id UUID REFERENCES public.introductions(id) ON DELETE SET NULL,
+    current_location_id UUID REFERENCES public.locations(id) ON DELETE SET NULL,
+    registered_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+
+    UNIQUE(user_id, conference_id)
+);
+
+-- Create participant_locations table (QR scan history)
+CREATE TABLE IF NOT EXISTS public.participant_locations (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    participant_id UUID REFERENCES public.participants(id) ON DELETE CASCADE NOT NULL,
+    location_id UUID REFERENCES public.locations(id) ON DELETE CASCADE NOT NULL,
+    scanned_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create indexes for participants
+CREATE INDEX IF NOT EXISTS idx_participants_user ON public.participants(user_id);
+CREATE INDEX IF NOT EXISTS idx_participants_conference ON public.participants(conference_id);
+CREATE INDEX IF NOT EXISTS idx_participants_location ON public.participants(current_location_id);
+CREATE INDEX IF NOT EXISTS idx_participants_introduction ON public.participants(introduction_id);
+
+-- Create indexes for participant_locations
+CREATE INDEX IF NOT EXISTS idx_participant_locations_participant ON public.participant_locations(participant_id);
+CREATE INDEX IF NOT EXISTS idx_participant_locations_location ON public.participant_locations(location_id);
+CREATE INDEX IF NOT EXISTS idx_participant_locations_scanned_at ON public.participant_locations(scanned_at);
+
+-- Create composite index for location history queries
+CREATE INDEX IF NOT EXISTS idx_participant_locations_history
+ON public.participant_locations(participant_id, scanned_at DESC);
+
+-- Create trigger for participants updated_at
+CREATE TRIGGER update_participants_updated_at
+    BEFORE UPDATE ON public.participants
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Add comments for documentation
+COMMENT ON TABLE public.participants IS 'Stores conference participation records linking users to conferences';
+COMMENT ON COLUMN public.participants.current_location_id IS 'Current location of the participant (updated via QR scan)';
+COMMENT ON COLUMN public.participants.introduction_id IS 'Link to user introduction for this conference';
+
+COMMENT ON TABLE public.participant_locations IS 'Stores QR code scan history for participant location tracking';
+COMMENT ON COLUMN public.participant_locations.scanned_at IS 'Timestamp when the QR code was scanned';
