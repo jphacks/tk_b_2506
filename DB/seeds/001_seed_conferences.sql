@@ -5,7 +5,7 @@
 -- Note: created_by should be replaced with actual user UUIDs from auth.users
 -- You can get user IDs by running: SELECT id, email FROM auth.users;
 
-INSERT INTO public.conferences (id, name, description, start_date, end_date, location, is_active, created_by) VALUES
+INSERT INTO public.conferences (id, name, description, start_date, end_date, location, is_active, created_by, join_password) VALUES
 (
     '11111111-1111-1111-1111-111111111111',
     '情報処理学会 全国大会 2025',
@@ -14,7 +14,8 @@ INSERT INTO public.conferences (id, name, description, start_date, end_date, loc
     '2025-03-17',
     '東京国際フォーラム',
     true,
-    NULL  -- Replace with actual user ID: (SELECT id FROM auth.users LIMIT 1)
+    NULL,  -- Replace with actual user ID: (SELECT id FROM auth.users LIMIT 1)
+    'IPSJ2025'  -- Join password
 ),
 (
     '22222222-2222-2222-2222-222222222222',
@@ -24,7 +25,8 @@ INSERT INTO public.conferences (id, name, description, start_date, end_date, loc
     '2025-06-12',
     '京都国際会館',
     true,
-    NULL  -- Replace with actual user ID
+    NULL,  -- Replace with actual user ID
+    'DBSYM2025'  -- Join password
 ),
 (
     '33333333-3333-3333-3333-333333333333',
@@ -34,7 +36,8 @@ INSERT INTO public.conferences (id, name, description, start_date, end_date, loc
     '2025-09-22',
     'パシフィコ横浜',
     true,
-    NULL  -- Replace with actual user ID
+    NULL,  -- Replace with actual user ID
+    'AIFORUM2025'  -- Join password
 ),
 (
     '44444444-4444-4444-4444-444444444444',
@@ -44,7 +47,8 @@ INSERT INTO public.conferences (id, name, description, start_date, end_date, loc
     '2024-08-14',
     'クロス・ウェーブ府中',
     false,
-    NULL
+    NULL,
+    'SECCAMP2024'  -- Join password
 );
 
 -- Update created_by with actual user IDs (run this after getting user IDs)
