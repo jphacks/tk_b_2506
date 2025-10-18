@@ -5,6 +5,7 @@ import NotFound from "./pages/NotFound";
 import AuthPage from "./pages/auth/AuthPage";
 import SelfIntroductionForm from './pages/self-introduction-form/index';
 import Dashboard from "./pages/dashboard/Dashboard";
+import SelectConferencePage from "./pages/select-conference/SelectConference";
 
 const Routes = () => {
     return (
@@ -15,6 +16,9 @@ const Routes = () => {
                     {/* Authentication Routes */}
                     <Route path="/" element={<AuthPage />} />
                     <Route path="/auth" element={<AuthPage />} />
+
+                    {/* Conference Selection */}
+                    <Route path="/select-conference" element={<SelectConferencePage />} />
 
                     {/* Self Introduction Routes */}
                     <Route path="/new-introduction" element={<SelfIntroductionForm />} />

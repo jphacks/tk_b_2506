@@ -7,7 +7,7 @@ import Input from '../../components/ui/Input';
 import Toast from '../../components/ui/Toast';
 import { useAuth } from '../../contexts/AuthContext';
 import { db, auth as supabaseAuth } from '../../lib/supabase';
-import { DEFAULT_CONFERENCE_ID } from '../../constants/conference';
+import { clearStoredConferenceId, setStoredConferenceId } from '../../constants/conference';
 
 const AuthPage = () => {
     const { login, signup } = useAuth();
@@ -96,13 +96,35 @@ const AuthPage = () => {
                         throw new Error('ユーザー情報の取得に失敗しました。');
                     }
 
-                    const introductions = await db.getUserIntroductions(userData.user.id, {
-                        conferenceId: DEFAULT_CONFERENCE_ID
-                    });
+                    const userId = userData.user.id;
+                    const participant = await db.getParticipantByUser(userId);
+                    const conferences = await db.getConferences({ includeInactive: true });
+                    const selectedConferenceId = participant?.conference_id || null;
 
-                    const destination = introductions.length > 0
-                        ? `/dashboard/${DEFAULT_CONFERENCE_ID}`
-                        : '/self-introduction-form';
+                    const navigateWithConference = async (conferenceId) => {
+                        if (!conferenceId) {
+                            navigate('/select-conference', { replace: true });
+                            return;
+                        }
+
+                        setStoredConferenceId(conferenceId);
+                        const introductions = await db.getUserIntroductions(userId, { conferenceId });
+                        const hasIntroduction = introductions?.length > 0;
+
+                        const destination = hasIntroduction
+                            ? `/dashboard/${conferenceId}`
+                            : '/self-introduction-form';
+
+                        const navigationState = hasIntroduction
+                            ? {}
+                            : { preferredConferenceId: conferenceId };
+
+                        navigate(destination, { replace: true, state: navigationState });
+                    };
+
+                    const conferenceExists = selectedConferenceId
+                        ? conferences.some(conf => conf.id === selectedConferenceId)
+                        : false;
 
                     setToast({
                         isVisible: true,
@@ -110,7 +132,18 @@ const AuthPage = () => {
                         type: 'success'
                     });
 
-                    navigate(destination, { replace: true });
+                    if (conferenceExists) {
+                        await navigateWithConference(selectedConferenceId);
+                    } else {
+                        clearStoredConferenceId();
+                        navigate('/select-conference', {
+                            replace: true,
+                            state: {
+                                requiresSelection: true,
+                                reason: conferenceExists ? null : '学会を選択してください'
+                            }
+                        });
+                    }
                 } catch (postAuthError) {
                     console.error('Post-auth navigation error:', postAuthError);
                     setToast({
