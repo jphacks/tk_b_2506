@@ -1,5 +1,9 @@
-import Button from '../../../components/ui/Button';
-import { cn } from '../../../utils/cn';
+import { useState } from 'react';
+
+import Button from 'components/ui/Button';
+import { cn } from 'utils/cn';
+
+import ParticipantProfileModal from './ParticipantProfileModal';
 
 const ParticipantCardSkeleton = () => (
     <div className="border border-border rounded-lg p-4 bg-muted/40 animate-pulse">
@@ -15,6 +19,16 @@ const ParticipantList = ({
     error,
     onRetry
 }) => {
+    const [selectedParticipant, setSelectedParticipant] = useState(null);
+
+    const handleOpenProfile = (participant) => {
+        setSelectedParticipant(participant);
+    };
+
+    const handleCloseProfile = () => {
+        setSelectedParticipant(null);
+    };
+
     if (isLoading) {
         return (
             <div className="bg-card border border-border rounded-xl shadow-soft p-6">
@@ -81,16 +95,28 @@ const ParticipantList = ({
                                         <div className="text-base font-semibold text-foreground">{name}</div>
                                         <div className="text-xs text-muted-foreground mt-1">{affiliation}</div>
                                     </div>
-                                    <span
-                                        className={cn(
-                                            'inline-flex items-center rounded-full px-3 py-1 text-xs font-medium border',
-                                            location
-                                                ? 'bg-primary/10 text-primary border-primary/40'
-                                                : 'bg-muted text-muted-foreground border-border'
-                                        )}
-                                    >
-                                        {location ? location.name : '位置未登録'}
-                                    </span>
+                                    <div className="flex flex-col items-end gap-2">
+                                        <span
+                                            className={cn(
+                                                'inline-flex items-center rounded-full px-3 py-1 text-xs font-medium border',
+                                                location
+                                                    ? 'bg-primary/10 text-primary border-primary/40'
+                                                    : 'bg-muted text-muted-foreground border-border'
+                                            )}
+                                        >
+                                            {location ? location.name : '位置未登録'}
+                                        </span>
+                                        <Button
+                                            variant="outline"
+                                            size="xs"
+                                            iconName="UserRoundSearch"
+                                            iconPosition="left"
+                                            onClick={() => handleOpenProfile(participant)}
+                                            className="text-xs"
+                                        >
+                                            詳細を見る
+                                        </Button>
+                                    </div>
                                 </div>
                                 {oneLiner && (
                                     <div className="text-sm text-muted-foreground mt-3">
@@ -101,6 +127,12 @@ const ParticipantList = ({
                         );
                     })}
                 </div>
+            )}
+            {selectedParticipant && (
+                <ParticipantProfileModal
+                    participant={selectedParticipant}
+                    onClose={handleCloseProfile}
+                />
             )}
         </div>
     );

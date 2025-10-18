@@ -8,6 +8,7 @@ import Textarea from 'components/ui/Textarea';
 import Toast from 'components/ui/Toast';
 import { db, supabase } from 'lib/supabase';
 import { cn } from 'utils/cn';
+import VisibilityToggle from 'pages/self-introduction-form/components/VisibilityToggle';
 
 const initialIntroForm = {
     name: '',
@@ -477,6 +478,10 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout }) => {
                                         description="120文字以内で入力してください"
                                         error={introErrors.comment}
                                         rows={4}
+                                    />
+                                    <VisibilityToggle
+                                        isPublic={isPublic}
+                                        onChange={setIsPublic}
                                     />
 
                                     <div className="flex justify-end">

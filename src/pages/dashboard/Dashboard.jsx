@@ -66,6 +66,14 @@ const Dashboard = () => {
         return participants.find(participant => participant.user_id === user.id) || null;
     }, [participants, user]);
 
+    const visibleParticipants = useMemo(() => {
+        if (!user?.id) {
+            return participants;
+        }
+
+        return participants.filter(participant => participant.user_id !== user.id);
+    }, [participants, user?.id]);
+
     const currentLocation = useMemo(() => {
         if (!currentParticipant) {
             return null;
@@ -218,7 +226,7 @@ const Dashboard = () => {
                     </div>
                     <div className="order-2 xl:order-3">
                         <ParticipantList
-                            participants={participants}
+                            participants={visibleParticipants}
                             isLoading={participantsLoading}
                             error={participantsError}
                             onRetry={refetchParticipants}
