@@ -5,6 +5,10 @@ import SettingsPanel from './SettingsPanel';
 const mockGetUserIntroductions = vi.fn();
 const mockUpdateIntroduction = vi.fn();
 const mockCreateIntroduction = vi.fn();
+const mockGetTags = vi.fn();
+const mockGetUserInterests = vi.fn();
+const mockAddUserInterest = vi.fn();
+const mockRemoveUserInterest = vi.fn();
 const mockSignInWithPassword = vi.fn();
 const mockUpdateUser = vi.fn();
 
@@ -12,7 +16,11 @@ vi.mock('lib/supabase', () => ({
     db: {
         getUserIntroductions: mockGetUserIntroductions,
         updateIntroduction: mockUpdateIntroduction,
-        createIntroduction: mockCreateIntroduction
+        createIntroduction: mockCreateIntroduction,
+        getTags: mockGetTags,
+        getUserInterests: mockGetUserInterests,
+        addUserInterest: mockAddUserInterest,
+        removeUserInterest: mockRemoveUserInterest
     },
     supabase: {
         auth: {
@@ -39,6 +47,10 @@ describe('SettingsPanel', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        mockGetTags.mockResolvedValue([]);
+        mockGetUserInterests.mockResolvedValue([]);
+        mockAddUserInterest.mockResolvedValue({});
+        mockRemoveUserInterest.mockResolvedValue();
     });
 
     it('loads and displays existing introduction data', async () => {
@@ -46,10 +58,17 @@ describe('SettingsPanel', () => {
             id: 'intro-1',
             name: 'Alice Nakano',
             affiliation: 'Sympo Labs',
-            interests: 'Networking',
             one_liner: 'よろしくお願いします！',
             conference_id: 'conf-1',
             is_public: true
+        }]);
+        mockGetTags.mockResolvedValueOnce([{
+            id: 'tag-1',
+            name: 'Networking'
+        }]);
+        mockGetUserInterests.mockResolvedValueOnce([{
+            id: 'interest-1',
+            tag_id: 'tag-1'
         }]);
 
         render(
@@ -64,7 +83,7 @@ describe('SettingsPanel', () => {
         await waitFor(() => expect(mockGetUserIntroductions).toHaveBeenCalledWith('user-1'));
         await waitFor(() => expect(screen.getByLabelText('お名前')).toHaveValue('Alice Nakano'));
         expect(screen.getByLabelText('所属')).toHaveValue('Sympo Labs');
-        expect(screen.getByLabelText('興味・関心')).toHaveValue('Networking');
+        await screen.findByText('Networking');
         expect(screen.getByLabelText('一言コメント')).toHaveValue('よろしくお願いします！');
     });
 
@@ -73,7 +92,6 @@ describe('SettingsPanel', () => {
             id: 'intro-2',
             name: 'Taro',
             affiliation: '',
-            interests: '',
             one_liner: '',
             conference_id: null,
             is_public: true
@@ -108,6 +126,55 @@ describe('SettingsPanel', () => {
                 is_public: true,
                 conference_id: null
             }));
+        });
+    });
+
+    it('syncs selected interest tags when saving the introduction', async () => {
+        mockGetUserIntroductions.mockResolvedValueOnce([{
+            id: 'intro-3',
+            name: 'Tag Tester',
+            affiliation: '',
+            one_liner: '',
+            conference_id: null,
+            is_public: true
+        }]);
+        mockUpdateIntroduction.mockResolvedValueOnce({});
+        mockGetTags.mockResolvedValueOnce([
+            { id: 'tag-1', name: 'Networking' },
+            { id: 'tag-2', name: 'AI' }
+        ]);
+        mockGetUserInterests.mockResolvedValue([
+            { id: 'interest-1', tag_id: 'tag-1' }
+        ]);
+
+        const user = userEvent.setup();
+
+        render(
+            <SettingsPanel
+                isOpen
+                onClose={vi.fn()}
+                onLogout={vi.fn()}
+                user={baseUser}
+            />
+        );
+
+        const tagsButton = await screen.findByRole('button', { name: '1個選択中' });
+        await user.click(tagsButton);
+
+        const networkingOption = await screen.findByRole('button', { name: 'Networking' });
+        await user.click(networkingOption);
+
+        const aiOption = await screen.findByRole('button', { name: 'AI' });
+        await user.click(aiOption);
+
+        await user.click(tagsButton);
+
+        const saveButton = screen.getByRole('button', { name: '自己紹介を保存' });
+        await user.click(saveButton);
+
+        await waitFor(() => {
+            expect(mockRemoveUserInterest).toHaveBeenCalledWith('user-1', 'tag-1');
+            expect(mockAddUserInterest).toHaveBeenCalledWith('user-1', 'tag-2');
         });
     });
 
