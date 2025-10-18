@@ -5,6 +5,7 @@ const FormActions = ({
     onReset = () => { },
     isLoading = false,
     isValid = false,
+    isEditMode = false,
     className = ""
 }) => {
     return (
@@ -18,25 +19,29 @@ const FormActions = ({
                 loading={isLoading}
                 disabled={!isValid || isLoading}
                 onClick={onSubmit}
-                iconName={isLoading ? undefined : "Send"}
+                iconName={isLoading ? undefined : (isEditMode ? "Save" : "Send")}
                 iconPosition="right"
             >
-                {isLoading ? "作成中..." : "自己紹介を作成"}
+                {isLoading
+                    ? (isEditMode ? "更新中..." : "作成中...")
+                    : (isEditMode ? "変更を保存" : "自己紹介を作成")}
             </Button>
 
             {/* Reset Button */}
-            <Button
-                type="button"
-                variant="outline"
-                size="default"
-                fullWidth
-                disabled={isLoading}
-                onClick={onReset}
-                iconName="RotateCcw"
-                iconPosition="left"
-            >
-                フォームをリセット
-            </Button>
+            {!isEditMode && (
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="default"
+                    fullWidth
+                    disabled={isLoading}
+                    onClick={onReset}
+                    iconName="RotateCcw"
+                    iconPosition="left"
+                >
+                    フォームをリセット
+                </Button>
+            )}
         </div>
     );
 };
