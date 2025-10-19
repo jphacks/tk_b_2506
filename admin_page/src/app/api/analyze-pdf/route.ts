@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ChatOpenAI } from "@langchain/openai";
 import { PromptTemplate } from "@langchain/core/prompts";
-import * as pdfParse from "pdf-parse";
+
+export const runtime = "nodejs";
 
 // OpenAI APIキーの確認
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const OPENAI_API_KEY = process.env.NEXT_OPENAI_API_KEY ?? process.env.OPENAI_API_KEY;
 
 if (!OPENAI_API_KEY) {
   console.error("OPENAI_API_KEY is not set in environment variables");
@@ -51,9 +52,7 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // PDFからテキストを抽出
-    const pdfData = await (pdfParse as any).default(buffer);
-    const extractedText = pdfData.text;
+    const extractedText = await extractPdfText(buffer);
 
     if (!extractedText || extractedText.trim().length < 50) {
       return NextResponse.json(
@@ -137,5 +136,23 @@ export async function POST(request: NextRequest) {
       },
       { status: 500 }
     );
+  }
+}
+
+async function extractPdfText(buffer: Buffer) {
+  const pdfParse = await import("pdf-parse");
+  const { PDFParse } = pdfParse;
+
+  if (!PDFParse) {
+    throw new Error("PDFParse loader failed to initialize");
+  }
+
+  const parser = new PDFParse({ data: buffer });
+
+  try {
+    const textResult = await parser.getText();
+    return textResult.text ?? "";
+  } finally {
+    await parser.destroy();
   }
 }
