@@ -292,6 +292,10 @@ const SelfIntroductionForm = () => {
 
             console.log(savedIntroduction);
 
+            if (savedIntroduction?.id) {
+                setExistingIntroductionId(savedIntroduction.id);
+            }
+
             // ユーザーの興味タグを保存（user_interestsテーブル）
             // 既存のタグをすべて削除してから新しいタグを追加
             try {
@@ -311,9 +315,12 @@ const SelfIntroductionForm = () => {
                 // タグの保存に失敗してもエラーにはしない（自己紹介は保存されているため）
             }
 
+            const participantIntroductionId = savedIntroduction?.id || existingIntroductionId || null;
+
             await db.setParticipantConference({
                 userId: user.id,
-                conferenceId: conferenceIdToUse
+                conferenceId: conferenceIdToUse,
+                introductionId: participantIntroductionId
             });
             setStoredConferenceId(conferenceIdToUse);
             refetchParticipantProfile?.();
