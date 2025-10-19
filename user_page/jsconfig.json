@@ -1,5 +1,14 @@
 {
     "compilerOptions": {
-        "baseUrl": "user_page/src"
-    }
+        "baseUrl": "src",
+        "paths": {
+            "src/*": [
+                "*"
+            ]
+        }
+    },
+    "exclude": [
+        "node_modules",
+        "dist"
+    ]
 }

@@ -30,6 +30,8 @@ CREATE TABLE IF NOT EXISTS public.locations (
     building VARCHAR(100),
     location_type VARCHAR(50),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    map_x FLOAT,
+    map_y FLOAT,
 
     CONSTRAINT check_location_name_not_empty CHECK (LENGTH(TRIM(name)) > 0),
     CONSTRAINT check_qr_code_not_empty CHECK (LENGTH(TRIM(qr_code)) > 0),
