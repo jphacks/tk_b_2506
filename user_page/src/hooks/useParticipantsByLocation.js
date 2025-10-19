@@ -2,33 +2,62 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from 'src/lib/supabase';
 
 const fetchParticipantsByLocation = async (locationId) => {
-  if (!locationId) return [];
-  // 確認用: フィールド選択と order を外してまずは生データ取得
-  const { data, error } = await supabase
-    .from('participants')
-    .select('*')
-    .eq('current_location_id', locationId);
+    if (!locationId) return [];
 
-  if (error) {
-    // 詳細を出力（HTTP status, message, details 等）
-    console.error('[useParticipantsByLocation] supabase error', {
-      message: error.message,
-      details: error.details,
-      hint: error.hint,
-      code: error.code
-    });
-    throw error;
-  }
+    let query = supabase
+        .from('participants')
+        .select(`
+            id,
+            user_id,
+            conference_id,
+            introduction_id,
+            current_location_id,
+            registered_at,
+            updated_at,
+            introduction:introductions(
+                id,
+                name,
+                affiliation,
+                research_topic,
+                interests,
+                one_liner,
+                occupation,
+                occupation_other
+            ),
+            location:locations(
+                id,
+                name,
+                floor,
+                building,
+                location_type
+            )
+        `)
+        .eq('current_location_id', locationId)
+        .order('registered_at', { ascending: true });
 
-  return data ?? [];
+    query = query.not('introduction', 'is', null);
+
+    const { data, error } = await query;
+
+    if (error) {
+        console.error('[useParticipantsByLocation] supabase error', {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code
+        });
+        throw error;
+    }
+
+    return data ?? [];
 };
 
 export default function useParticipantsByLocation(locationId, options = {}) {
-  return useQuery({
-    queryKey: ['participants_by_location', locationId],
-    queryFn: () => fetchParticipantsByLocation(locationId),
-    enabled: Boolean(locationId),
-    staleTime: 1000 * 30,
-    ...options
-  });
+    return useQuery({
+        queryKey: ['participants_by_location', locationId],
+        queryFn: () => fetchParticipantsByLocation(locationId),
+        enabled: Boolean(locationId),
+        staleTime: 1000 * 30,
+        ...options
+    });
 }
