@@ -13,6 +13,8 @@
 
 ![背景のパワポ](./README_images/power_point.png)
 
+![背景のパワポ](./README_images/power_point2.png)
+
 ### 製品説明（具体的な製品の説明）
 1. ユーザーはメールアドレスとパスワードでログインし，参加予定の学会を選択・参加登録する．
 2. 続いて自己紹介カードを作成し，所属や研究テーマ・興味タグを入力してSupabaseの`introductions`・`tags`テーブルに保存する．

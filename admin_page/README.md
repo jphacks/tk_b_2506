@@ -2,6 +2,11 @@
 
 学会のプレゼンテーション管理とマップ管理を行う管理者用Webアプリケーション
 
+> 更新情報（2025-10）
+> - プレゼン登録ページ（`/presentations/new`）に AI 要約と AI 推奨タグを追加（β）
+> - PDF アップロードのストレージ保存は現状モック。公開URLはフロント側でランダム生成（本番導入時は置き換えが必要）
+> - AI 解析 API は `src/app/api/analyze-pdf/route.ts` 経由（OpenAI API キーが必要）
+
 ## 機能
 
 ### 実装済み機能
@@ -10,15 +15,15 @@
 - ✅ 会場と場所の管理（QRコード対応）
 - ✅ プレゼンテーション登録フォーム
 - ✅ 会場マップからの場所選択
-- ✅ PDFアップロード機能
+- ✅ PDFアップロード機能（公開URLはモック生成）
 - ✅ タグによる分類
 - ✅ プレゼンテーション一覧表示
 
-### 実装中の機能
+### β（プレビュー）機能
 
-- 🚧 PDF自動解析（抄録抽出）
-- 🚧 AI要約生成
-- 🚧 AIタグ提案
+- 🧪 PDF自動解析（抄録抽出）
+- 🧪 AI要約生成
+- 🧪 AIタグ提案（既存タグ名に一致するもののみ自動選択）
 
 ## 技術スタック
 
@@ -38,11 +43,13 @@ npm install
 
 ### 2. 環境変数の設定
 
-`.env`ファイルが既に存在します。Supabaseの認証情報が設定されています。
+`.env`ファイルが既に存在します。Supabase の認証情報を設定してください。
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+# AI（PDF解析/要約/タグ推奨）を利用する場合に必須
+OPENAI_API_KEY=your_openai_api_key
 ```
 
 ### 3. 開発サーバーの起動
@@ -82,6 +89,7 @@ npm run dev
    - タイトル、発表形式、発表者情報などを入力
    - マップから場所を視覚的に選択可能
    - PDFをアップロード（自動解析機能は実装中）
+   - PDFアップロード: 現在はストレージ保存せず、モックの公開URLを割り当てます（後述）。
    - タグを選択して分類
    - 「登録」ボタンで保存
 
@@ -127,9 +135,9 @@ admin_page/
 └── next.config.js
 ```
 
-## AI機能の実装について
+## AI機能とモック動作について
 
-### PDF解析
+### PDF解析（/api/analyze-pdf）
 
 `src/app/api/analyze-pdf/route.ts` に実装の骨組みがあります。
 
@@ -205,6 +213,17 @@ export async function POST(request: NextRequest) {
   });
 }
 ```
+
+### ストレージ公開URL（モック）
+現在、PDF のストレージ保存は実施しておらず、プレゼン登録ページの `handlePdfUpload` 内で公開 URL を擬似生成しています。
+
+- 実装箇所: `src/app/presentations/new/page.tsx`
+- 生成例: `https://mock-storage.local/presentations/<timestamp>_<random>_<sanitizedName>.pdf`
+- 本番導入時は Supabase Storage などへのアップロード処理に置き換え、返却された公開 URL を保存してください。
+
+### AI推奨タグのマッピング仕様
+- 解析結果のタグ名を、既存タグテーブルの名前に「大文字小文字を無視した完全一致」で照合します。
+- 一致したタグのみ自動選択（`suggestedTags`）に追加されます。存在しないタグ名は無視されます。
 
 ## user_pageとの連携
 
