@@ -94,20 +94,31 @@ export const db = {
     },
 
     // 参加者の学会選択を保存
-    async setParticipantConference({ userId, conferenceId }) {
+    async setParticipantConference({ userId, conferenceId, introductionId = undefined }) {
         if (!userId || !conferenceId) {
             throw new Error('participant conference update requires userId and conferenceId.');
         }
 
         const existing = await db.getParticipantByUser(userId);
+        const updatePayload = {
+            conference_id: conferenceId,
+            updated_at: new Date().toISOString()
+        };
+        const insertPayload = {
+            user_id: userId,
+            conference_id: conferenceId,
+            registered_at: new Date().toISOString()
+        };
+
+        if (introductionId !== undefined) {
+            updatePayload.introduction_id = introductionId;
+            insertPayload.introduction_id = introductionId;
+        }
 
         if (existing?.id) {
             const { data, error } = await supabase
                 .from('participants')
-                .update({
-                    conference_id: conferenceId,
-                    updated_at: new Date().toISOString()
-                })
+                .update(updatePayload)
                 .eq('id', existing.id)
                 .select()
                 .maybeSingle();
@@ -118,11 +129,7 @@ export const db = {
 
         const { data, error } = await supabase
             .from('participants')
-            .insert({
-                user_id: userId,
-                conference_id: conferenceId,
-                registered_at: new Date().toISOString()
-            })
+            .insert(insertPayload)
             .select()
             .maybeSingle();
 
@@ -131,7 +138,7 @@ export const db = {
     },
 
     // パスワード検証付きで学会に参加登録
-    async joinConferenceWithPassword({ userId, conferenceId, password, introductionId = null }) {
+    async joinConferenceWithPassword({ userId, conferenceId, password, introductionId = undefined }) {
         if (!userId || !conferenceId) {
             throw new Error('userId and conferenceId are required.');
         }
@@ -160,15 +167,43 @@ export const db = {
         // 既に参加済みかチェック
         const existing = await db.getParticipantByUser(userId);
 
+        let resolvedIntroductionId = introductionId;
+        let shouldUpdateIntroduction = introductionId !== undefined;
+
+        if (resolvedIntroductionId === undefined) {
+            const introductions = await db.getUserIntroductions(userId, { conferenceId });
+            const latestIntroduction = introductions?.[0] || null;
+
+            if (latestIntroduction?.id) {
+                resolvedIntroductionId = latestIntroduction.id;
+                shouldUpdateIntroduction = true;
+            }
+        }
+
+        const updatePayload = {
+            conference_id: conferenceId,
+            updated_at: new Date().toISOString()
+        };
+
+        if (shouldUpdateIntroduction) {
+            updatePayload.introduction_id = resolvedIntroductionId ?? null;
+        }
+
+        const insertPayload = {
+            user_id: userId,
+            conference_id: conferenceId,
+            registered_at: new Date().toISOString()
+        };
+
+        if (shouldUpdateIntroduction) {
+            insertPayload.introduction_id = resolvedIntroductionId ?? null;
+        }
+
         // 参加登録または更新
         if (existing?.id) {
             const { data, error } = await supabase
                 .from('participants')
-                .update({
-                    conference_id: conferenceId,
-                    introduction_id: introductionId,
-                    updated_at: new Date().toISOString()
-                })
+                .update(updatePayload)
                 .eq('id', existing.id)
                 .select()
                 .maybeSingle();
@@ -179,12 +214,7 @@ export const db = {
 
         const { data, error } = await supabase
             .from('participants')
-            .insert({
-                user_id: userId,
-                conference_id: conferenceId,
-                introduction_id: introductionId,
-                registered_at: new Date().toISOString()
-            })
+            .insert(insertPayload)
             .select()
             .maybeSingle();
 
