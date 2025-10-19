@@ -81,14 +81,6 @@ const ParticipantList = ({
         );
     }
 
-    if (list.length === 0) {
-        return (
-            <div className="p-4 text-sm text-muted-foreground">
-                この机には参加者がいません。
-            </div>
-        );
-    }
-
     return (
         <div className="bg-card border border-border rounded-xl shadow-soft p-6">
             <div className="flex items-center justify-between mb-4">
