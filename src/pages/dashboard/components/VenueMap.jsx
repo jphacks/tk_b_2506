@@ -157,7 +157,6 @@ const VenueMap = ({
         <div className="bg-card border border-border rounded-xl shadow-soft p-6 flex flex-col gap-6">
             <div>
                 <h2 className="text-lg font-semibold text-foreground">会場マップ</h2>
-                <div className="text-xs text-muted-foreground">机マーカー数: {normalizedLocations.length}</div>
                 <p className="text-sm text-muted-foreground mt-1">
                     QRスキャンで更新された現在地を元にマップ上で位置を確認できます。
                 </p>
@@ -221,28 +220,27 @@ const VenueMap = ({
                         <button
                             key={loc.id}
                             type="button"
-                            aria-label={`場所 ${loc.name}`}
-                            onClick={(e) => {
-                                const btn = e.currentTarget;
+                            aria-label={loc.name}
+                            onClick={() => {
                                 console.log('[VenueMap] desk clicked!', { id: loc.id, name: loc.name });
-                                try {
-                                    btn.style.outline = '2px solid #ff6600';
-                                } catch (err) {
-                                    /* ignore style set errors */
-                                }
                                 setSelectedLocation(loc);
                             }}
-                            className="venue-desk absolute flex items-center justify-center text-sm font-semibold text-foreground bg-white/80 border border-border rounded-sm shadow cursor-pointer"
+                            className="venue-desk absolute rounded-sm cursor-pointer"
                             style={{
                                 left,
                                 top,
                                 width,
                                 height,
                                 zIndex: 9999,
-                                pointerEvents: 'auto'
+                                pointerEvents: 'auto',
+                                background: 'transparent',
+                                border: 'none',
+                                boxShadow: 'none',
+                                padding: 0,
+                                margin: 0
                             }}
                         >
-                            <span>{loc.name}</span>
+                            {/* 視覚的なラベルは表示しない。アクセシビリティのため aria-label を使用 */}
                         </button>
                     );
                 })}
@@ -272,7 +270,7 @@ const VenueMap = ({
             </div>
 
             <div>
-                <h3 className="text-sm font-semibold text-foreground mb-2">会場一覧</h3>
+                <h3 className="text-sm font-semibold text-foreground mb-2">机一覧</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
                     {locations.length === 0 && (
                         <div className="text-sm text-muted-foreground">会場情報がまだ登録されていません。</div>
