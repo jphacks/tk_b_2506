@@ -117,6 +117,10 @@ export default function NewPresentationPage() {
 
       const analysis = await response.json();
 
+      if (analysis.error) {
+        throw new Error(analysis.error);
+      }
+
       // Update form with extracted data
       setFormData((prev) => ({
         ...prev,
@@ -124,7 +128,20 @@ export default function NewPresentationPage() {
         abstract: prev.abstract || analysis.abstract,
       }));
       setAiSummary(analysis.summary);
-      setSuggestedTags(analysis.suggestedTags || []);
+
+      // タグ名からタグIDを検索して設定
+      if (analysis.suggestedTagNames && analysis.suggestedTagNames.length > 0) {
+        const matchedTagIds: string[] = [];
+        analysis.suggestedTagNames.forEach((tagName: string) => {
+          const matchedTag = tags.find(t =>
+            t.name.toLowerCase() === tagName.toLowerCase()
+          );
+          if (matchedTag) {
+            matchedTagIds.push(matchedTag.id);
+          }
+        });
+        setSuggestedTags(matchedTagIds);
+      }
     } catch (err) {
       console.error("PDF upload failed:", err);
       setError("PDFのアップロードまたは解析に失敗しました");

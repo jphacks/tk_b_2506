@@ -1,16 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ChatOpenAI } from "@langchain/openai";
+import { PromptTemplate } from "@langchain/core/prompts";
+import * as pdfParse from "pdf-parse";
+
+// OpenAI APIキーの確認
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+
+if (!OPENAI_API_KEY) {
+  console.error("OPENAI_API_KEY is not set in environment variables");
+}
 
 /**
  * PDF分析APIエンドポイント
- * PDFファイルを受け取り、抄録の抽出、要約の生成、タグの提案を行います
- *
- * TODO: 実際のAI APIとの統合が必要です
- * - PDF解析: PDF.jsやpdfplumberを使用してテキスト抽出
- * - 要約生成: OpenAI API, Anthropic Claude API, または他のLLM APIを使用
- * - タグ生成: テキスト分類モデルまたはLLM APIを使用
+ * LangChainとOpenAI APIを使用してPDFから抄録の抽出、要約の生成、タグの提案を行います
  */
 export async function POST(request: NextRequest) {
   try {
+    // OpenAI APIキーのチェック
+    if (!OPENAI_API_KEY || OPENAI_API_KEY === 'your_openai_api_key_here') {
+      return NextResponse.json(
+        {
+          error: "OpenAI APIキーが設定されていません。.envファイルにOPENAI_API_KEYを設定してください。",
+          abstract: "",
+          summary: "",
+          suggestedTags: []
+        },
+        { status: 400 }
+      );
+    }
+
     const formData = await request.formData();
     const file = formData.get("file") as File;
 
@@ -21,7 +39,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file type
+    // ファイルタイプの検証
     if (file.type !== "application/pdf") {
       return NextResponse.json(
         { error: "PDFファイルのみアップロード可能です" },
@@ -29,48 +47,95 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TODO: Implement actual PDF processing
-    // For now, return mock data
+    // PDFをバッファに変換
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
-    // Simulate processing delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // PDFからテキストを抽出
+    const pdfData = await (pdfParse as any).default(buffer);
+    const extractedText = pdfData.text;
 
-    // Mock response
+    if (!extractedText || extractedText.trim().length < 50) {
+      return NextResponse.json(
+        {
+          error: "PDFからテキストを抽出できませんでした。画像のみのPDFの可能性があります。",
+          abstract: "",
+          summary: "",
+          suggestedTags: []
+        },
+        { status: 400 }
+      );
+    }
+
+    // LangChainでOpenAI APIを使用
+    const model = new ChatOpenAI({
+      modelName: "gpt-3.5-turbo",
+      temperature: 0.3,
+      openAIApiKey: OPENAI_API_KEY,
+    });
+
+    // 要約生成用のプロンプトテンプレート
+    const summaryPrompt = PromptTemplate.fromTemplate(
+      `以下は学術論文または研究発表の抄録です。この内容を200文字程度の日本語で簡潔に要約してください。
+研究の目的、方法、結果、結論を含めてください。
+
+抄録:
+{text}
+
+要約:`
+    );
+
+    // タグ生成用のプロンプトテンプレート
+    const tagsPrompt = PromptTemplate.fromTemplate(
+      `以下は学術論文または研究発表の抄録です。この内容に関連するキーワードを5個程度抽出してください。
+キーワードはカンマ区切りで日本語で出力してください。
+
+抄録:
+{text}
+
+キーワード（カンマ区切り）:`
+    );
+
+    // テキストが長すぎる場合は最初の3000文字に制限
+    const textForAnalysis = extractedText.substring(0, 3000);
+
+    // 要約を生成
+    const summaryChain = summaryPrompt.pipe(model);
+    const summaryResult = await summaryChain.invoke({ text: textForAnalysis });
+    const summary = summaryResult.content.toString();
+
+    // タグを生成
+    const tagsChain = tagsPrompt.pipe(model);
+    const tagsResult = await tagsChain.invoke({ text: textForAnalysis });
+    const tagsText = tagsResult.content.toString();
+
+    // タグをパース（カンマ区切りを配列に変換）
+    const suggestedTagNames = tagsText
+      .split(/[、,]/)
+      .map(tag => tag.trim())
+      .filter(tag => tag.length > 0)
+      .slice(0, 5); // 最大5個
+
+    // レスポンスを返す
     const response = {
-      abstract: "このPDFから抽出された抄録のテキストがここに表示されます。実際のPDF解析機能を実装すると、PDFファイルからテキストを自動的に抽出できます。",
-      summary: "AI生成要約：このプレゼンテーションは、学会での発表内容を簡潔にまとめたものです。主要なポイントと結論が含まれています。実際のAI統合後は、より詳細で正確な要約が生成されます。",
-      suggestedTags: [] as string[], // Tag IDs will be populated here
+      abstract: extractedText.substring(0, 2000), // 抄録として最初の2000文字を返す
+      summary: summary,
+      suggestedTagNames: suggestedTagNames, // タグ名の配列
       confidence: 0.85,
+      extractedTextLength: extractedText.length,
     };
 
     return NextResponse.json(response);
-  } catch (error) {
+  } catch (error: any) {
     console.error("PDF analysis error:", error);
     return NextResponse.json(
-      { error: "PDFの解析中にエラーが発生しました" },
+      {
+        error: `PDFの解析中にエラーが発生しました: ${error.message}`,
+        abstract: "",
+        summary: "",
+        suggestedTags: []
+      },
       { status: 500 }
     );
   }
 }
-
-/**
- * AI API統合のための実装ガイド:
- *
- * 1. PDF テキスト抽出:
- *    - npm install pdfjs-dist
- *    - または pdf-parse パッケージを使用
- *
- * 2. AI要約生成:
- *    - OpenAI API: https://platform.openai.com/docs/api-reference
- *    - Anthropic Claude API: https://docs.anthropic.com/claude/reference
- *    - 環境変数に API キーを設定
- *
- * 3. タグ生成:
- *    - LLM APIにタグ候補の生成を依頼
- *    - データベースの既存タグと照合
- *    - 新しいタグの提案を返す
- *
- * 環境変数の例:
- * OPENAI_API_KEY=your_api_key
- * ANTHROPIC_API_KEY=your_api_key
- */
