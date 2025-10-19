@@ -3,7 +3,8 @@
 [![SympoLink! デモ](./README_images/user.png)](https://youtu.be/Uht-3UFvGpU)
 参加者ページのデモ動画！画像タップでYoutubeに飛びます！
 
-
+[![SympoLink! 管理者ページデモ](./README_images/admin.png)](./README_images/admin_play.gif)
+管理者ページのデモ動画！
 
 ## 製品概要
 ### 背景(製品開発のきっかけ，課題等）
@@ -43,10 +44,11 @@
 - 管理者ページで，参加者の行動を分析するダッシュボードの作成
 
 ### 注力したこと（こだわり等）
-- モバイルでも片手操作しやすいUIをTailwindと`class-variance-authority`で設計（例: `src/pages/dashboard/components/QrScanButton.jsx`）．
-- Supabase RLSを崩さずに参加者ディレクトリを提供するため，`get_conference_participant_directory` RPCを導入しフロントから安全に利用できるようにした（`DB/migration/012_create_conference_participant_directory_function.sql`）．
-- React Queryにより参加者・会場データをキャッシュし，QRスキャン後の再フェッチをシンプルに管理（`src/hooks/useParticipants.js`, `src/hooks/useLocations.js`）．
-- 学会選択や自己紹介の状態をReact ContextとLocalStorageで同期し，再訪時でも入力の手戻りが起きないようにした（`src/constants/conference.js`, `src/pages/select-conference/SelectConference.jsx`）．
+- 実際に学会で使用することを想定して，管理者ページも作成して，その部分で学会の登録や抄録のAI分析が行えるようにしている．
+- モバイルでも片手操作しやすいUIを作成．
+- 各学会ごとにパスワードを使用することで，一人が複数の学会に参加できるように設定している．
+- ハードウェアに頼らず，QRコードを使用する実装によって簡易的に場所の共有ができる実装にしている．
+- 学会選択や自己紹介の状態をReact ContextとLocalStorageで同期し，再訪時でも入力の手戻りが起きないようにした．
 
 ## 開発技術
 ### 活用した技術
