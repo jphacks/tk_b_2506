@@ -1,6 +1,7 @@
 # SympoLink!
 
 [![SympoLink! デモ](./image%20copy.png)](https://youtu.be/Uht-3UFvGpU)
+画像タップでYoutubeに飛びます！
 
 ## 製品概要
 ### 背景(製品開発のきっかけ，課題等）
