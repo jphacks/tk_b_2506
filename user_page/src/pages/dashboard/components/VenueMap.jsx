@@ -251,22 +251,24 @@ const VenueMap = ({
                         onClick={() => setSelectedLocation(null)}
                     >
                         <div className="bg-card rounded-lg shadow-lg w-[90%] max-w-2xl p-4" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex items-center justify-between mb-3">
+                            <div className="mb-3">
                                 <h3 className="text-lg font-semibold">参加者 - {selectedLocation.name}</h3>
-                                <button
-                                    aria-label="閉じる"
-                                    className="text-sm text-muted-foreground hover:text-foreground px-3 py-1 rounded hover:bg-muted"
-                                    onClick={() => setSelectedLocation(null)}
-                                >
-                                    閉じる
-                                </button>
                             </div>
-                            <div className="max-h-[60vh] overflow-y-auto">
+                            <div className="max-h-[60vh] overflow-y-auto mb-4">
                                 <ParticipantList
                                     conferenceId={conferenceId}
                                     locationId={selectedLocation.id}
                                     onOpenProfile={handleOpenProfile}
                                 />
+                            </div>
+                            <div>
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => setSelectedLocation(null)}
+                                    fullWidth
+                                >
+                                    閉じる
+                                </Button>
                             </div>
                         </div>
                     </div>

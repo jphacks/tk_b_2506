@@ -1,5 +1,5 @@
-import { createPortal } from 'react-dom';
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 import Button from '../../../components/ui/Button';
 
@@ -102,13 +102,6 @@ const ParticipantProfileModal = ({ participant, onClose }) => {
                                 </p>
                             )}
                         </div>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            iconName="X"
-                            aria-label="プロフィールを閉じる"
-                            onClick={onClose}
-                        />
                     </header>
 
                     <div className="px-6 py-5 space-y-5 max-h-[70vh] overflow-y-auto">

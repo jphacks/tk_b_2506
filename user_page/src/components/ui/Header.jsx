@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Icon from '../AppIcon';
 import { useAuth } from '../../contexts/AuthContext';
+import Icon from '../AppIcon';
 import SettingsPanel from '../settings/SettingsPanel';
 
 const Header = () => {
@@ -48,7 +48,7 @@ const Header = () => {
                                     SympoLink!
                                 </h1>
                                 <p className="text-xs font-caption text-muted-foreground hidden sm:block">
-                                    懇親会でのコミュニケーションを支援するアプリ
+                                    ちょっとシャイな研究者の会話支援サービス
                                 </p>
                             </div>
                         </div>

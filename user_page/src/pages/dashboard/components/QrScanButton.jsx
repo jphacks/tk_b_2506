@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
 import { Scanner } from '@yudiel/react-qr-scanner';
+import { useCallback, useEffect, useState } from 'react';
 import Button from '../../../components/ui/Button';
 import useQrScan from '../../../hooks/useQrScan';
 
@@ -94,13 +94,6 @@ const QrScanButton = ({
                     <div className="bg-card border border-border rounded-xl shadow-soft w-full max-w-md">
                         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
                             <h3 className="text-base font-semibold text-foreground">QRコードをスキャン</h3>
-                            <button
-                                type="button"
-                                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                                onClick={() => setIsModalOpen(false)}
-                            >
-                                閉じる
-                            </button>
                         </div>
                         <div className="p-6 flex flex-col gap-4">
                             <div className="rounded-lg overflow-hidden border border-border bg-muted relative aspect-square">
