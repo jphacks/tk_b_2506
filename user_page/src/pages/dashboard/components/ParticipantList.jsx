@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import Button from '../../../components/ui/Button';
 import { cn } from '../../../utils/cn';
 
+import useParticipants from 'src/hooks/useParticipants';
+import useParticipantsByLocation from 'src/hooks/useParticipantsByLocation';
 import ParticipantProfileModal from './ParticipantProfileModal';
 
 const ParticipantCardSkeleton = () => (
@@ -14,12 +16,29 @@ const ParticipantCardSkeleton = () => (
 );
 
 const ParticipantList = ({
-    participants,
-    isLoading,
-    error,
+    participants: participantsProp,
+    locationId,
+    conferenceId,
+    isLoading: isLoadingProp,
+    error: errorProp,
     onRetry
 }) => {
     const [selectedParticipant, setSelectedParticipant] = useState(null);
+
+    // Hooks: enabled only when respective id is present
+    const confQuery = useParticipants(conferenceId, { enabled: Boolean(conferenceId) });
+    const locQuery = useParticipantsByLocation(locationId, { enabled: Boolean(locationId) });
+
+    // decide source: explicit prop > location query > conference query
+    const participantsRaw = Array.isArray(participantsProp)
+        ? participantsProp
+        : (locationId ? (locQuery.data ?? []) : (conferenceId ? (confQuery.data ?? []) : []));
+
+    const isLoading = Boolean(isLoadingProp) || locQuery.isLoading || confQuery.isLoading;
+    const error = errorProp || locQuery.error || confQuery.error;
+
+    // defensive array
+    const list = Array.isArray(participantsRaw) ? participantsRaw : [];
 
     const handleOpenProfile = (participant) => {
         setSelectedParticipant(participant);
@@ -28,6 +47,12 @@ const ParticipantList = ({
     const handleCloseProfile = () => {
         setSelectedParticipant(null);
     };
+
+    useEffect(() => {
+        console.log('[ParticipantList][debug] conferenceId ->', conferenceId);
+        console.log('[ParticipantList][debug] locationId ->', locationId);
+        console.log('[ParticipantList][debug] all participants ->', list.length);
+    }, [conferenceId, locationId, list.length]);
 
     if (isLoading) {
         return (
@@ -62,9 +87,6 @@ const ParticipantList = ({
         );
     }
 
-    // participants が undefined の場合に落ちないように配列化
-    const list = Array.isArray(participants) ? participants : [];
-
     if (list.length === 0) {
         return (
             <div className="p-4 text-sm text-muted-foreground">
@@ -79,66 +101,62 @@ const ParticipantList = ({
                 <div>
                     <h2 className="text-lg font-semibold text-foreground">参加者</h2>
                     <p className="text-sm text-muted-foreground">
-                        {participants?.length || 0} 名がこのカンファレンスに登録しています。
+                        {list.length} 名がこのカンファレンスに登録しています。
                     </p>
                 </div>
             </div>
-            {participants?.length === 0 ? (
-                <div className="text-sm text-muted-foreground">
-                    まだ参加者がいません。QRコードを共有して参加登録を促しましょう。
-                </div>
-            ) : (
-                <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
-                    {participants.map(participant => {
-                        const introduction = participant.introduction;
-                        const location = participant.location;
-                        const name = introduction?.name || '匿名参加者';
-                        const affiliation = introduction?.affiliation || '所属未設定';
-                        const oneLiner = introduction?.one_liner || introduction?.research_topic || introduction?.interests;
+            <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
+                {list.map(participant => {
+                    const introduction = participant.introduction;
+                    const location = participant.location;
+                    // introduction.name が無ければ participant.display_name を使い、それも無ければ匿名にフォールバック
+                    const name = introduction?.name || participant.display_name || '匿名参加者';
+                    // 所属も introduction から取るが、participant 側のフィールドがあれば優先して使う
+                    const affiliation = participant.affiliation || introduction?.affiliation || '所属未設定';
+                    const oneLiner = introduction?.one_liner || introduction?.research_topic || introduction?.interests || participant.one_liner || '';
 
-                        return (
-                            <div
-                                key={participant.id}
-                                className="border border-border rounded-lg p-4 bg-background hover:bg-muted/40 transition-colors"
-                            >
-                                <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                        <div className="text-base font-semibold text-foreground">{name}</div>
-                                        <div className="text-xs text-muted-foreground mt-1">{affiliation}</div>
-                                    </div>
-                                    <div className="flex flex-col items-end gap-2">
-                                        <span
-                                            className={cn(
-                                                'inline-flex items-center rounded-full px-3 py-1 text-xs font-medium border',
-                                                location
-                                                    ? 'bg-primary/10 text-primary border-primary/40'
-                                                    : 'bg-muted text-muted-foreground border-border'
-                                            )}
-                                        >
-                                            {location ? location.name : '位置未登録'}
-                                        </span>
-                                        <Button
-                                            variant="outline"
-                                            size="xs"
-                                            iconName="UserRoundSearch"
-                                            iconPosition="left"
-                                            onClick={() => handleOpenProfile(participant)}
-                                            className="text-xs"
-                                        >
-                                            詳細を見る
-                                        </Button>
-                                    </div>
+                    return (
+                        <div
+                            key={participant.id}
+                            className="border border-border rounded-lg p-4 bg-background hover:bg-muted/40 transition-colors"
+                        >
+                            <div className="flex items-start justify-between gap-3">
+                                <div>
+                                    <div className="text-base font-semibold text-foreground">{name}</div>
+                                    <div className="text-xs text-muted-foreground mt-1">{affiliation}</div>
                                 </div>
-                                {oneLiner && (
-                                    <div className="text-sm text-muted-foreground mt-3">
-                                        {oneLiner}
-                                    </div>
-                                )}
+                                <div className="flex flex-col items-end gap-2">
+                                    <span
+                                        className={cn(
+                                            'inline-flex items-center rounded-full px-3 py-1 text-xs font-medium border',
+                                            location
+                                                ? 'bg-primary/10 text-primary border-primary/40'
+                                                : 'bg-muted text-muted-foreground border-border'
+                                        )}
+                                    >
+                                        {location ? location.name : '位置未登録'}
+                                    </span>
+                                    <Button
+                                        variant="outline"
+                                        size="xs"
+                                        iconName="UserRoundSearch"
+                                        iconPosition="left"
+                                        onClick={() => handleOpenProfile(participant)}
+                                        className="text-xs"
+                                    >
+                                        詳細を見る
+                                    </Button>
+                                </div>
                             </div>
-                        );
-                    })}
-                </div>
-            )}
+                            {oneLiner && (
+                                <div className="text-sm text-muted-foreground mt-3">
+                                    {oneLiner}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
             {selectedParticipant && (
                 <ParticipantProfileModal
                     participant={selectedParticipant}

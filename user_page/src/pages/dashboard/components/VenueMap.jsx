@@ -262,7 +262,11 @@ const VenueMap = ({
                                 </button>
                             </div>
                             <div className="max-h-[60vh] overflow-y-auto">
-                                <ParticipantList locationId={selectedLocation.id} onOpenProfile={handleOpenProfile} />
+                                <ParticipantList
+                                    conferenceId={conferenceId}
+                                    locationId={selectedLocation.id}
+                                    onOpenProfile={handleOpenProfile}
+                                />
                             </div>
                         </div>
                     </div>
