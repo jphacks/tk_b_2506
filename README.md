@@ -1,6 +1,6 @@
 # SympoLink!
 
-[![SympoLink! Demo](https://jphacks.com/wp-content/uploads/2025/05/JPHACKS2025_ogp.jpg)](https://www.youtube.com/watch?v=lA9EluZugD8)
+[デモ動画 (YouTube)](https://youtu.be/Uht-3UFvGpU)
 
 ## 製品概要
 ### 背景(製品開発のきっかけ，課題等）
@@ -24,9 +24,6 @@
 - OpenAI APIは抄録データをもとに要約・タグを生成し、DBに保存されるデータ（抄録データ／要約・タグ）を返します。
 - 管理者ページは生成結果を確認しつつDBへ登録します。ユーザーページはDBから抄録・要約・タグを参照して表示します。
 
-
-
-
 ### 解決出来ること
 - 懇親会前に互いの興味・研究テーマを共有でき，最初の会話までの時間を大幅に短縮できる．
 - 同じ学会に参加している仲間の位置や最新の自己紹介をリアルタイムに把握し，会場内での合流率を高められる．
@@ -46,9 +43,6 @@
 
 ## 開発技術
 ### 活用した技術
-#### API・データ
-- Supabase PostgREST / RPC (`search_introductions_by_interests`, `search_presentations_by_user_interests`, `get_conference_participant_directory`)
-- Supabase テーブル群：`introductions`, `participants`, `conferences`, `locations`, `tags`, `presentations`, `participant_locations`
 
 #### フレームワーク・ライブラリ・モジュール
 - Vite + React 18 + React Router 6
