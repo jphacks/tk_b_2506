@@ -25,21 +25,34 @@ interface Tag {
   name: string;
 }
 
+interface PresentationFormData {
+  conference_id: string;
+  title: string;
+  abstract: string;
+  presentation_type: "oral" | "poster";
+  location_id: string;
+  presenter_name: string;
+  presenter_affiliation: string;
+  scheduled_at: string;
+  pdf_url: string;
+}
+
 export default function NewPresentationPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   // Form data
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<PresentationFormData>({
     conference_id: "",
     title: "",
     abstract: "",
-    presentation_type: "oral" as "oral" | "poster",
+    presentation_type: "oral",
     location_id: "",
     presenter_name: "",
     presenter_affiliation: "",
     scheduled_at: "",
+    pdf_url: "",
   });
 
   // Data from Supabase
@@ -141,6 +154,14 @@ export default function NewPresentationPage() {
           }
         });
         setSuggestedTags(matchedTagIds);
+        if (matchedTagIds.length > 0) {
+          setSelectedTags((prev) => {
+            const uniqueTagIds = new Set([...prev, ...matchedTagIds]);
+            return Array.from(uniqueTagIds);
+          });
+        }
+      } else {
+        setSuggestedTags([]);
       }
     } catch (err) {
       console.error("PDF upload failed:", err);
@@ -164,15 +185,22 @@ export default function NewPresentationPage() {
 
       // Create presentation
       const presentation = await db.createPresentation({
-        ...formData,
+        conference_id: formData.conference_id,
+        title: formData.title,
+        abstract: formData.abstract || undefined,
+        presentation_type: formData.presentation_type,
+        pdf_url: formData.pdf_url || undefined,
         ai_summary: aiSummary || undefined,
         location_id: formData.location_id || undefined,
+        presenter_name: formData.presenter_name || undefined,
+        presenter_affiliation: formData.presenter_affiliation || undefined,
         scheduled_at: formData.scheduled_at || undefined,
       });
 
       // Add tags if selected
-      if (selectedTags.length > 0) {
-        await db.addPresentationTags(presentation.id, selectedTags);
+      const tagsToAttach = Array.from(new Set([...selectedTags, ...suggestedTags]));
+      if (tagsToAttach.length > 0) {
+        await db.addPresentationTags(presentation.id, tagsToAttach);
       }
 
       // Redirect to presentations list or detail page
