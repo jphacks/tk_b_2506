@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
-import Button from 'components/ui/Button';
-import { cn } from 'utils/cn';
+import Button from '../../../components/ui/Button';
+import { cn } from '../../../utils/cn';
 
 import ParticipantProfileModal from './ParticipantProfileModal';
 

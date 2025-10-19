@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Icon from '../AppIcon';
 import { useAuth } from '../../contexts/AuthContext';
-import SettingsPanel from 'components/settings/SettingsPanel';
+import SettingsPanel from '../settings/SettingsPanel';
 
 const Header = () => {
     const navigate = useNavigate();
