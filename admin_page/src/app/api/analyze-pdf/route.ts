@@ -1,158 +1,158 @@
+// src/app/api/analyze-pdf/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { ChatOpenAI } from "@langchain/openai";
-import { PromptTemplate } from "@langchain/core/prompts";
 
 export const runtime = "nodejs";
 
-// OpenAI APIキーの確認
-const OPENAI_API_KEY = process.env.NEXT_OPENAI_API_KEY ?? process.env.OPENAI_API_KEY;
+// ===== Dify API =====
+// 例: DIFY_API_URL=https://api.dify.ai/v1
+const DIFY_API_URL = process.env.DIFY_API_URL;
+const DIFY_UPLOAD_KEY = process.env.DIFY_API_KEY;       // /files/upload 用（Universal API Key）
+const DIFY_WORKFLOW_KEY =
+  process.env.DIFY_WORKFLOW_KEY || process.env.DIFY_API_KEY; // /workflows/run 用（App API Key 推奨）
 
-if (!OPENAI_API_KEY) {
-  console.error("OPENAI_API_KEY is not set in environment variables");
+if (!DIFY_API_URL || !DIFY_UPLOAD_KEY) {
+  console.error("DIFY_API_URL or DIFY_API_KEY is not set in environment variables");
 }
 
-/**
- * PDF分析APIエンドポイント
- * LangChainとOpenAI APIを使用してPDFから抄録の抽出、要約の生成、タグの提案を行います
- */
+// Difyの file 入力オブジェクト
+function makeDifyFileInput(uploadFileId: string) {
+  return {
+    transfer_method: "local_file",
+    upload_file_id: uploadFileId,
+    type: "document", // PDFはdocumentタイプ
+  };
+}
+
 export async function POST(request: NextRequest) {
   try {
-    // OpenAI APIキーのチェック
-    if (!OPENAI_API_KEY || OPENAI_API_KEY === 'your_openai_api_key_here') {
+    // ---- 0) 設定確認 ----
+    if (!DIFY_API_URL || !DIFY_UPLOAD_KEY) {
       return NextResponse.json(
         {
-          error: "OpenAI APIキーが設定されていません。.envファイルにOPENAI_API_KEYを設定してください。",
+          error:
+            "DIFY API設定が不足しています。.envに DIFY_API_URL と DIFY_API_KEY を設定してください。",
           abstract: "",
           summary: "",
-          suggestedTags: []
+          suggestedTagNames: [],
         },
         { status: 400 }
       );
     }
 
-    const formData = await request.formData();
-    const file = formData.get("file") as File;
+    // ---- 1) クライアントのmultipart/form-dataからファイル取得 ----
+    const form = await request.formData();
+    const file = form.get("file") as File | null;
 
     if (!file) {
-      return NextResponse.json(
-        { error: "PDFファイルが提供されていません" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "PDFファイルが提供されていません" }, { status: 400 });
     }
 
-    // ファイルタイプの検証
-    if (file.type !== "application/pdf") {
-      return NextResponse.json(
-        { error: "PDFファイルのみアップロード可能です" },
-        { status: 400 }
-      );
+    // ---- 2) PDFチェック（MIME/拡張子）----
+    const filename = (file as any)?.name ?? "uploaded.pdf";
+    const isPdfByMime = file.type === "application/pdf";
+    const isPdfByName = /\.pdf$/i.test(filename);
+    if (!isPdfByMime && !isPdfByName) {
+      return NextResponse.json({ error: "PDFファイルのみアップロード可能です" }, { status: 400 });
     }
 
-    // PDFをバッファに変換
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    // ---- 3) Difyへアップロード（Content-Typeは自動付与に任せる）----
+    const uploadForm = new FormData();
+    uploadForm.append("file", file, filename);
+    uploadForm.append("user", "admin-user"); // 任意
 
-    const extractedText = await extractPdfText(buffer);
-
-    if (!extractedText || extractedText.trim().length < 50) {
-      return NextResponse.json(
-        {
-          error: "PDFからテキストを抽出できませんでした。画像のみのPDFの可能性があります。",
-          abstract: "",
-          summary: "",
-          suggestedTags: []
-        },
-        { status: 400 }
-      );
-    }
-
-    // LangChainでOpenAI APIを使用
-    const model = new ChatOpenAI({
-      modelName: "gpt-3.5-turbo",
-      temperature: 0.3,
-      openAIApiKey: OPENAI_API_KEY,
+    const uploadRes = await fetch(`${DIFY_API_URL}/files/upload`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${DIFY_UPLOAD_KEY}`,
+        // Content-Type は指定しない（boundary 自動付与）
+      },
+      body: uploadForm,
     });
 
-    // 要約生成用のプロンプトテンプレート
-    const summaryPrompt = PromptTemplate.fromTemplate(
-      `以下は学術論文または研究発表の抄録です。この内容を200文字程度の日本語で簡潔に要約してください。
-研究の目的、方法、結果、結論を含めてください。
+    // レスポンステキストを一度だけ読む
+    const uploadText = await uploadRes.text();
+    if (uploadRes.status !== 201) {
+      // ここで throw したら body は既に読了しているのでOK
+      throw new Error(`DIFY file upload error: ${uploadRes.status} - ${uploadText}`);
+    }
 
-抄録:
-{text}
+    // OK時はテキストをJSON.parse
+    let uploadJson: any;
+    try {
+      uploadJson = JSON.parse(uploadText);
+    } catch {
+      throw new Error(`Invalid JSON from Dify upload: ${uploadText}`);
+    }
 
-要約:`
-    );
+    const fileId: string | undefined = uploadJson?.id;
+    if (!fileId) {
+      throw new Error("Failed to get file ID from Dify upload response");
+    }
 
-    // タグ生成用のプロンプトテンプレート
-    const tagsPrompt = PromptTemplate.fromTemplate(
-      `以下は学術論文または研究発表の抄録です。この内容に関連するキーワードを5個程度抽出してください。
-キーワードはカンマ区切りで日本語で出力してください。
-
-抄録:
-{text}
-
-キーワード（カンマ区切り）:`
-    );
-
-    // テキストが長すぎる場合は最初の3000文字に制限
-    const textForAnalysis = extractedText.substring(0, 3000);
-
-    // 要約を生成
-    const summaryChain = summaryPrompt.pipe(model);
-    const summaryResult = await summaryChain.invoke({ text: textForAnalysis });
-    const summary = summaryResult.content.toString();
-
-    // タグを生成
-    const tagsChain = tagsPrompt.pipe(model);
-    const tagsResult = await tagsChain.invoke({ text: textForAnalysis });
-    const tagsText = tagsResult.content.toString();
-
-    // タグをパース（カンマ区切りを配列に変換）
-    const suggestedTagNames = tagsText
-      .split(/[、,]/)
-      .map(tag => tag.trim())
-      .filter(tag => tag.length > 0)
-      .slice(0, 5); // 最大5個
-
-    // レスポンスを返す
-    const response = {
-      abstract: extractedText.substring(0, 2000), // 抄録として最初の2000文字を返す
-      summary: summary,
-      suggestedTagNames: suggestedTagNames, // タグ名の配列
-      confidence: 0.85,
-      extractedTextLength: extractedText.length,
+    // ---- 4) Workflow 実行（input_file は単一 file 型）----
+    const payload = {
+      inputs: {
+        input_file: makeDifyFileInput(fileId), // ← 単一オブジェクト
+      },
+      response_mode: "blocking",
+      user: "admin-user",
     };
 
-    return NextResponse.json(response);
-  } catch (error: any) {
-    console.error("PDF analysis error:", error);
+    const wfRes = await fetch(`${DIFY_API_URL}/workflows/run`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${DIFY_WORKFLOW_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    // ここも body は一度だけ読む
+    const wfText = await wfRes.text();
+
+    if (!wfRes.ok) {
+      // デバッグ用ログ（bodyはすでに文字列で保持）
+      console.error("Dify workflow error body:", wfText);
+      console.error("Dify workflow payload:", JSON.stringify(payload, null, 2));
+      throw new Error(`DIFY API error: ${wfRes.status} - ${wfText}`);
+    }
+
+    let wfJson: any;
+    try {
+      wfJson = JSON.parse(wfText);
+    } catch {
+      throw new Error(`Invalid JSON from Dify workflow: ${wfText}`);
+    }
+
+    // ---- 5) 出力整形 ----
+    const outputs = wfJson?.data?.outputs ?? {};
+    const summary: string = outputs?.ai_summary ?? "";
+    const tagsRaw = outputs?.tags ?? [];
+
+    const suggestedTagNames: string[] = Array.isArray(tagsRaw)
+      ? tagsRaw.map((t: unknown) => String(t).trim()).filter(Boolean)
+      : typeof tagsRaw === "string"
+      ? tagsRaw.split(/[、,]/).map((t) => t.trim()).filter(Boolean)
+      : [];
+
+    return NextResponse.json({
+      abstract: "",
+      summary,
+      suggestedTagNames,
+      confidence: 0.85,
+      difyFileId: fileId,
+      workflowRunId: wfJson?.workflow_run_id ?? null,
+    });
+  } catch (err: any) {
+    console.error("PDF analysis error:", err);
     return NextResponse.json(
       {
-        error: `PDFの解析中にエラーが発生しました: ${error.message}`,
+        error: `PDFの解析中にエラーが発生しました: ${err?.message ?? "Unknown error"}`,
         abstract: "",
         summary: "",
-        suggestedTags: []
+        suggestedTagNames: [],
       },
       { status: 500 }
     );
-  }
-}
-
-async function extractPdfText(buffer: Buffer) {
-  const pdfParse = await import("pdf-parse");
-  const { PDFParse } = pdfParse;
-
-  if (!PDFParse) {
-    throw new Error("PDFParse loader failed to initialize");
-  }
-
-  const parser = new PDFParse({ data: buffer });
-
-  try {
-    const textResult = await parser.getText();
-    return textResult.text ?? "";
-  } finally {
-    await parser.destroy();
   }
 }
