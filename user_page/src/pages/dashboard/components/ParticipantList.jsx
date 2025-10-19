@@ -81,9 +81,6 @@ const ParticipantList = ({
         );
     }
 
-    // participants が undefined の場合に落ちないように配列化
-    const list = Array.isArray(participants) ? participants : [];
-
     if (list.length === 0) {
         return (
             <div className="p-4 text-sm text-muted-foreground">
@@ -121,7 +118,7 @@ const ParticipantList = ({
             </div>
             {filteredParticipants.length === 0 ? (
                 <div className="text-sm text-muted-foreground">
-                    {occupationFilter === 'all' 
+                    {occupationFilter === 'all'
                         ? 'まだ参加者がいません。QRコードを共有して参加登録を促しましょう。'
                         : '選択した職業の参加者がいません。'
                     }
@@ -129,13 +126,13 @@ const ParticipantList = ({
             ) : (
                 <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
                     {filteredParticipants.map(participant => {
-                            const introduction = participant.introduction;
-                            const location = participant.location;
-                            const name = introduction.name;
-                            const affiliation = introduction.affiliation || '所属未設定';
-                            const occupation = introduction.occupation;
-                            const occupationOther = introduction.occupation_other;
-                            const oneLiner = introduction.one_liner || introduction.research_topic || introduction.interests;
+                        const introduction = participant.introduction;
+                        const location = participant.location;
+                        const name = introduction.name;
+                        const affiliation = introduction.affiliation || '所属未設定';
+                        const occupation = introduction.occupation;
+                        const occupationOther = introduction.occupation_other;
+                        const oneLiner = introduction.one_liner || introduction.research_topic || introduction.interests;
 
                         return (
                             <div
