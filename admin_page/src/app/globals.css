@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Color System - matching user_page */
+  --color-border: #e5e7eb; /* gray-200 */
+  --color-input: #f0f4f8; /* blue-tinted-surface */
+  --color-ring: #3b82f6; /* calm-blue */
+  --color-background: #fafbfc; /* near-white */
+  --color-foreground: #374151; /* dark-gray-700 */
+
+  --color-primary: #3b82f6; /* calm-blue */
+  --color-primary-foreground: #ffffff; /* white */
+
+  --color-secondary: #10b981; /* soft-green */
+  --color-secondary-foreground: #ffffff; /* white */
+
+  --color-destructive: #ef4444; /* muted-red */
+  --color-destructive-foreground: #ffffff; /* white */
+
+  --color-muted: #f0f4f8; /* blue-tinted-surface */
+  --color-muted-foreground: #6b7280; /* gray-500 */
+
+  --color-accent: #f59e0b; /* warm-orange */
+  --color-accent-foreground: #ffffff; /* white */
+
+  --color-card: #ffffff; /* white */
+  --color-card-foreground: #374151; /* dark-gray-700 */
+
+  --color-success: #10b981; /* gentle-green */
+  --color-success-foreground: #ffffff; /* white */
+
+  --color-warning: #f59e0b; /* soft-orange */
+  --color-warning-foreground: #ffffff; /* white */
+
+  --color-error: #ef4444; /* muted-red */
+  --color-error-foreground: #ffffff; /* white */
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
