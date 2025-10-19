@@ -13,21 +13,19 @@
 - 続いて`/self-introduction-form`で自己紹介カードを作成し，所属や研究テーマ・興味タグを入力してSupabaseの`introductions`・`tags`テーブルに保存する．
 - ダッシュボード(`/dashboard/:conferenceId`)に進むと，QRコードで現在地を更新しながら会場マップや参加者リスト，興味に合う発表のレコメンドを閲覧でき，現地で話しかけるべき人やブースを瞬時に把握できる．
 
-### 特長
-#### 1. 自己紹介ビルダー（`src/pages/self-introduction-form` / `introductions`・`tags`）
-- 名前・所属・研究テーマ・職種・一言コメント・公開設定を整理でき，`src/hooks/useTags.js`がSupabaseの`tags`テーブルから興味タグを読み込む．
-- 既存レコードがあれば編集モードでprefillし，送信時に`introductions`テーブルへ更新を反映．
-- TailwindベースのUIで必須チェックや120文字上限の一言コメントなど，学会で使いやすいテンプレートを提供．
+### ワークフロー
 
-#### 2. カンファレンス選択と参加者管理（`src/pages/select-conference` / `conferences`・`participants`）
-- Supabaseの`conferences`テーブルから一覧を取得し，必要に応じてパスワード付き学会にもjoinできる設計．
-- Join後は`participants`テーブルに登録され，選択した学会IDでダッシュボード(`/dashboard/:conferenceId`)へリダイレクト．
-- ダッシュボード内の`src/pages/dashboard/components/ParticipantList.jsx`が参加者の自己紹介要約と現在地を表示し，モーダルで詳細確認も可能．
+以下の図に、抄録データの取り回しと要約・タグの保存フローを示します。
 
-#### 3. 現地体験強化ダッシュボード（`src/pages/dashboard/components` / `locations`・RPC）
-- `QrScanButton.jsx`と`src/hooks/useQrScan.js`が会場に設置されたQRコードを読み取り，`locations`と`participant_locations`に現在地履歴を追加．
-- `VenueMap.jsx`が`/public/maps/{conferenceId}.png`などの会場マップと現在位置バッジを重ねて表示し，どこに仲間がいるか一目で把握可能．
-- `RecommendedPresentations.jsx`がSupabase RPC `search_presentations_by_user_interests`を呼び出し，興味タグから`presentations`をレコメンド．`ai_summary`が登録されていればダイジェストを提示する．
+![システム構成とデータフロー](./image.png)
+
+補足説明（図の内容）
+- 管理者ページから抄録データ（PDF/テキスト）を送信し、OpenAI APIで解析します。
+- OpenAI APIは抄録データをもとに要約・タグを生成し、DBに保存されるデータ（抄録データ／要約・タグ）を返します。
+- 管理者ページは生成結果を確認しつつDBへ登録します。ユーザーページはDBから抄録・要約・タグを参照して表示します。
+
+
+
 
 ### 解決出来ること
 - 懇親会前に互いの興味・研究テーマを共有でき，最初の会話までの時間を大幅に短縮できる．
@@ -62,9 +60,3 @@
 #### デバイス
 - スマートフォン／タブレットのカメラ（QRコード読み取り用）
 - ノートPC・タブレット（ダッシュボード閲覧，会場マップ操作）
-
-### 独自技術
-#### ハッカソンで開発した独自機能・技術
-- Supabase RLSを活かしつつ参加者名簿を安全に共有するディレクトリRPC（`DB/migration/012_create_conference_participant_directory_function.sql`）
-- QRコード連動の現在地トラッキングとマップ表示連携（`src/hooks/useQrScan.js`, `src/pages/dashboard/components/VenueMap.jsx`）
-- 興味タグ駆動のプレゼン推薦エンジンとAI要約表示（`src/pages/dashboard/components/RecommendedPresentations.jsx` ほか）
