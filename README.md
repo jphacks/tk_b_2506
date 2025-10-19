@@ -4,7 +4,7 @@
 参加者ページのデモ動画！画像タップでYoutubeに飛びます！
 
 [![SympoLink! 管理者ページデモ](./README_images/admin.png)](./README_images/admin_play.gif)
-管理者ページのデモ動画！
+管理者ページのデモ動画！GIFで載せています！
 
 ## 製品概要
 ### 背景(製品開発のきっかけ，課題等）
