@@ -25,21 +25,34 @@ interface Tag {
   name: string;
 }
 
+interface PresentationFormData {
+  conference_id: string;
+  title: string;
+  abstract: string;
+  presentation_type: "oral" | "poster";
+  location_id: string;
+  presenter_name: string;
+  presenter_affiliation: string;
+  scheduled_at: string;
+  pdf_url: string;
+}
+
 export default function NewPresentationPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   // Form data
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<PresentationFormData>({
     conference_id: "",
     title: "",
     abstract: "",
-    presentation_type: "oral" as "oral" | "poster",
+    presentation_type: "oral",
     location_id: "",
     presenter_name: "",
     presenter_affiliation: "",
     scheduled_at: "",
+    pdf_url: "",
   });
 
   // Data from Supabase
@@ -97,10 +110,11 @@ export default function NewPresentationPage() {
     setError("");
 
     try {
-      // Upload PDF to Supabase Storage
-      const timestamp = new Date().getTime();
-      const filePath = `presentations/${timestamp}_${file.name}`;
-      const { publicUrl } = await db.uploadFile("pdfs", filePath, file);
+      // NOTE: Storage upload is mocked here. Generate a random public URL.
+      const timestamp = Date.now();
+      const random = Math.random().toString(36).slice(2, 10);
+      const sanitizedName = file.name.replace(/[^a-zA-Z0-9_.-]/g, "_");
+      const publicUrl = `https://mock-storage.local/presentations/${timestamp}_${random}_${sanitizedName}`;
 
       // Call AI API to analyze PDF
       const formData = new FormData();
@@ -117,6 +131,10 @@ export default function NewPresentationPage() {
 
       const analysis = await response.json();
 
+      if (analysis.error) {
+        throw new Error(analysis.error);
+      }
+
       // Update form with extracted data
       setFormData((prev) => ({
         ...prev,
@@ -124,7 +142,28 @@ export default function NewPresentationPage() {
         abstract: prev.abstract || analysis.abstract,
       }));
       setAiSummary(analysis.summary);
-      setSuggestedTags(analysis.suggestedTags || []);
+
+      // タグ名からタグIDを検索して設定
+      if (analysis.suggestedTagNames && analysis.suggestedTagNames.length > 0) {
+        const matchedTagIds: string[] = [];
+        analysis.suggestedTagNames.forEach((tagName: string) => {
+          const matchedTag = tags.find(t =>
+            t.name.toLowerCase() === tagName.toLowerCase()
+          );
+          if (matchedTag) {
+            matchedTagIds.push(matchedTag.id);
+          }
+        });
+        setSuggestedTags(matchedTagIds);
+        if (matchedTagIds.length > 0) {
+          setSelectedTags((prev) => {
+            const uniqueTagIds = new Set([...prev, ...matchedTagIds]);
+            return Array.from(uniqueTagIds);
+          });
+        }
+      } else {
+        setSuggestedTags([]);
+      }
     } catch (err) {
       console.error("PDF upload failed:", err);
       setError("PDFのアップロードまたは解析に失敗しました");
@@ -147,15 +186,22 @@ export default function NewPresentationPage() {
 
       // Create presentation
       const presentation = await db.createPresentation({
-        ...formData,
+        conference_id: formData.conference_id,
+        title: formData.title,
+        abstract: formData.abstract || undefined,
+        presentation_type: formData.presentation_type,
+        pdf_url: formData.pdf_url || undefined,
         ai_summary: aiSummary || undefined,
         location_id: formData.location_id || undefined,
+        presenter_name: formData.presenter_name || undefined,
+        presenter_affiliation: formData.presenter_affiliation || undefined,
         scheduled_at: formData.scheduled_at || undefined,
       });
 
       // Add tags if selected
-      if (selectedTags.length > 0) {
-        await db.addPresentationTags(presentation.id, selectedTags);
+      const tagsToAttach = Array.from(new Set([...selectedTags, ...suggestedTags]));
+      if (tagsToAttach.length > 0) {
+        await db.addPresentationTags(presentation.id, tagsToAttach);
       }
 
       // Redirect to presentations list or detail page
