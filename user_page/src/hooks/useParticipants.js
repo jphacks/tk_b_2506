@@ -39,6 +39,9 @@ const fetchParticipants = async (conferenceId, options = {}) => {
         query = query.eq('introduction.occupation', occupation);
     }
 
+    // introductionが存在しない参加者は除外
+    query = query.not('introduction', 'is', null);
+
     query = query.order('registered_at', { ascending: true });
 
     const { data, error } = await query;
