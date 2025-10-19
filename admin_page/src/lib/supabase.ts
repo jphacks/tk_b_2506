@@ -11,6 +11,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Database helper functions
 export const db = {
+  // ========== Conferences ==========
   // Get all conferences
   async getConferences(includeInactive = false) {
     let query = supabase
@@ -27,6 +28,70 @@ export const db = {
     return data ?? [];
   },
 
+  // Get a single conference by ID
+  async getConference(id: string) {
+    const { data, error } = await supabase
+      .from('conferences')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Create a new conference
+  async createConference(conference: {
+    name: string;
+    description?: string;
+    start_date: string;
+    end_date: string;
+    location?: string;
+    is_active?: boolean;
+    join_password?: string;
+  }) {
+    const { data, error } = await supabase
+      .from('conferences')
+      .insert(conference)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Update a conference
+  async updateConference(id: string, updates: Partial<{
+    name: string;
+    description: string;
+    start_date: string;
+    end_date: string;
+    location: string;
+    is_active: boolean;
+    join_password: string;
+  }>) {
+    const { data, error } = await supabase
+      .from('conferences')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Delete a conference
+  async deleteConference(id: string) {
+    const { error } = await supabase
+      .from('conferences')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  },
+
+  // ========== Locations ==========
   // Get all locations for a conference
   async getLocations(conferenceId: string) {
     const { data, error } = await supabase
@@ -39,6 +104,69 @@ export const db = {
     return data ?? [];
   },
 
+  // Get a single location by ID
+  async getLocation(id: string) {
+    const { data, error } = await supabase
+      .from('locations')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Create a new location
+  async createLocation(location: {
+    conference_id: string;
+    name: string;
+    description?: string;
+    qr_code: string;
+    floor?: string;
+    building?: string;
+    location_type?: string;
+  }) {
+    const { data, error } = await supabase
+      .from('locations')
+      .insert(location)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Update a location
+  async updateLocation(id: string, updates: Partial<{
+    name: string;
+    description: string;
+    qr_code: string;
+    floor: string;
+    building: string;
+    location_type: string;
+  }>) {
+    const { data, error } = await supabase
+      .from('locations')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Delete a location
+  async deleteLocation(id: string) {
+    const { error } = await supabase
+      .from('locations')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  },
+
+  // ========== Tags ==========
   // Get all tags
   async getTags() {
     const { data, error } = await supabase
@@ -62,6 +190,7 @@ export const db = {
     return data;
   },
 
+  // ========== Presentations ==========
   // Get presentations for a conference
   async getPresentations(conferenceId: string) {
     const { data, error } = await supabase
@@ -152,6 +281,7 @@ export const db = {
     if (error) throw error;
   },
 
+  // ========== Storage ==========
   // Upload file to storage
   async uploadFile(bucket: string, path: string, file: File) {
     const { data, error } = await supabase.storage

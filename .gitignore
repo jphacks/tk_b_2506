@@ -7,3 +7,11 @@ package-lock.json
 .idea/
 vite.config.*s.*
 .env
+.next/
+
+# Admin page (Next.js)
+admin_page/.next/
+admin_page/out/
+admin_page/node_modules/
+admin_page/.env.local
+admin_page/.env*.local

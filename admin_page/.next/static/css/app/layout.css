@@ -597,6 +597,9 @@ video {
 .max-w-7xl {
   max-width: 80rem;
 }
+.max-w-6xl {
+  max-width: 72rem;
+}
 .flex-1 {
   flex: 1 1 0%;
 }
@@ -645,6 +648,9 @@ video {
 .gap-6 {
   gap: 1.5rem;
 }
+.gap-3 {
+  gap: 0.75rem;
+}
 .space-x-2 > :not([hidden]) ~ :not([hidden]) {
   --tw-space-x-reverse: 0;
   margin-right: calc(0.5rem * var(--tw-space-x-reverse));
@@ -669,6 +675,11 @@ video {
   --tw-space-y-reverse: 0;
   margin-top: calc(1.5rem * calc(1 - var(--tw-space-y-reverse)));
   margin-bottom: calc(1.5rem * var(--tw-space-y-reverse));
+}
+.space-y-3 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-y-reverse: 0;
+  margin-top: calc(0.75rem * calc(1 - var(--tw-space-y-reverse)));
+  margin-bottom: calc(0.75rem * var(--tw-space-y-reverse));
 }
 .whitespace-nowrap {
   white-space: nowrap;
@@ -727,6 +738,9 @@ video {
 .bg-warning {
   background-color: var(--color-warning);
 }
+.bg-muted {
+  background-color: var(--color-muted);
+}
 .p-2 {
   padding: 0.5rem;
 }
@@ -738,6 +752,9 @@ video {
 }
 .p-8 {
   padding: 2rem;
+}
+.p-4 {
+  padding: 1rem;
 }
 .px-2 {
   padding-left: 0.5rem;
@@ -786,6 +803,9 @@ video {
 }
 .text-center {
   text-align: center;
+}
+.font-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 .text-2xl {
   font-size: 1.5rem;
@@ -866,6 +886,9 @@ video {
 }
 .text-warning-foreground {
   color: var(--color-warning-foreground);
+}
+.text-warning {
+  color: var(--color-warning);
 }
 .underline-offset-4 {
   text-underline-offset: 4px;
@@ -1092,6 +1115,10 @@ video {
 }
 
 @media (min-width: 1024px) {
+
+  .lg\:grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 
   .lg\:px-8 {
     padding-left: 2rem;
