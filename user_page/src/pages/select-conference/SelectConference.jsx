@@ -136,12 +136,17 @@ const SelectConferencePage = () => {
         setIsSubmitting(true);
 
         try {
+            const introductions = await db.getUserIntroductions(user.id, {
+                conferenceId: selectedConferenceId
+            });
+            const latestIntroduction = introductions?.[0] || null;
+
             // パスワード検証付きで学会に参加登録
             await db.joinConferenceWithPassword({
                 userId: user.id,
                 conferenceId: selectedConferenceId,
                 password: password.trim(),
-                introductionId: null
+                introductionId: latestIntroduction ? latestIntroduction.id : undefined
             });
 
             setStoredConferenceId(selectedConferenceId);
@@ -152,11 +157,7 @@ const SelectConferencePage = () => {
                 type: 'success'
             });
 
-            // 自己紹介の有無を確認
-            const introductions = await db.getUserIntroductions(user.id, {
-                conferenceId: selectedConferenceId
-            });
-            const hasIntroduction = introductions?.length > 0;
+            const hasIntroduction = Boolean(latestIntroduction);
 
             // 少し待ってから遷移
             setTimeout(() => {
