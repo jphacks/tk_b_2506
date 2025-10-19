@@ -25,6 +25,8 @@ const Dashboard = () => {
         type: 'success'
     });
 
+    const [occupationFilter, setOccupationFilter] = useState('all');
+
     const {
         data: conferences = [],
         isLoading: conferencesLoading,
@@ -43,7 +45,7 @@ const Dashboard = () => {
         isLoading: participantsLoading,
         error: participantsError,
         refetch: refetchParticipants
-    } = useParticipants(conferenceId);
+    } = useParticipants(conferenceId, { occupation: occupationFilter });
 
     const {
         data: recommendedPresentations = [],
@@ -230,6 +232,8 @@ const Dashboard = () => {
                             isLoading={participantsLoading}
                             error={participantsError}
                             onRetry={refetchParticipants}
+                            occupationFilter={occupationFilter}
+                            onOccupationFilterChange={setOccupationFilter}
                         />
                     </div>
                 </div>

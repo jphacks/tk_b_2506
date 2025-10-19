@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 
-const fetchParticipants = async (conferenceId) => {
-    const { data, error } = await supabase
+const fetchParticipants = async (conferenceId, options = {}) => {
+    const { occupation } = options;
+    
+    let query = supabase
         .from('participants')
         .select(`
             id,
@@ -30,8 +32,16 @@ const fetchParticipants = async (conferenceId) => {
                 location_type
             )
         `)
-        .eq('conference_id', conferenceId)
-        .order('registered_at', { ascending: true });
+        .eq('conference_id', conferenceId);
+
+    // occupationフィルタを追加
+    if (occupation && occupation !== 'all') {
+        query = query.eq('introduction.occupation', occupation);
+    }
+
+    query = query.order('registered_at', { ascending: true });
+
+    const { data, error } = await query;
 
     if (error) {
         throw error;
@@ -42,8 +52,8 @@ const fetchParticipants = async (conferenceId) => {
 
 const useParticipants = (conferenceId, options = {}) => {
     return useQuery({
-        queryKey: ['participants', conferenceId],
-        queryFn: () => fetchParticipants(conferenceId),
+        queryKey: ['participants', conferenceId, options.occupation],
+        queryFn: () => fetchParticipants(conferenceId, options),
         enabled: Boolean(conferenceId),
         staleTime: 1000 * 30,
         ...options

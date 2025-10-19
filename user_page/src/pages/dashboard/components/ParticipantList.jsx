@@ -17,9 +17,25 @@ const ParticipantList = ({
     participants,
     isLoading,
     error,
-    onRetry
+    onRetry,
+    occupationFilter,
+    onOccupationFilterChange
 }) => {
     const [selectedParticipant, setSelectedParticipant] = useState(null);
+
+    // occupationの選択肢を定義
+    const occupationOptions = [
+        { value: 'all', label: 'すべて' },
+        { value: '学士課程', label: '学士課程' },
+        { value: '修士課程', label: '修士課程' },
+        { value: '博士課程', label: '博士課程' },
+        { value: 'ポスドク', label: 'ポスドク' },
+        { value: '教員', label: '教員' },
+        { value: '研究者', label: '研究者' },
+        { value: '企業', label: '企業' },
+        { value: 'スタッフ', label: 'スタッフ' },
+        { value: 'その他', label: 'その他' }
+    ];
 
     const handleOpenProfile = (participant) => {
         setSelectedParticipant(participant);
@@ -71,6 +87,23 @@ const ParticipantList = ({
                         {participants?.length || 0} 名がこのカンファレンスに登録しています。
                     </p>
                 </div>
+                <div className="flex items-center gap-2">
+                    <label htmlFor="occupation-filter" className="text-sm text-muted-foreground">
+                        職業で絞り込み:
+                    </label>
+                    <select
+                        id="occupation-filter"
+                        value={occupationFilter}
+                        onChange={(e) => onOccupationFilterChange(e.target.value)}
+                        className="px-3 py-1 text-sm border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    >
+                        {occupationOptions.map(option => (
+                            <option key={option.value} value={option.value}>
+                                {option.label}
+                            </option>
+                        ))}
+                    </select>
+                </div>
             </div>
             {participants?.length === 0 ? (
                 <div className="text-sm text-muted-foreground">
@@ -83,6 +116,8 @@ const ParticipantList = ({
                         const location = participant.location;
                         const name = introduction?.name || '匿名参加者';
                         const affiliation = introduction?.affiliation || '所属未設定';
+                        const occupation = introduction?.occupation;
+                        const occupationOther = introduction?.occupation_other;
                         const oneLiner = introduction?.one_liner || introduction?.research_topic || introduction?.interests;
 
                         return (
@@ -94,6 +129,11 @@ const ParticipantList = ({
                                     <div>
                                         <div className="text-base font-semibold text-foreground">{name}</div>
                                         <div className="text-xs text-muted-foreground mt-1">{affiliation}</div>
+                                        {occupation && (
+                                            <div className="text-xs text-muted-foreground mt-1">
+                                                {occupation === 'その他' && occupationOther ? occupationOther : occupation}
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="flex flex-col items-end gap-2">
                                         <span
