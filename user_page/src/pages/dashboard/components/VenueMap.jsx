@@ -286,20 +286,25 @@ const VenueMap = ({
                         if (location.location_type) detailParts.push(location.location_type);
 
                         return (
-                            <div
+                            <button
                                 key={location.id}
+                                type="button"
+                                onClick={() => {
+                                    console.log('[VenueMap] location list item clicked!', { id: location.id, name: location.name });
+                                    setSelectedLocation(location);
+                                }}
                                 className={cn(
-                                    'border border-border rounded-lg px-3 py-2 text-sm transition-colors',
+                                    'border border-border rounded-lg px-3 py-2 text-sm transition-colors text-left w-full',
                                     currentLocation?.id === location.id
                                         ? 'bg-primary/10 border-primary text-primary'
-                                        : 'bg-background hover:bg-muted/50'
+                                        : 'bg-background hover:bg-muted/50 cursor-pointer'
                                 )}
                             >
                                 <div className="font-medium">{location.name}</div>
                                 {detailParts.length > 0 && (
                                     <div className="text-xs text-muted-foreground mt-1">{detailParts.join(' / ')}</div>
                                 )}
-                            </div>
+                            </button>
                         );
                     })}
                 </div>

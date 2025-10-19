@@ -41,7 +41,7 @@ const RecommendedPresentations = ({
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
                         <Icon name="Sparkles" size={20} color="var(--color-primary)" />
-                        興味のある発表
+                        おすすめの研究者
                     </h2>
                 </div>
                 <div className="text-center py-8 space-y-3">
@@ -63,7 +63,7 @@ const RecommendedPresentations = ({
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
                         <Icon name="Sparkles" size={20} color="var(--color-primary)" />
-                        興味のある発表
+                        おすすめの研究者
                     </h2>
                 </div>
                 <div className="text-center py-8">
@@ -80,7 +80,7 @@ const RecommendedPresentations = ({
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
                         <Icon name="Sparkles" size={20} color="var(--color-primary)" />
-                        興味のある発表
+                        おすすめの研究者
                     </h2>
                 </div>
                 <div className="text-center py-8 space-y-3">
@@ -100,7 +100,7 @@ const RecommendedPresentations = ({
             <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
                     <Icon name="Sparkles" size={20} color="var(--color-primary)" />
-                    興味のある発表
+                    おすすめの研究者
                     <span className="text-sm font-normal text-muted-foreground">
                         ({presentations.length}件)
                     </span>
@@ -165,9 +165,8 @@ const RecommendedPresentations = ({
                         {presentation.ai_summary && (
                             <div className="mb-2">
                                 <p
-                                    className={`text-xs text-muted-foreground ${
-                                        expandedId === presentation.id ? '' : 'line-clamp-2'
-                                    }`}
+                                    className={`text-xs text-muted-foreground ${expandedId === presentation.id ? '' : 'line-clamp-2'
+                                        }`}
                                 >
                                     {presentation.ai_summary}
                                 </p>
