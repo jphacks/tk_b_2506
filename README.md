@@ -1,8 +1,8 @@
 # SympoLink!
 
-[![ユーザーページはこちら](https://support-community.vercel.app/)](https://support-community.vercel.app/)
-
-仮ユーザ
+## ユーザページ（デプロイ済）
+https://support-community.vercel.app/)](https://support-community.vercel.app/
+ユーザ名
 
 - メールアドレス：takosupurinpurin@gmail.com
 - パスワード：123456
@@ -13,6 +13,7 @@
 - パスワード：IPSJ2025 
 
 で使用可能です
+
 
 [![SympoLink! デモ](./README_images/user.png)](https://youtu.be/Uht-3UFvGpU)
 参加者ページのデモ動画！画像タップでYoutubeに飛びます！
