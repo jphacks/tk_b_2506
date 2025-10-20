@@ -1,7 +1,7 @@
 # SympoLink!
 
 ## ユーザページ（デプロイ済）
-https://support-community.vercel.app/)](https://support-community.vercel.app/
+https://support-community.vercel.app/
 
 ### ユーザ名
 
