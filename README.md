@@ -2,9 +2,17 @@
 
 [![ユーザーページはこちら](https://support-community.vercel.app/)](https://support-community.vercel.app/)
 
-メールアドレス：takosupurinpurin@gmail.com
-パスワード：123456
-でログイン可能です
+仮ユーザ
+
+- メールアドレス：takosupurinpurin@gmail.com
+- パスワード：123456
+
+学会
+
+- 学会名：情報処理学会 全国大会 2025
+- パスワード：IPSJ2025 
+
+で使用可能です
 
 [![SympoLink! デモ](./README_images/user.png)](https://youtu.be/Uht-3UFvGpU)
 参加者ページのデモ動画！画像タップでYoutubeに飛びます！
