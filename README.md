@@ -2,6 +2,10 @@
 
 [![ユーザーページはこちら](https://support-community.vercel.app/)](https://support-community.vercel.app/)
 
+メールアドレス：takosupurinpurin@gmail.com
+パスワード：123456
+でログイン可能です
+
 [![SympoLink! デモ](./README_images/user.png)](https://youtu.be/Uht-3UFvGpU)
 参加者ページのデモ動画！画像タップでYoutubeに飛びます！
 
