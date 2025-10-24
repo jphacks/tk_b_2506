@@ -17,7 +17,7 @@ https://support-community.vercel.app/
 
 ## デモ動画
 
-[![SympoLink! デモ](./README_images/user.png)](https://m.youtube.com/watch?v=e0cuqXGakKY&pp=0gcJCR4Bo7VqN5tD)
+[![SympoLink! デモ](./README_images/user.png)](https://youtu.be/e0cuqXGakKY?si=VLCW21rrece_2k47)
 参加者ページのデモ動画！画像タップでYoutubeに飛びます！
 
 [![SympoLink! 管理者ページデモ](./README_images/admin.png)](./README_images/admin_play.gif)
