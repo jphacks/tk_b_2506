@@ -92,7 +92,7 @@ BEGIN
         first_user_id,
         '11111111-1111-1111-1111-111111111111',
         'aa111111-1111-1111-1111-111111111111',
-        (SELECT id FROM public.locations WHERE qr_code = 'QR_IPSJ2025_LOBBY' LIMIT 1)
+        (SELECT id FROM public.locations WHERE conference_id = '11111111-1111-1111-1111-111111111111' AND name = 'ロビー' LIMIT 1)
     ),
 
     -- データベースシンポジウム 2025 の参加者
@@ -101,7 +101,7 @@ BEGIN
         first_user_id,
         '22222222-2222-2222-2222-222222222222',
         'aa222222-2222-2222-2222-222222222222',
-        (SELECT id FROM public.locations WHERE qr_code = 'QR_DBSYM2025_ENTRANCE' LIMIT 1)
+        (SELECT id FROM public.locations WHERE conference_id = '22222222-2222-2222-2222-222222222222' AND name = 'エントランスホール' LIMIT 1)
     ),
 
     -- AI・機械学習フォーラム 2025 の参加者
@@ -110,7 +110,7 @@ BEGIN
         first_user_id,
         '33333333-3333-3333-3333-333333333333',
         'aa111111-1111-1111-1111-111111111111',
-        (SELECT id FROM public.locations WHERE qr_code = 'QR_AIFORUM2025_ENTRANCE' LIMIT 1)
+        (SELECT id FROM public.locations WHERE conference_id = '33333333-3333-3333-3333-333333333333' AND name = 'エントランス' LIMIT 1)
     )
     ON CONFLICT (user_id, conference_id) DO UPDATE SET
         introduction_id = EXCLUDED.introduction_id,
@@ -132,20 +132,20 @@ END $$;
 -- Note: Only creating location history for existing participants
 INSERT INTO public.participant_locations (participant_id, location_id, scanned_at) VALUES
 -- 山田太郎の移動履歴 (bb111111 - 情報処理学会)
-('bb111111-1111-1111-1111-111111111111', (SELECT id FROM public.locations WHERE qr_code = 'QR_IPSJ2025_LOBBY'), '2025-03-15 09:00:00+09'),
-('bb111111-1111-1111-1111-111111111111', (SELECT id FROM public.locations WHERE qr_code = 'QR_IPSJ2025_HALL1'), '2025-03-15 10:00:00+09'),
-('bb111111-1111-1111-1111-111111111111', (SELECT id FROM public.locations WHERE qr_code = 'QR_IPSJ2025_RESTAURANT'), '2025-03-15 12:00:00+09'),
-('bb111111-1111-1111-1111-111111111111', (SELECT id FROM public.locations WHERE qr_code = 'QR_IPSJ2025_POSTER_A'), '2025-03-15 14:00:00+09'),
+('bb111111-1111-1111-1111-111111111111', (SELECT id FROM public.locations WHERE conference_id = '11111111-1111-1111-1111-111111111111' AND name = 'ロビー'), '2025-03-15 09:00:00+09'),
+('bb111111-1111-1111-1111-111111111111', (SELECT id FROM public.locations WHERE conference_id = '11111111-1111-1111-1111-111111111111' AND name = '第1ホール'), '2025-03-15 10:00:00+09'),
+('bb111111-1111-1111-1111-111111111111', (SELECT id FROM public.locations WHERE conference_id = '11111111-1111-1111-1111-111111111111' AND name = 'レストランエリア'), '2025-03-15 12:00:00+09'),
+('bb111111-1111-1111-1111-111111111111', (SELECT id FROM public.locations WHERE conference_id = '11111111-1111-1111-1111-111111111111' AND name = 'ポスターエリアA'), '2025-03-15 14:00:00+09'),
 
 -- 佐藤花子の移動履歴 (bb444444 - データベースシンポジウム)
-('bb444444-4444-4444-4444-444444444444', (SELECT id FROM public.locations WHERE qr_code = 'QR_DBSYM2025_ENTRANCE'), '2025-06-10 09:00:00+09'),
-('bb444444-4444-4444-4444-444444444444', (SELECT id FROM public.locations WHERE qr_code = 'QR_DBSYM2025_ROOM_A'), '2025-06-10 10:00:00+09'),
-('bb444444-4444-4444-4444-444444444444', (SELECT id FROM public.locations WHERE qr_code = 'QR_DBSYM2025_CAFE'), '2025-06-10 12:00:00+09'),
+('bb444444-4444-4444-4444-444444444444', (SELECT id FROM public.locations WHERE conference_id = '22222222-2222-2222-2222-222222222222' AND name = 'エントランスホール'), '2025-06-10 09:00:00+09'),
+('bb444444-4444-4444-4444-444444444444', (SELECT id FROM public.locations WHERE conference_id = '22222222-2222-2222-2222-222222222222' AND name = '国際会議室A'), '2025-06-10 10:00:00+09'),
+('bb444444-4444-4444-4444-444444444444', (SELECT id FROM public.locations WHERE conference_id = '22222222-2222-2222-2222-222222222222' AND name = 'カフェテリア'), '2025-06-10 12:00:00+09'),
 
 -- 山田太郎の移動履歴 (bb555555 - AI・機械学習フォーラム)
-('bb555555-5555-5555-5555-555555555555', (SELECT id FROM public.locations WHERE qr_code = 'QR_AIFORUM2025_ENTRANCE'), '2025-09-20 09:00:00+09'),
-('bb555555-5555-5555-5555-555555555555', (SELECT id FROM public.locations WHERE qr_code = 'QR_AIFORUM2025_MAIN'), '2025-09-20 10:00:00+09'),
-('bb555555-5555-5555-5555-555555555555', (SELECT id FROM public.locations WHERE qr_code = 'QR_AIFORUM2025_SESSION1'), '2025-09-20 13:00:00+09');
+('bb555555-5555-5555-5555-555555555555', (SELECT id FROM public.locations WHERE conference_id = '33333333-3333-3333-3333-333333333333' AND name = 'エントランス'), '2025-09-20 09:00:00+09'),
+('bb555555-5555-5555-5555-555555555555', (SELECT id FROM public.locations WHERE conference_id = '33333333-3333-3333-3333-333333333333' AND name = 'メインホール'), '2025-09-20 10:00:00+09'),
+('bb555555-5555-5555-5555-555555555555', (SELECT id FROM public.locations WHERE conference_id = '33333333-3333-3333-3333-333333333333' AND name = 'セッションルーム1'), '2025-09-20 13:00:00+09');
 
 -- Note: The script above automatically uses the first user from auth.users
 -- If you want to use different users for different participants, you can manually update:
