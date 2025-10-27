@@ -121,7 +121,6 @@ export const db = {
     conference_id: string;
     name: string;
     description?: string;
-    qr_code: string;
     floor?: string;
     building?: string;
     location_type?: string;
@@ -140,7 +139,6 @@ export const db = {
   async updateLocation(id: string, updates: Partial<{
     name: string;
     description: string;
-    qr_code: string;
     floor: string;
     building: string;
     location_type: string;
@@ -286,7 +284,16 @@ export const db = {
   async getMaps(conferenceId: string) {
     const { data, error } = await supabase
       .from('maps')
-      .select('*')
+      .select(`
+        *,
+        location:locations(
+          id,
+          name,
+          floor,
+          building,
+          location_type
+        )
+      `)
       .eq('conference_id', conferenceId)
       .order('created_at', { ascending: false });
 
@@ -309,6 +316,7 @@ export const db = {
   // Create a new map
   async createMap(map: {
     conference_id: string;
+    location_id: string;
     name: string;
     image_path: string;
     image_width: number;
@@ -327,6 +335,7 @@ export const db = {
 
   // Update a map
   async updateMap(id: string, updates: Partial<{
+    location_id: string | null;
     name: string;
     image_path: string;
     image_width: number;
@@ -359,10 +368,7 @@ export const db = {
   async getMapRegions(mapId: string) {
     const { data, error } = await supabase
       .from('map_regions')
-      .select(`
-        *,
-        location:locations(id, name)
-      `)
+      .select('*')
       .eq('map_id', mapId)
       .order('z_index', { ascending: false });
 
@@ -373,7 +379,6 @@ export const db = {
   // Create a new map region
   async createMapRegion(region: {
     map_id: string;
-    location_id: string;
     qr_code?: string;
     label?: string;
     shape_type: 'polygon' | 'rect' | 'circle';
@@ -393,7 +398,6 @@ export const db = {
 
   // Update a map region
   async updateMapRegion(id: string, updates: Partial<{
-    location_id: string;
     qr_code: string;
     label: string;
     shape_type: 'polygon' | 'rect' | 'circle';

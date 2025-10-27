@@ -16,20 +16,52 @@ const useQrScan = ({ conferenceId, onSuccess, onError } = {}) => {
                 throw new Error('カンファレンス情報が見つかりません。');
             }
 
-            const { data: location, error: locationError } = await supabase
-                .from('locations')
-                .select('id, name')
-                .eq('conference_id', conferenceId)
+            const { data: region, error: regionError } = await supabase
+                .from('map_regions')
+                .select(`
+                    id,
+                    qr_code,
+                    is_active,
+                    map_id
+                `)
                 .eq('qr_code', qrValue)
+                .eq('is_active', true)
                 .maybeSingle();
 
-            if (locationError) {
-                throw locationError;
+            if (regionError) {
+                throw regionError;
             }
 
-            if (!location) {
-                throw new Error('このQRコードに対応する会場が見つかりませんでした。');
+            if (!region?.map_id) {
+                throw new Error('このQRコードに対応するマップが見つかりませんでした。');
             }
+
+            const { data: map, error: mapError } = await supabase
+                .from('maps')
+                .select(`
+                    id,
+                    conference_id,
+                    is_active,
+                    location_id,
+                    location:locations(id, name)
+                `)
+                .eq('id', region.map_id)
+                .eq('conference_id', conferenceId)
+                .eq('is_active', true)
+                .maybeSingle();
+
+            if (mapError) {
+                throw mapError;
+            }
+
+            if (!map?.location_id || !map.location) {
+                throw new Error('このQRコードに紐づく場所情報が取得できませんでした。');
+            }
+
+            const location = {
+                id: map.location.id,
+                name: map.location.name
+            };
 
             const { data: participant, error: participantError } = await supabase
                 .from('participants')

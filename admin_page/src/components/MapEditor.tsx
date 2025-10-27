@@ -3,11 +3,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/Button";
 
-interface Location {
-  id: string;
-  name: string;
-}
-
 interface Point {
   x: number;
   y: number;
@@ -32,8 +27,6 @@ export interface PolygonCoords {
 
 export interface MapRegion {
   id?: string;
-  location_id: string;
-  location_name?: string;
   qr_code?: string;
   label: string;
   shape_type: "rect" | "circle" | "polygon";
@@ -46,7 +39,7 @@ interface MapEditorProps {
   imageUrl: string;
   imageWidth: number;
   imageHeight: number;
-  locations: Location[];
+  locationName?: string;
   existingRegions: MapRegion[];
   onSaveRegion: (region: Omit<MapRegion, "id">) => Promise<void>;
   onDeleteRegion: (regionId: string) => Promise<void>;
@@ -56,13 +49,12 @@ export function MapEditor({
   imageUrl,
   imageWidth,
   imageHeight,
-  locations,
+  locationName,
   existingRegions,
   onSaveRegion,
   onDeleteRegion,
 }: MapEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [selectedLocation, setSelectedLocation] = useState<string>("");
   const [selectedQrCode, setSelectedQrCode] = useState<string>("");
   const [customLabel, setCustomLabel] = useState<string>("");
   const [shapeType, setShapeType] = useState<"rect" | "circle" | "polygon">("rect");
@@ -87,9 +79,7 @@ export function MapEditor({
 
   // Update navigation message based on drawing state
   useEffect(() => {
-    if (!selectedLocation) {
-      setNavigationMessage("場所を選択してください");
-    } else if (shapeType === "rect" || shapeType === "circle") {
+    if (shapeType === "rect" || shapeType === "circle") {
       if (!startPoint) {
         setNavigationMessage(
           shapeType === "rect"
@@ -112,7 +102,7 @@ export function MapEditor({
         );
       }
     }
-  }, [selectedLocation, shapeType, startPoint, currentPoints]);
+  }, [shapeType, startPoint, currentPoints]);
 
   // Redraw canvas when regions or hover state changes
   useEffect(() => {
@@ -227,7 +217,7 @@ export function MapEditor({
       ctx.strokeRect(x, y, width, height);
 
       // Draw label (prioritize custom label, fallback to location name)
-      const displayLabel = region.label || region.location_name;
+      const displayLabel = region.label;
       if (displayLabel) {
         ctx.fillStyle = "white";
         ctx.font = "14px sans-serif";
@@ -245,7 +235,7 @@ export function MapEditor({
       ctx.stroke();
 
       // Draw label (prioritize custom label, fallback to location name)
-      const displayLabel = region.label || region.location_name;
+      const displayLabel = region.label;
       if (displayLabel) {
         ctx.fillStyle = "white";
         ctx.font = "14px sans-serif";
@@ -264,7 +254,7 @@ export function MapEditor({
         ctx.stroke();
 
         // Draw label at first point (prioritize custom label, fallback to location name)
-        const displayLabel = region.label || region.location_name;
+        const displayLabel = region.label;
         if (displayLabel) {
           ctx.fillStyle = "white";
           ctx.font = "14px sans-serif";
@@ -295,11 +285,6 @@ export function MapEditor({
   };
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!selectedLocation) {
-      alert("場所を選択してください");
-      return;
-    }
-
     const { x, y } = getCanvasCoordinates(e);
 
     if (shapeType === "polygon") {
@@ -374,7 +359,7 @@ export function MapEditor({
   };
 
   const finishDrawingWithEndPoint = (endPoint: Point) => {
-    if (!selectedLocation || !startPoint) {
+    if (!startPoint) {
       resetDrawing();
       return;
     }
@@ -431,7 +416,6 @@ export function MapEditor({
     }
 
     const region: Omit<MapRegion, "id"> = {
-      location_id: selectedLocation,
       qr_code: selectedQrCode || undefined,
       label: customLabel,
       shape_type: shapeType,
@@ -445,11 +429,6 @@ export function MapEditor({
   };
 
   const finishPolygon = () => {
-    if (!selectedLocation) {
-      resetDrawing();
-      return;
-    }
-
     if (currentPoints.length < 3) {
       alert("多角形は最低3点が必要です");
       return;
@@ -470,7 +449,6 @@ export function MapEditor({
     }));
 
     const region: Omit<MapRegion, "id"> = {
-      location_id: selectedLocation,
       qr_code: selectedQrCode || undefined,
       label: customLabel,
       shape_type: "polygon",
@@ -498,23 +476,17 @@ export function MapEditor({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-foreground mb-2">
-            場所を選択
+            対象場所
           </label>
-          <select
-            value={selectedLocation}
-            onChange={(e) => setSelectedLocation(e.target.value)}
-            className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:ring-2 focus:ring-ring focus:ring-offset-2"
-          >
-            <option value="">-- 場所を選択 --</option>
-            {locations.map((location) => (
-              <option key={location.id} value={location.id}>
-                {location.name}
-              </option>
-            ))}
-          </select>
+          <div className="px-3 py-2 border border-input rounded-md bg-muted/30 text-sm text-foreground">
+            {locationName ? locationName : "場所が紐づいていません"}
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            マップは単一の場所に紐づきます。場所を変更するにはマップを編集してください。
+          </p>
         </div>
 
         <div>
@@ -633,7 +605,7 @@ export function MapEditor({
               >
                 <div className="flex-1">
                   <p className="text-sm font-medium text-foreground">
-                    {region.label || region.location_name || "ラベル未設定"}
+                    {region.label || "ラベル未設定"}
                   </p>
                   <div className="flex items-center gap-2 mt-1">
                     <p className="text-xs text-muted-foreground">

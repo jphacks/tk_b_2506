@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Header from '../../components/ui/Header';
 import Toast from '../../components/ui/Toast';
@@ -7,6 +7,7 @@ import useLocations from '../../hooks/useLocations';
 import useParticipants from '../../hooks/useParticipants';
 import useConferences from '../../hooks/useConferences';
 import useRecommendedPresentations from '../../hooks/useRecommendedPresentations';
+import useConferenceMap from '../../hooks/useConferenceMap';
 import Button from '../../components/ui/Button';
 import QrScanButton from './components/QrScanButton';
 import VenueMap from './components/VenueMap';
@@ -39,6 +40,33 @@ const Dashboard = () => {
         error: locationsError,
         refetch: refetchLocations
     } = useLocations(conferenceId);
+
+    const {
+        data: maps = [],
+        isLoading: mapsLoading,
+        error: mapsError,
+        refetch: refetchMaps
+    } = useConferenceMap(conferenceId);
+
+    const [selectedMapId, setSelectedMapId] = useState(null);
+    const [hasUserSelectedMap, setHasUserSelectedMap] = useState(false);
+
+    const mapsByLocationId = useMemo(() => {
+        const dictionary = {};
+        maps.forEach((map) => {
+            if (map.locationId) {
+                dictionary[map.locationId] = map;
+            }
+        });
+        return dictionary;
+    }, [maps]);
+
+    const selectedMap = useMemo(() => {
+        if (!selectedMapId) {
+            return null;
+        }
+        return maps.find((map) => map.id === selectedMapId) || null;
+    }, [maps, selectedMapId]);
 
     const {
         data: participants = [],
@@ -92,6 +120,62 @@ const Dashboard = () => {
 
         return locations.find(location => location.id === currentParticipant.current_location_id) || null;
     }, [currentParticipant, locations]);
+
+    useEffect(() => {
+        if (maps.length === 0) {
+            if (selectedMapId !== null) {
+                setSelectedMapId(null);
+            }
+            if (hasUserSelectedMap) {
+                setHasUserSelectedMap(false);
+            }
+            return;
+        }
+
+        if (selectedMapId && maps.some((map) => map.id === selectedMapId)) {
+            return;
+        }
+
+        const fallbackMapId = (() => {
+            if (currentLocation) {
+                const mapForCurrent = mapsByLocationId[currentLocation.id];
+                if (mapForCurrent) {
+                    return mapForCurrent.id;
+                }
+            }
+            return maps[0]?.id ?? null;
+        })();
+
+        if (fallbackMapId !== selectedMapId) {
+            setSelectedMapId(fallbackMapId);
+            setHasUserSelectedMap(false);
+        }
+    }, [maps, mapsByLocationId, currentLocation, selectedMapId, hasUserSelectedMap]);
+
+    useEffect(() => {
+        if (!currentLocation) {
+            return;
+        }
+        const mapForLocation = mapsByLocationId[currentLocation.id];
+        if (!mapForLocation) {
+            return;
+        }
+        if (mapForLocation.id === selectedMapId) {
+            return;
+        }
+        if (hasUserSelectedMap) {
+            return;
+        }
+        setSelectedMapId(mapForLocation.id);
+    }, [currentLocation, mapsByLocationId, selectedMapId, hasUserSelectedMap]);
+
+    const handleSelectMap = (mapId) => {
+        if (!mapId || mapId === selectedMapId) {
+            return;
+        }
+        setSelectedMapId(mapId);
+        setHasUserSelectedMap(true);
+    };
 
     const handleScanSuccess = (data) => {
         refetchParticipants();
@@ -219,11 +303,19 @@ const Dashboard = () => {
                     <div className="order-3 xl:order-2">
                         <VenueMap
                             conferenceId={conferenceId}
+                            mapData={selectedMap}
+                            maps={maps}
+                            mapsByLocationId={mapsByLocationId}
+                            onSelectMap={handleSelectMap}
                             locations={locations}
                             currentLocation={currentLocation}
-                            isLoading={locationsLoading}
-                            error={locationsError}
-                            onRetry={refetchLocations}
+                            isLoading={locationsLoading || mapsLoading}
+                            locationError={locationsError}
+                            mapError={mapsError}
+                            onRetry={() => {
+                                refetchLocations();
+                                refetchMaps();
+                            }}
                         />
                     </div>
                     <div className="order-2 xl:order-3">

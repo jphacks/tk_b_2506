@@ -14,7 +14,7 @@ INSERT INTO public.presentations (id, conference_id, title, abstract, pdf_url, a
     'https://example.com/papers/transformer_summary.pdf',
     'Transformerを用いた日本語文書要約手法を提案。既存手法よりROUGE-Lスコアで15%向上。長文技術文書で特に有効。',
     'oral',
-    (SELECT id FROM public.locations WHERE qr_code = 'QR_IPSJ2025_HALL1' LIMIT 1),
+    (SELECT id FROM public.locations WHERE conference_id = '11111111-1111-1111-1111-111111111111' AND name = '第1ホール' LIMIT 1),
     '山田太郎',
     '東京大学',
     '2025-03-15 10:00:00+09'
@@ -27,7 +27,7 @@ INSERT INTO public.presentations (id, conference_id, title, abstract, pdf_url, a
     'https://example.com/papers/gnn_social.pdf',
     'GNNを用いたソーシャルネットワーク分析手法。影響力ノード検出精度が20%向上。リアルタイム処理も実現。',
     'oral',
-    (SELECT id FROM public.locations WHERE qr_code = 'QR_IPSJ2025_HALL2' LIMIT 1),
+    (SELECT id FROM public.locations WHERE conference_id = '11111111-1111-1111-1111-111111111111' AND name = '第2ホール' LIMIT 1),
     '佐藤花子',
     '京都大学',
     '2025-03-15 11:00:00+09'
@@ -40,7 +40,7 @@ INSERT INTO public.presentations (id, conference_id, title, abstract, pdf_url, a
     'https://example.com/papers/edge_ml.pdf',
     'エッジでの分散機械学習フレームワークを提案。通信コスト60%削減、精度維持を達成。',
     'poster',
-    (SELECT id FROM public.locations WHERE qr_code = 'QR_IPSJ2025_POSTER_A' LIMIT 1),
+    (SELECT id FROM public.locations WHERE conference_id = '11111111-1111-1111-1111-111111111111' AND name = 'ポスターエリアA' LIMIT 1),
     '鈴木一郎',
     '大阪大学',
     '2025-03-16 14:00:00+09'
@@ -53,7 +53,7 @@ INSERT INTO public.presentations (id, conference_id, title, abstract, pdf_url, a
     'https://example.com/papers/blockchain_data.pdf',
     'ブロックチェーンによる分散型データ共有システム。プライバシー保護とアクセス制御を両立。',
     'poster',
-    (SELECT id FROM public.locations WHERE qr_code = 'QR_IPSJ2025_POSTER_A' LIMIT 1),
+    (SELECT id FROM public.locations WHERE conference_id = '11111111-1111-1111-1111-111111111111' AND name = 'ポスターエリアA' LIMIT 1),
     '田中美咲',
     '慶應義塾大学',
     '2025-03-16 14:00:00+09'
@@ -68,7 +68,7 @@ INSERT INTO public.presentations (id, conference_id, title, abstract, pdf_url, a
     'https://example.com/papers/timeseries_db.pdf',
     '時系列DBのクエリ最適化。インデックスとアルゴリズム改良で応答時間40%短縮。',
     'oral',
-    (SELECT id FROM public.locations WHERE qr_code = 'QR_DBSYM2025_ROOM_A' LIMIT 1),
+    (SELECT id FROM public.locations WHERE conference_id = '22222222-2222-2222-2222-222222222222' AND name = '国際会議室A' LIMIT 1),
     '高橋健',
     '東北大学',
     '2025-06-10 13:00:00+09'
@@ -81,7 +81,7 @@ INSERT INTO public.presentations (id, conference_id, title, abstract, pdf_url, a
     'https://example.com/papers/nosql_transaction.pdf',
     'NoSQLでのACID保証とスループット向上を両立するトランザクション管理手法。',
     'poster',
-    (SELECT id FROM public.locations WHERE qr_code = 'QR_DBSYM2025_POSTER' LIMIT 1),
+    (SELECT id FROM public.locations WHERE conference_id = '22222222-2222-2222-2222-222222222222' AND name = 'ポスターホール' LIMIT 1),
     '渡辺真由',
     '名古屋大学',
     '2025-06-11 15:00:00+09'
@@ -96,7 +96,7 @@ INSERT INTO public.presentations (id, conference_id, title, abstract, pdf_url, a
     'https://example.com/papers/xai_medical.pdf',
     '説明可能AIを用いた医療診断支援。判断根拠の可視化で医師の理解と診断精度が向上。',
     'oral',
-    (SELECT id FROM public.locations WHERE qr_code = 'QR_AIFORUM2025_MAIN' LIMIT 1),
+    (SELECT id FROM public.locations WHERE conference_id = '33333333-3333-3333-3333-333333333333' AND name = 'メインホール' LIMIT 1),
     '伊藤誠',
     '北海道大学',
     '2025-09-20 10:30:00+09'
@@ -109,7 +109,7 @@ INSERT INTO public.presentations (id, conference_id, title, abstract, pdf_url, a
     'https://example.com/papers/rl_autonomous.pdf',
     '深層強化学習による自動運転制御。シミュレーションで安全性と効率性を検証。',
     'oral',
-    (SELECT id FROM public.locations WHERE qr_code = 'QR_AIFORUM2025_SESSION1' LIMIT 1),
+    (SELECT id FROM public.locations WHERE conference_id = '33333333-3333-3333-3333-333333333333' AND name = 'セッションルーム1' LIMIT 1),
     '中村裕子',
     '九州大学',
     '2025-09-20 14:00:00+09'
@@ -122,7 +122,7 @@ INSERT INTO public.presentations (id, conference_id, title, abstract, pdf_url, a
     'https://example.com/papers/fewshot_classification.pdf',
     'Few-shot学習で少量データから高精度分類。医療画像や希少物体で有効性を実証。',
     'poster',
-    (SELECT id FROM public.locations WHERE qr_code = 'QR_AIFORUM2025_POSTER' LIMIT 1),
+    (SELECT id FROM public.locations WHERE conference_id = '33333333-3333-3333-3333-333333333333' AND name = 'ポスター展示場' LIMIT 1),
     '小林修',
     '早稲田大学',
     '2025-09-21 13:00:00+09'
@@ -135,7 +135,7 @@ INSERT INTO public.presentations (id, conference_id, title, abstract, pdf_url, a
     'https://example.com/papers/multimodal_video.pdf',
     'マルチモーダル学習で動画理解を高度化。映像・音声・テキストの統合処理で高性能。',
     'poster',
-    (SELECT id FROM public.locations WHERE qr_code = 'QR_AIFORUM2025_POSTER' LIMIT 1),
+    (SELECT id FROM public.locations WHERE conference_id = '33333333-3333-3333-3333-333333333333' AND name = 'ポスター展示場' LIMIT 1),
     '木村あゆみ',
     '筑波大学',
     '2025-09-21 13:00:00+09'
