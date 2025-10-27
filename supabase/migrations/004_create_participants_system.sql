@@ -27,20 +27,20 @@ CREATE TABLE IF NOT EXISTS public.participant_locations (
     scanned_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-create table if not exists public.participant_meet_requests (
-  id uuid primary key default gen_random_uuid(),
+-- Create participant_meet_requests table for managing meeting requests between participants
+CREATE TABLE IF NOT EXISTS public.participant_meet_requests (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    conference_id UUID REFERENCES public.conferences(id) ON DELETE CASCADE NOT NULL,
+    from_participant_id UUID REFERENCES public.participants(id) ON DELETE CASCADE NOT NULL,
+    to_participant_id UUID REFERENCES public.participants(id) ON DELETE CASCADE NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    message TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
 
-  conference_id uuid not null references public.conferences(id) on delete cascade,
-  from_participant_id uuid not null references public.participants(id) on delete cascade,
-  to_participant_id   uuid not null references public.participants(id) on delete cascade,
-
-  status varchar not null check (status in ('pending','accepted','declined','cancelled')),
-  message text,                        -- 任意メッセージ（空可）
-  created_at timestamptz default now(),
-  updated_at timestamptz default now(),
-
-  constraint meet_req_pair_unique unique (conference_id, from_participant_id, to_participant_id),
-  constraint meet_req_self_check check (from_participant_id <> to_participant_id)
+    CONSTRAINT check_meet_req_status CHECK (status IN ('pending', 'accepted', 'declined', 'cancelled')),
+    CONSTRAINT check_meet_req_self CHECK (from_participant_id != to_participant_id),
+    UNIQUE(conference_id, from_participant_id, to_participant_id)
 );
 
 -- ============================================
@@ -73,6 +73,12 @@ ON public.participant_locations(participant_id, scanned_at DESC);
 -- Create trigger for participants updated_at
 CREATE TRIGGER update_participants_updated_at
     BEFORE UPDATE ON public.participants
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Create trigger for participant_meet_requests updated_at
+CREATE TRIGGER update_participant_meet_requests_updated_at
+    BEFORE UPDATE ON public.participant_meet_requests
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
