@@ -43,6 +43,40 @@ CREATE TABLE IF NOT EXISTS public.locations (
     UNIQUE(conference_id, qr_code)
 );
 
+-- Create maps table for storing conference venue maps
+CREATE TABLE IF NOT EXISTS public.maps (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    conference_id UUID REFERENCES public.conferences(id) ON DELETE CASCADE NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    image_path TEXT NOT NULL,
+    image_width INTEGER NOT NULL,
+    image_height INTEGER NOT NULL,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+
+    CONSTRAINT check_map_name_not_empty CHECK (LENGTH(TRIM(name)) > 0),
+    CONSTRAINT check_image_width_positive CHECK (image_width > 0),
+    CONSTRAINT check_image_height_positive CHECK (image_height > 0)
+);
+
+-- Create map_regions table for defining clickable regions on maps
+CREATE TABLE IF NOT EXISTS public.map_regions (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    map_id UUID REFERENCES public.maps(id) ON DELETE CASCADE NOT NULL,
+    location_id UUID REFERENCES public.locations(id) ON DELETE CASCADE NOT NULL,
+    label VARCHAR(255),
+    shape_type VARCHAR(50) NOT NULL,
+    coords JSONB NOT NULL,
+    z_index INTEGER DEFAULT 0,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+
+    CONSTRAINT check_shape_type CHECK (shape_type IN ('polygon', 'rect', 'circle')),
+    CONSTRAINT check_coords_is_object CHECK (jsonb_typeof(coords) = 'object')
+);
+
 -- ============================================
 -- Indexes
 -- ============================================
@@ -58,6 +92,15 @@ CREATE INDEX IF NOT EXISTS idx_locations_conference ON public.locations(conferen
 CREATE INDEX IF NOT EXISTS idx_locations_qr ON public.locations(qr_code);
 CREATE INDEX IF NOT EXISTS idx_locations_type ON public.locations(location_type);
 
+-- Indexes for maps
+CREATE INDEX IF NOT EXISTS idx_maps_conference ON public.maps(conference_id);
+CREATE INDEX IF NOT EXISTS idx_maps_active ON public.maps(is_active);
+
+-- Indexes for map_regions
+CREATE INDEX IF NOT EXISTS idx_map_regions_map ON public.map_regions(map_id);
+CREATE INDEX IF NOT EXISTS idx_map_regions_location ON public.map_regions(location_id);
+CREATE INDEX IF NOT EXISTS idx_map_regions_active ON public.map_regions(is_active);
+
 -- ============================================
 -- Triggers
 -- ============================================
@@ -65,6 +108,18 @@ CREATE INDEX IF NOT EXISTS idx_locations_type ON public.locations(location_type)
 -- Create trigger for conferences updated_at
 CREATE TRIGGER update_conferences_updated_at
     BEFORE UPDATE ON public.conferences
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Create trigger for maps updated_at
+CREATE TRIGGER update_maps_updated_at
+    BEFORE UPDATE ON public.maps
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Create trigger for map_regions updated_at
+CREATE TRIGGER update_map_regions_updated_at
+    BEFORE UPDATE ON public.map_regions
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
