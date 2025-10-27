@@ -347,6 +347,7 @@ export default function ConferenceDetailPage() {
       await db.createMapRegion({
         map_id: selectedMap.id,
         location_id: region.location_id,
+        qr_code: region.qr_code || undefined,
         label: region.label || undefined,
         shape_type: region.shape_type,
         coords: region.coords,
