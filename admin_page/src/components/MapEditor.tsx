@@ -66,9 +66,11 @@ export function MapEditor({
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentPoints, setCurrentPoints] = useState<Point[]>([]);
   const [startPoint, setStartPoint] = useState<Point | null>(null);
+  const [currentMousePos, setCurrentMousePos] = useState<Point | null>(null);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [scale, setScale] = useState(1);
   const [hoveredRegion, setHoveredRegion] = useState<string | null>(null);
+  const [navigationMessage, setNavigationMessage] = useState<string>("");
 
   // Load image
   useEffect(() => {
@@ -80,12 +82,41 @@ export function MapEditor({
     };
   }, [imageUrl]);
 
+  // Update navigation message based on drawing state
+  useEffect(() => {
+    if (!selectedLocation) {
+      setNavigationMessage("場所を選択してください");
+    } else if (shapeType === "rect" || shapeType === "circle") {
+      if (!startPoint) {
+        setNavigationMessage(
+          shapeType === "rect"
+            ? "矩形の始点をクリックしてください"
+            : "円の中心をクリックしてください"
+        );
+      } else {
+        setNavigationMessage(
+          shapeType === "rect"
+            ? "矩形の終点をクリックしてください"
+            : "円の外周をクリックしてください"
+        );
+      }
+    } else if (shapeType === "polygon") {
+      if (currentPoints.length === 0) {
+        setNavigationMessage("多角形の頂点をクリックしてください（最低3点）");
+      } else {
+        setNavigationMessage(
+          `多角形の頂点を追加 (現在${currentPoints.length}点) または「多角形を完成」ボタンをクリック`
+        );
+      }
+    }
+  }, [selectedLocation, shapeType, startPoint, currentPoints]);
+
   // Redraw canvas when regions or hover state changes
   useEffect(() => {
     if (image) {
       drawCanvas(image);
     }
-  }, [existingRegions, hoveredRegion, currentPoints, startPoint, image]);
+  }, [existingRegions, hoveredRegion, currentPoints, startPoint, currentMousePos, image]);
 
   const drawCanvas = (img: HTMLImageElement) => {
     const canvas = canvasRef.current;
@@ -111,27 +142,40 @@ export function MapEditor({
       drawRegion(ctx, region, scaleX, scaleY, isHovered);
     });
 
-    // Draw current drawing
-    if (shapeType === "rect" && startPoint && currentPoints.length > 0) {
-      const endPoint = currentPoints[0];
+    // Draw current drawing preview
+    if (shapeType === "rect" && startPoint) {
+      const endPoint = currentMousePos || startPoint;
       ctx.strokeStyle = "rgba(59, 130, 246, 0.8)";
+      ctx.fillStyle = "rgba(59, 130, 246, 0.2)";
       ctx.lineWidth = 2;
-      ctx.strokeRect(
-        startPoint.x,
-        startPoint.y,
-        endPoint.x - startPoint.x,
-        endPoint.y - startPoint.y
-      );
-    } else if (shapeType === "circle" && startPoint && currentPoints.length > 0) {
-      const endPoint = currentPoints[0];
+      const width = endPoint.x - startPoint.x;
+      const height = endPoint.y - startPoint.y;
+      ctx.fillRect(startPoint.x, startPoint.y, width, height);
+      ctx.strokeRect(startPoint.x, startPoint.y, width, height);
+
+      // Draw start point marker
+      ctx.fillStyle = "rgba(59, 130, 246, 1)";
+      ctx.beginPath();
+      ctx.arc(startPoint.x, startPoint.y, 5, 0, 2 * Math.PI);
+      ctx.fill();
+    } else if (shapeType === "circle" && startPoint) {
+      const endPoint = currentMousePos || startPoint;
       const radius = Math.sqrt(
         Math.pow(endPoint.x - startPoint.x, 2) + Math.pow(endPoint.y - startPoint.y, 2)
       );
       ctx.strokeStyle = "rgba(59, 130, 246, 0.8)";
+      ctx.fillStyle = "rgba(59, 130, 246, 0.2)";
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(startPoint.x, startPoint.y, radius, 0, 2 * Math.PI);
+      ctx.fill();
       ctx.stroke();
+
+      // Draw center point marker
+      ctx.fillStyle = "rgba(59, 130, 246, 1)";
+      ctx.beginPath();
+      ctx.arc(startPoint.x, startPoint.y, 5, 0, 2 * Math.PI);
+      ctx.fill();
     } else if (shapeType === "polygon" && currentPoints.length > 0) {
       ctx.strokeStyle = "rgba(59, 130, 246, 0.8)";
       ctx.fillStyle = "rgba(59, 130, 246, 0.2)";
@@ -255,11 +299,14 @@ export function MapEditor({
     if (shapeType === "polygon") {
       // Add point to polygon
       setCurrentPoints([...currentPoints, { x, y }]);
-    } else {
-      // Start drawing rect or circle (only if not already drawing)
-      if (!isDrawing) {
+    } else if (shapeType === "rect" || shapeType === "circle") {
+      // First click: set start point
+      if (!startPoint) {
         setStartPoint({ x, y });
         setIsDrawing(true);
+      } else {
+        // Second click: set end point and finish drawing
+        finishDrawingWithEndPoint({ x, y });
       }
     }
   };
@@ -270,8 +317,9 @@ export function MapEditor({
 
     const { x, y } = getCanvasCoordinates(e);
 
-    if (isDrawing && startPoint) {
-      setCurrentPoints([{ x, y }]);
+    // Update preview when drawing rect or circle
+    if (startPoint && (shapeType === "rect" || shapeType === "circle")) {
+      setCurrentMousePos({ x, y });
     }
 
     // Check if hovering over existing region
@@ -319,17 +367,8 @@ export function MapEditor({
     return false;
   };
 
-  const handleCanvasMouseUp = () => {
-    // Only finish drawing for rect and circle (not polygon)
-    if (shapeType === "polygon") return;
-
-    if (!isDrawing || !startPoint || currentPoints.length === 0) return;
-
-    finishDrawing();
-  };
-
-  const finishDrawing = () => {
-    if (!selectedLocation) {
+  const finishDrawingWithEndPoint = (endPoint: Point) => {
+    if (!selectedLocation || !startPoint) {
       resetDrawing();
       return;
     }
@@ -345,13 +384,13 @@ export function MapEditor({
 
     let coords: RectCoords | CircleCoords | PolygonCoords;
 
-    if (shapeType === "rect" && startPoint && currentPoints.length > 0) {
-      const endPoint = currentPoints[0];
+    if (shapeType === "rect") {
       const width = Math.abs(endPoint.x - startPoint.x);
       const height = Math.abs(endPoint.y - startPoint.y);
 
       // 最小サイズチェック（10ピクセル未満は無視）
       if (width < 10 || height < 10) {
+        alert("矩形が小さすぎます。もう一度描画してください。");
         resetDrawing();
         return;
       }
@@ -362,8 +401,7 @@ export function MapEditor({
       const finalHeight = height / scaleY;
 
       coords = { x, y, width: finalWidth, height: finalHeight };
-    } else if (shapeType === "circle" && startPoint && currentPoints.length > 0) {
-      const endPoint = currentPoints[0];
+    } else if (shapeType === "circle") {
       const radius = Math.sqrt(
         Math.pow(endPoint.x - startPoint.x, 2) +
           Math.pow(endPoint.y - startPoint.y, 2)
@@ -371,6 +409,7 @@ export function MapEditor({
 
       // 最小サイズチェック（半径10ピクセル未満は無視）
       if (radius < 10) {
+        alert("円が小さすぎます。もう一度描画してください。");
         resetDrawing();
         return;
       }
@@ -380,12 +419,6 @@ export function MapEditor({
       const r = radius / scaleX;
 
       coords = { cx, cy, r };
-    } else if (shapeType === "polygon" && currentPoints.length >= 3) {
-      const points = currentPoints.map((p) => ({
-        x: p.x / scaleX,
-        y: p.y / scaleY,
-      }));
-      coords = { points };
     } else {
       resetDrawing();
       return;
@@ -405,18 +438,50 @@ export function MapEditor({
     resetDrawing();
   };
 
-  const resetDrawing = () => {
-    setIsDrawing(false);
-    setStartPoint(null);
-    setCurrentPoints([]);
-  };
+  const finishPolygon = () => {
+    if (!selectedLocation) {
+      resetDrawing();
+      return;
+    }
 
-  const handleFinishPolygon = () => {
     if (currentPoints.length < 3) {
       alert("多角形は最低3点が必要です");
       return;
     }
-    finishDrawing();
+
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      resetDrawing();
+      return;
+    }
+
+    const scaleX = canvas.width / imageWidth;
+    const scaleY = canvas.height / imageHeight;
+
+    const points = currentPoints.map((p) => ({
+      x: p.x / scaleX,
+      y: p.y / scaleY,
+    }));
+
+    const location = locations.find((l) => l.id === selectedLocation);
+    const region: Omit<MapRegion, "id"> = {
+      location_id: selectedLocation,
+      label: location?.name || "",
+      shape_type: "polygon",
+      coords: { points },
+      z_index: 1,
+      is_active: true,
+    };
+
+    onSaveRegion(region);
+    resetDrawing();
+  };
+
+  const resetDrawing = () => {
+    setIsDrawing(false);
+    setStartPoint(null);
+    setCurrentPoints([]);
+    setCurrentMousePos(null);
   };
 
   const handleCancelDrawing = () => {
@@ -463,29 +528,28 @@ export function MapEditor({
         </div>
       </div>
 
-      <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md">
-        <p className="font-medium mb-1">使い方:</p>
-        {shapeType === "rect" && (
-          <p>・ドラッグして矩形を描画してください</p>
-        )}
-        {shapeType === "circle" && (
-          <p>・中心から外側にドラッグして円を描画してください</p>
-        )}
-        {shapeType === "polygon" && (
-          <>
-            <p>・クリックして頂点を追加してください（最低3点）</p>
-            <p>・完了したら「多角形を完成」ボタンをクリックしてください</p>
-          </>
-        )}
+      <div className="text-sm bg-primary/10 text-primary border border-primary/30 p-3 rounded-md">
+        <p className="font-medium flex items-center gap-2">
+          <span className="text-lg">→</span>
+          {navigationMessage}
+        </p>
       </div>
 
       {shapeType === "polygon" && currentPoints.length > 0 && (
         <div className="flex gap-2">
-          <Button onClick={handleFinishPolygon} size="sm">
+          <Button onClick={finishPolygon} size="sm">
             多角形を完成 ({currentPoints.length}点)
           </Button>
           <Button onClick={handleCancelDrawing} size="sm" variant="outline">
             キャンセル
+          </Button>
+        </div>
+      )}
+
+      {(startPoint && (shapeType === "rect" || shapeType === "circle")) && (
+        <div className="flex gap-2">
+          <Button onClick={handleCancelDrawing} size="sm" variant="outline">
+            描画をキャンセル
           </Button>
         </div>
       )}
@@ -497,7 +561,6 @@ export function MapEditor({
           height={(800 * imageHeight) / imageWidth}
           onClick={handleCanvasClick}
           onMouseMove={handleCanvasMouseMove}
-          onMouseUp={handleCanvasMouseUp}
           className="w-full cursor-crosshair"
           style={{ maxWidth: "100%" }}
         />
