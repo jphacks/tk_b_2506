@@ -34,6 +34,7 @@ export interface MapRegion {
   id?: string;
   location_id: string;
   location_name?: string;
+  qr_code?: string;
   label: string;
   shape_type: "rect" | "circle" | "polygon";
   coords: RectCoords | CircleCoords | PolygonCoords | Record<string, any>;
@@ -62,6 +63,7 @@ export function MapEditor({
 }: MapEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [selectedLocation, setSelectedLocation] = useState<string>("");
+  const [selectedQrCode, setSelectedQrCode] = useState<string>("");
   const [customLabel, setCustomLabel] = useState<string>("");
   const [shapeType, setShapeType] = useState<"rect" | "circle" | "polygon">("rect");
   const [isDrawing, setIsDrawing] = useState(false);
@@ -430,6 +432,7 @@ export function MapEditor({
 
     const region: Omit<MapRegion, "id"> = {
       location_id: selectedLocation,
+      qr_code: selectedQrCode || undefined,
       label: customLabel,
       shape_type: shapeType,
       coords,
@@ -468,6 +471,7 @@ export function MapEditor({
 
     const region: Omit<MapRegion, "id"> = {
       location_id: selectedLocation,
+      qr_code: selectedQrCode || undefined,
       label: customLabel,
       shape_type: "polygon",
       coords: { points },
@@ -484,6 +488,7 @@ export function MapEditor({
     setStartPoint(null);
     setCurrentPoints([]);
     setCurrentMousePos(null);
+    setSelectedQrCode("");
     setCustomLabel("");
   };
 
@@ -532,20 +537,43 @@ export function MapEditor({
 
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-2">
-          場所ラベル
-        </label>
-        <input
-          type="text"
-          value={customLabel}
-          onChange={(e) => setCustomLabel(e.target.value)}
-          placeholder="マップ上に表示するラベル"
-          className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:ring-2 focus:ring-ring focus:ring-offset-2"
-        />
-        <p className="mt-1 text-xs text-muted-foreground">
-          マップ上に表示されるラベル文字列を入力してください（例: 「テーブル1」「テーブル2」）
-        </p>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-2">
+            QRコード（オプション）
+          </label>
+          <select
+            value={selectedQrCode}
+            onChange={(e) => setSelectedQrCode(e.target.value)}
+            className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          >
+            <option value="">-- QRコードなし --</option>
+            {Array.from({ length: 10 }, (_, i) => i + 1).map((num) => (
+              <option key={`desk-${num}`} value={`desk-${num}`}>
+                desk-{num}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-muted-foreground">
+            この領域に割り当てるQRコード
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-2">
+            場所ラベル
+          </label>
+          <input
+            type="text"
+            value={customLabel}
+            onChange={(e) => setCustomLabel(e.target.value)}
+            placeholder="マップ上に表示するラベル"
+            className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            マップ上に表示されるラベル（例: 「テーブル1」）
+          </p>
+        </div>
       </div>
 
       <div className="text-sm bg-primary/10 text-primary border border-primary/30 p-3 rounded-md">
@@ -605,13 +633,20 @@ export function MapEditor({
               >
                 <div className="flex-1">
                   <p className="text-sm font-medium text-foreground">
-                    {region.location_name || "場所未設定"}
+                    {region.label || region.location_name || "ラベル未設定"}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    {region.shape_type === "rect" && "矩形"}
-                    {region.shape_type === "circle" && "円形"}
-                    {region.shape_type === "polygon" && "多角形"}
-                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-xs text-muted-foreground">
+                      {region.shape_type === "rect" && "矩形"}
+                      {region.shape_type === "circle" && "円形"}
+                      {region.shape_type === "polygon" && "多角形"}
+                    </p>
+                    {region.qr_code && (
+                      <span className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded">
+                        {region.qr_code}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <Button
                   variant="ghost"

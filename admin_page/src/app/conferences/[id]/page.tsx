@@ -44,6 +44,7 @@ interface MapRegion {
   id: string;
   map_id: string;
   location_id: string;
+  qr_code?: string;
   label: string;
   shape_type: 'polygon' | 'rect' | 'circle';
   coords: Record<string, any>;
@@ -839,6 +840,7 @@ export default function ConferenceDetailPage() {
                     id: region.id,
                     location_id: region.location_id,
                     location_name: region.location?.name,
+                    qr_code: region.qr_code,
                     label: region.label || "",
                     shape_type: region.shape_type,
                     coords: region.coords as any,

@@ -374,6 +374,7 @@ export const db = {
   async createMapRegion(region: {
     map_id: string;
     location_id: string;
+    qr_code?: string;
     label?: string;
     shape_type: 'polygon' | 'rect' | 'circle';
     coords: Record<string, any>;
@@ -393,6 +394,7 @@ export const db = {
   // Update a map region
   async updateMapRegion(id: string, updates: Partial<{
     location_id: string;
+    qr_code: string;
     label: string;
     shape_type: 'polygon' | 'rect' | 'circle';
     coords: Record<string, any>;
