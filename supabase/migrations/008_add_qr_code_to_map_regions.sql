@@ -16,9 +16,18 @@ ADD COLUMN IF NOT EXISTS qr_code VARCHAR(255);
 CREATE INDEX IF NOT EXISTS idx_map_regions_qr_code ON public.map_regions(qr_code);
 
 -- Add check constraint for qr_code in map_regions
-ALTER TABLE public.map_regions
-ADD CONSTRAINT IF NOT EXISTS check_map_region_qr_code_not_empty
-CHECK (qr_code IS NULL OR LENGTH(TRIM(qr_code)) > 0);
+-- Note: Need to check if constraint exists first, then add it
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'check_map_region_qr_code_not_empty'
+  ) THEN
+    ALTER TABLE public.map_regions
+    ADD CONSTRAINT check_map_region_qr_code_not_empty
+    CHECK (qr_code IS NULL OR LENGTH(TRIM(qr_code)) > 0);
+  END IF;
+END $$;
 
 -- ============================================
 -- Remove qr_code from locations table
