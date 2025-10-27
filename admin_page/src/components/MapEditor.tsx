@@ -62,6 +62,7 @@ export function MapEditor({
 }: MapEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [selectedLocation, setSelectedLocation] = useState<string>("");
+  const [customLabel, setCustomLabel] = useState<string>("");
   const [shapeType, setShapeType] = useState<"rect" | "circle" | "polygon">("rect");
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentPoints, setCurrentPoints] = useState<Point[]>([]);
@@ -223,11 +224,12 @@ export function MapEditor({
       ctx.fillRect(x, y, width, height);
       ctx.strokeRect(x, y, width, height);
 
-      // Draw label
-      if (region.location_name) {
+      // Draw label (prioritize custom label, fallback to location name)
+      const displayLabel = region.label || region.location_name;
+      if (displayLabel) {
         ctx.fillStyle = "white";
         ctx.font = "14px sans-serif";
-        ctx.fillText(region.location_name, x + 5, y + 20);
+        ctx.fillText(displayLabel, x + 5, y + 20);
       }
     } else if (region.shape_type === "circle") {
       const coords = region.coords as CircleCoords;
@@ -240,11 +242,12 @@ export function MapEditor({
       ctx.fill();
       ctx.stroke();
 
-      // Draw label
-      if (region.location_name) {
+      // Draw label (prioritize custom label, fallback to location name)
+      const displayLabel = region.label || region.location_name;
+      if (displayLabel) {
         ctx.fillStyle = "white";
         ctx.font = "14px sans-serif";
-        ctx.fillText(region.location_name, cx - 30, cy);
+        ctx.fillText(displayLabel, cx - 30, cy);
       }
     } else if (region.shape_type === "polygon") {
       const coords = region.coords as PolygonCoords;
@@ -258,12 +261,13 @@ export function MapEditor({
         ctx.fill();
         ctx.stroke();
 
-        // Draw label at first point
-        if (region.location_name) {
+        // Draw label at first point (prioritize custom label, fallback to location name)
+        const displayLabel = region.label || region.location_name;
+        if (displayLabel) {
           ctx.fillStyle = "white";
           ctx.font = "14px sans-serif";
           ctx.fillText(
-            region.location_name,
+            displayLabel,
             coords.points[0].x * scaleX + 5,
             coords.points[0].y * scaleY + 20
           );
@@ -424,10 +428,9 @@ export function MapEditor({
       return;
     }
 
-    const location = locations.find((l) => l.id === selectedLocation);
     const region: Omit<MapRegion, "id"> = {
       location_id: selectedLocation,
-      label: location?.name || "",
+      label: customLabel,
       shape_type: shapeType,
       coords,
       z_index: 1,
@@ -463,10 +466,9 @@ export function MapEditor({
       y: p.y / scaleY,
     }));
 
-    const location = locations.find((l) => l.id === selectedLocation);
     const region: Omit<MapRegion, "id"> = {
       location_id: selectedLocation,
-      label: location?.name || "",
+      label: customLabel,
       shape_type: "polygon",
       coords: { points },
       z_index: 1,
@@ -482,6 +484,7 @@ export function MapEditor({
     setStartPoint(null);
     setCurrentPoints([]);
     setCurrentMousePos(null);
+    setCustomLabel("");
   };
 
   const handleCancelDrawing = () => {
@@ -526,6 +529,23 @@ export function MapEditor({
             <option value="polygon">多角形</option>
           </select>
         </div>
+
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">
+          場所ラベル
+        </label>
+        <input
+          type="text"
+          value={customLabel}
+          onChange={(e) => setCustomLabel(e.target.value)}
+          placeholder="マップ上に表示するラベル"
+          className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:ring-2 focus:ring-ring focus:ring-offset-2"
+        />
+        <p className="mt-1 text-xs text-muted-foreground">
+          マップ上に表示されるラベル文字列を入力してください（例: 「テーブル1」「テーブル2」）
+        </p>
       </div>
 
       <div className="text-sm bg-primary/10 text-primary border border-primary/30 p-3 rounded-md">
