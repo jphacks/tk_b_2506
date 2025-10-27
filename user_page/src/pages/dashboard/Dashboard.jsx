@@ -7,6 +7,7 @@ import useLocations from '../../hooks/useLocations';
 import useParticipants from '../../hooks/useParticipants';
 import useConferences from '../../hooks/useConferences';
 import useRecommendedPresentations from '../../hooks/useRecommendedPresentations';
+import useConferenceMap from '../../hooks/useConferenceMap';
 import Button from '../../components/ui/Button';
 import QrScanButton from './components/QrScanButton';
 import VenueMap from './components/VenueMap';
@@ -39,6 +40,13 @@ const Dashboard = () => {
         error: locationsError,
         refetch: refetchLocations
     } = useLocations(conferenceId);
+
+    const {
+        data: mapData = null,
+        isLoading: mapLoading,
+        error: mapError,
+        refetch: refetchMap
+    } = useConferenceMap(conferenceId);
 
     const {
         data: participants = [],
@@ -219,11 +227,16 @@ const Dashboard = () => {
                     <div className="order-3 xl:order-2">
                         <VenueMap
                             conferenceId={conferenceId}
+                            mapData={mapData}
                             locations={locations}
                             currentLocation={currentLocation}
-                            isLoading={locationsLoading}
-                            error={locationsError}
-                            onRetry={refetchLocations}
+                            isLoading={locationsLoading || mapLoading}
+                            locationError={locationsError}
+                            mapError={mapError}
+                            onRetry={() => {
+                                refetchLocations();
+                                refetchMap();
+                            }}
                         />
                     </div>
                     <div className="order-2 xl:order-3">

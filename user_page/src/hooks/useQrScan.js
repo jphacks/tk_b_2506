@@ -16,20 +16,49 @@ const useQrScan = ({ conferenceId, onSuccess, onError } = {}) => {
                 throw new Error('カンファレンス情報が見つかりません。');
             }
 
-            const { data: location, error: locationError } = await supabase
-                .from('locations')
-                .select('id, name')
+            const { data: map, error: mapError } = await supabase
+                .from('maps')
+                .select('id')
                 .eq('conference_id', conferenceId)
-                .eq('qr_code', qrValue)
+                .eq('is_active', true)
+                .order('created_at', { ascending: false })
+                .limit(1)
                 .maybeSingle();
 
-            if (locationError) {
-                throw locationError;
+            if (mapError) {
+                throw mapError;
             }
 
-            if (!location) {
+            if (!map?.id) {
+                throw new Error('この学会には有効な会場マップが登録されていません。');
+            }
+
+            const { data: region, error: regionError } = await supabase
+                .from('map_regions')
+                .select(`
+                    id,
+                    location_id,
+                    qr_code,
+                    is_active,
+                    location:locations(id, name)
+                `)
+                .eq('map_id', map.id)
+                .eq('qr_code', qrValue)
+                .eq('is_active', true)
+                .maybeSingle();
+
+            if (regionError) {
+                throw regionError;
+            }
+
+            if (!region?.location) {
                 throw new Error('このQRコードに対応する会場が見つかりませんでした。');
             }
+
+            const location = {
+                id: region.location.id,
+                name: region.location.name
+            };
 
             const { data: participant, error: participantError } = await supabase
                 .from('participants')

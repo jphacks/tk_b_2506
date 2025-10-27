@@ -1,149 +1,119 @@
 import Button from 'components/ui/Button';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { cn } from 'utils/cn';
 import ParticipantList from './ParticipantList';
 import ParticipantProfileModal from './ParticipantProfileModal';
 
-const DEFAULT_MAP_WIDTH = 0.23;
-const DEFAULT_MAP_HEIGHT = 0.30;
-const MAP_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp'];
+const DEFAULT_ASPECT_RATIO = '16 / 9';
+
+const getRegionLabel = (region) => region?.label || region?.location?.name || '未設定領域';
+
+const createRegionShape = (region, { isHighlighted, isSelected }) => {
+    if (!region?.coords) {
+        return null;
+    }
+
+    const baseFill = isSelected ? 'rgba(59,130,246,0.35)' : isHighlighted ? 'rgba(59,130,246,0.22)' : 'rgba(59,130,246,0.12)';
+    const strokeColor = isSelected ? 'rgba(59,130,246,0.9)' : 'rgba(59,130,246,0.45)';
+
+    const common = {
+        fill: baseFill,
+        stroke: strokeColor,
+        strokeWidth: 2
+    };
+
+    if (region.shapeType === 'rect') {
+        const { x, y, width, height } = region.coords;
+        if ([x, y, width, height].some((value) => typeof value !== 'number')) {
+            return null;
+        }
+        return <rect x={x} y={y} width={width} height={height} rx={8} ry={8} {...common} />;
+    }
+
+    if (region.shapeType === 'circle') {
+        const { cx, cy, r } = region.coords;
+        if ([cx, cy, r].some((value) => typeof value !== 'number')) {
+            return null;
+        }
+        return <circle cx={cx} cy={cy} r={r} {...common} />;
+    }
+
+    if (region.shapeType === 'polygon' && Array.isArray(region.coords.points)) {
+        const pointsAttr = region.coords.points
+            .map((point) => {
+                const x = Number(point.x);
+                const y = Number(point.y);
+                if (!Number.isFinite(x) || !Number.isFinite(y)) {
+                    return null;
+                }
+                return `${x},${y}`;
+            })
+            .filter(Boolean)
+            .join(' ');
+
+        if (!pointsAttr) {
+            return null;
+        }
+
+        return <polygon points={pointsAttr} {...common} />;
+    }
+
+    return null;
+};
 
 const VenueMap = ({
     conferenceId,
+    mapData,
     locations = [],
     currentLocation = null,
     isLoading = false,
-    error = null,
+    locationError = null,
+    mapError = null,
     onRetry = null
 }) => {
-    const [mapSource, setMapSource] = useState(null);
     const [selectedLocation, setSelectedLocation] = useState(null);
     const [selectedParticipant, setSelectedParticipant] = useState(null);
 
-    // detect available map image (conference-specific then fallback to /maps/map.<ext>)
-    useEffect(() => {
-        let cancelled = false;
-        setMapSource(null);
-        if (!conferenceId) return;
+    const regions = useMemo(() => mapData?.regions ?? [], [mapData]);
+    const regionByLocationId = useMemo(() => {
+        return new Map(regions.map((region) => [region.locationId, region]));
+    }, [regions]);
 
-        const tryLoad = (src) =>
-            new Promise((resolve, reject) => {
-                const img = new Image();
-                img.onload = () => resolve(src);
-                img.onerror = () => reject(new Error('not found'));
-                img.src = src;
-            });
+    const highlightedLocationId = selectedLocation?.id ?? currentLocation?.id ?? null;
 
-        (async () => {
-            const candidates = [];
-            for (const ext of MAP_EXTENSIONS) {
-                candidates.push(`/maps/${conferenceId}.${ext}`);
-            }
-            for (const ext of MAP_EXTENSIONS) {
-                candidates.push(`/maps/map.${ext}`);
-            }
+    const hasValidDimensions = Number.isFinite(mapData?.imageWidth) && Number.isFinite(mapData?.imageHeight) && mapData.imageWidth > 0 && mapData.imageHeight > 0;
+    const aspectRatio = hasValidDimensions
+        ? `${mapData.imageWidth} / ${mapData.imageHeight}`
+        : DEFAULT_ASPECT_RATIO;
+    const hasMapImage = Boolean(mapData?.imageUrl && hasValidDimensions);
 
-            for (const c of candidates) {
-                if (cancelled) return;
-                try {
-                    await tryLoad(c);
-                    if (cancelled) return;
-                    setMapSource(c);
-                    return;
-                } catch {
-                    // try next
-                }
-            }
-            if (!cancelled) setMapSource(null);
-        })();
-
-        return () => {
-            cancelled = true;
-        };
-    }, [conferenceId]);
-
-    // normalize incoming location objects: accept map_x/map_y or x/y/left/top etc.
-    const normalizedLocations = useMemo(() => {
-        if (!Array.isArray(locations)) return [];
-
-        const getNum = (obj, ...keys) => {
-            for (const k of keys) {
-                if (obj == null) continue;
-                const v = obj[k];
-                if (v == null) continue;
-                const n = Number(v);
-                if (Number.isFinite(n)) return n;
-            }
-            return null;
-        };
-
-        const processed = locations.map((l) => {
-            const map_x = getNum(l, 'map_x', 'x', 'left');
-            const map_y = getNum(l, 'map_y', 'y', 'top');
-            const map_width = getNum(l, 'map_width', 'width', 'w') ?? null;
-            const map_height = getNum(l, 'map_height', 'height', 'h') ?? null;
-            const normalized = {
-                ...l,
-                map_x: Number.isFinite(map_x) ? map_x : null,
-                map_y: Number.isFinite(map_y) ? map_y : null,
-                map_width: Number.isFinite(map_width) ? map_width : null,
-                map_height: Number.isFinite(map_height) ? map_height : null
-            };
-            const willFilter = !(typeof normalized.map_x === 'number' && typeof normalized.map_y === 'number');
-            return { original: l, normalized, willFilter };
-        });
-
-        // debug log items
-        try {
-            console.log('[VenueMap][normalize] processing locations:', locations.length);
-            processed.forEach((p, idx) => {
-                console.log(`[VenueMap][normalize] item ${idx}:`, {
-                    original: p.original,
-                    normalized: { map_x: p.normalized.map_x, map_y: p.normalized.map_y },
-                    willFilter: p.willFilter
-                });
-            });
-        } catch (e) {
-            /* ignore stringify errors */
+    const handleRegionSelect = (region) => {
+        if (!region?.location) {
+            return;
         }
-
-        const filtered = processed
-            .filter((p) => !p.willFilter)
-            .map((p) => p.normalized);
-
-        // log filtered out ones for debugging
-        processed.forEach((p) => {
-            if (p.willFilter) {
-                console.log('[VenueMap][normalize] filtered out:', p.original.name || p.original.id, {
-                    map_x: p.normalized.map_x,
-                    map_y: p.normalized.map_y
-                });
-            }
+        setSelectedLocation({
+            ...region.location,
+            qrCode: region.qrCode ?? null,
+            mapRegionId: region.id,
+            mapLabel: region.label ?? null
         });
+    };
 
-        console.log('[VenueMap][normalize] final count:', filtered.length);
-        return filtered;
-    }, [locations]);
-
-    // export normalized array for quick console inspection
-    useEffect(() => {
-        try {
-            window.__normalizedLocations = normalizedLocations;
-            console.log('[VenueMap][debug] exported window.__normalizedLocations ->', normalizedLocations.length);
-            setTimeout(() => {
-                const desks = Array.from(document.querySelectorAll('button.venue-desk'));
-                console.log('[VenueMap][debug] DOM venue-desk count ->', desks.length);
-                console.log('[VenueMap][debug] venue-desk rects ->', desks.map((d) => d.getBoundingClientRect()));
-            }, 300);
-        } catch (e) {
-            console.warn('[VenueMap][debug] export failed', e);
+    const handleLocationSelect = (location) => {
+        if (!location) {
+            return;
         }
-        return () => {
-            try {
-                delete window.__normalizedLocations;
-            } catch (e) { }
-        };
-    }, [normalizedLocations]);
+        const region = regionByLocationId.get(location.id);
+        setSelectedLocation(region
+            ? {
+                ...location,
+                qrCode: region.qrCode ?? null,
+                mapRegionId: region.id,
+                mapLabel: region.label ?? null
+            }
+            : location
+        );
+    };
 
     const handleOpenProfile = (participant) => {
         setSelectedParticipant(participant);
@@ -153,16 +123,54 @@ const VenueMap = ({
         setSelectedParticipant(null);
     };
 
+    const handleCloseLocationModal = () => {
+        setSelectedLocation(null);
+    };
+
+    const renderRegion = (region) => {
+        const isSelected = highlightedLocationId != null && highlightedLocationId === region.locationId && !!selectedLocation;
+        const isHighlighted = highlightedLocationId != null && highlightedLocationId === region.locationId && !selectedLocation;
+
+        const shape = createRegionShape(region, { isHighlighted, isSelected });
+        if (!shape) {
+            return null;
+        }
+
+        const label = getRegionLabel(region);
+        const ariaLabel = region.qrCode ? `${label} (QR: ${region.qrCode})` : label;
+
+        return (
+            <g
+                key={region.id}
+                tabIndex={0}
+                role="button"
+                className="cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
+                onClick={() => handleRegionSelect(region)}
+                onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        handleRegionSelect(region);
+                    }
+                }}
+            >
+                <title>{ariaLabel}</title>
+                {shape}
+            </g>
+        );
+    };
+
     return (
         <div className="bg-card border border-border rounded-xl shadow-soft p-6 flex flex-col gap-6">
             <div>
                 <h2 className="text-lg font-semibold text-foreground">会場マップ</h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                    QRスキャンで更新された現在地を元にマップ上で位置を確認できます。
+                    QRコードと紐づいた領域をタップして、会場内の場所と参加者を確認できます。
                 </p>
-                {error && (
+                {(mapError || locationError) && (
                     <div className="mt-3 text-sm text-error flex flex-col gap-2">
-                        会場情報を取得できませんでした: {error.message}
+                        <span>会場情報を取得できませんでした。</span>
+                        {mapError && <span>マップ: {mapError.message}</span>}
+                        {locationError && <span>場所: {locationError.message}</span>}
                         {onRetry && (
                             <div>
                                 <Button variant="secondary" size="xs" onClick={onRetry}>
@@ -175,20 +183,27 @@ const VenueMap = ({
             </div>
 
             <div
-                className="relative w-full bg-muted border border-border rounded-lg overflow-hidden aspect-video"
-                style={{ position: 'relative' }}
+                className="relative w-full bg-muted border border-border rounded-lg overflow-hidden"
+                style={{ position: 'relative', aspectRatio }}
             >
-                {mapSource ? (
-                    <img
-                        src={mapSource}
-                        alt={`Conference ${conferenceId} map`}
-                        className="w-full h-full object-cover absolute inset-0"
-                        onError={() => {
-                            /* handled by detection effect */
-                        }}
-                        style={{ pointerEvents: 'none', zIndex: 0 }}
-                        aria-hidden="true"
-                    />
+                {hasMapImage ? (
+                    <>
+                        <img
+                            src={mapData.imageUrl}
+                            alt={mapData.name || `Conference ${conferenceId} map`}
+                            className="w-full h-full object-cover absolute inset-0"
+                            style={{ pointerEvents: 'none', zIndex: 0 }}
+                            aria-hidden="true"
+                        />
+                        <svg
+                            className="absolute inset-0 w-full h-full"
+                            viewBox={`0 0 ${mapData.imageWidth} ${mapData.imageHeight}`}
+                            preserveAspectRatio="xMidYMid meet"
+                            style={{ zIndex: 10 }}
+                        >
+                            {regions.map(renderRegion)}
+                        </svg>
+                    </>
                 ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center text-center px-6 text-sm text-muted-foreground">
                         利用可能な会場マップが見つかりませんでした。管理者にお問い合わせください。
@@ -206,111 +221,91 @@ const VenueMap = ({
                         </div>
                     </div>
                 )}
-
-                {/* desk markers (map_x/map_y are left/top fractions 0..1, stored as left/top basis) */}
-                {normalizedLocations.map((loc) => {
-                    const left = `${(loc.map_x * 100).toFixed(4)}%`;
-                    const top = `${(loc.map_y * 100).toFixed(4)}%`;
-                    const w = typeof loc.map_width === 'number' ? loc.map_width : DEFAULT_MAP_WIDTH;
-                    const h = typeof loc.map_height === 'number' ? loc.map_height : DEFAULT_MAP_HEIGHT;
-                    const width = `${(w * 100).toFixed(2)}%`;
-                    const height = `${(h * 100).toFixed(2)}%`;
-
-                    return (
-                        <button
-                            key={loc.id}
-                            type="button"
-                            aria-label={loc.name}
-                            onClick={() => {
-                                console.log('[VenueMap] desk clicked!', { id: loc.id, name: loc.name });
-                                setSelectedLocation(loc);
-                            }}
-                            className="venue-desk absolute rounded-sm cursor-pointer"
-                            style={{
-                                left,
-                                top,
-                                width,
-                                height,
-                                zIndex: 9999,
-                                pointerEvents: 'auto',
-                                background: 'transparent',
-                                border: 'none',
-                                boxShadow: 'none',
-                                padding: 0,
-                                margin: 0
-                            }}
-                        >
-                            {/* 視覚的なラベルは表示しない。アクセシビリティのため aria-label を使用 */}
-                        </button>
-                    );
-                })}
-
-                {selectedLocation && (
-                    <div
-                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-                        onClick={() => setSelectedLocation(null)}
-                    >
-                        <div className="bg-card rounded-lg shadow-lg w-[90%] max-w-2xl p-4" onClick={(e) => e.stopPropagation()}>
-                            <div className="mb-3">
-                                <h3 className="text-lg font-semibold">参加者 - {selectedLocation.name}</h3>
-                            </div>
-                            <div className="max-h-[60vh] overflow-y-auto mb-4">
-                                <ParticipantList
-                                    conferenceId={conferenceId}
-                                    locationId={selectedLocation.id}
-                                    onOpenProfile={handleOpenProfile}
-                                />
-                            </div>
-                            <div>
-                                <Button
-                                    variant="secondary"
-                                    onClick={() => setSelectedLocation(null)}
-                                    fullWidth
-                                >
-                                    閉じる
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-                )}
             </div>
 
             <div>
-                <h3 className="text-sm font-semibold text-foreground mb-2">机一覧</h3>
+                <h3 className="text-sm font-semibold text-foreground mb-2">会場一覧</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
                     {locations.length === 0 && (
                         <div className="text-sm text-muted-foreground">会場情報がまだ登録されていません。</div>
                     )}
                     {locations.map((location) => {
+                        const region = regionByLocationId.get(location.id);
+                        const isActive = selectedLocation?.id === location.id;
+                        const isCurrent = !selectedLocation && currentLocation?.id === location.id;
+
                         const detailParts = [];
                         if (location.building) detailParts.push(location.building);
                         if (location.floor) detailParts.push(`${location.floor}F`);
                         if (location.location_type) detailParts.push(location.location_type);
+                        if (region?.qrCode) detailParts.push(`QR: ${region.qrCode}`);
 
                         return (
                             <button
                                 key={location.id}
                                 type="button"
-                                onClick={() => {
-                                    console.log('[VenueMap] location list item clicked!', { id: location.id, name: location.name });
-                                    setSelectedLocation(location);
-                                }}
+                                onClick={() => handleLocationSelect(location)}
                                 className={cn(
                                     'border border-border rounded-lg px-3 py-2 text-sm transition-colors text-left w-full',
-                                    currentLocation?.id === location.id
+                                    isActive
                                         ? 'bg-primary/10 border-primary text-primary'
-                                        : 'bg-background hover:bg-muted/50 cursor-pointer'
+                                        : isCurrent
+                                            ? 'bg-primary/5 border-primary/40 text-primary'
+                                            : 'bg-background hover:bg-muted/50 cursor-pointer'
                                 )}
                             >
                                 <div className="font-medium">{location.name}</div>
                                 {detailParts.length > 0 && (
-                                    <div className="text-xs text-muted-foreground mt-1">{detailParts.join(' / ')}</div>
+                                    <div className="text-xs text-muted-foreground mt-1">
+                                        {detailParts.join(' / ')}
+                                    </div>
                                 )}
                             </button>
                         );
                     })}
                 </div>
             </div>
+
+            {selectedLocation && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+                    onClick={handleCloseLocationModal}
+                >
+                    <div className="bg-card rounded-lg shadow-lg w-[90%] max-w-2xl p-4" onClick={(event) => event.stopPropagation()}>
+                        <div className="mb-3 space-y-1">
+                            <h3 className="text-lg font-semibold">
+                                {selectedLocation.name}
+                            </h3>
+                            {selectedLocation.mapLabel && (
+                                <p className="text-xs text-muted-foreground">
+                                    ラベル: {selectedLocation.mapLabel}
+                                </p>
+                            )}
+                            {selectedLocation.qrCode && (
+                                <p className="text-xs text-muted-foreground">
+                                    QRコード: {selectedLocation.qrCode}
+                                </p>
+                            )}
+                        </div>
+                        <div className="max-h-[60vh] overflow-y-auto mb-4">
+                            <ParticipantList
+                                conferenceId={conferenceId}
+                                locationId={selectedLocation.id}
+                                onOpenProfile={handleOpenProfile}
+                            />
+                        </div>
+                        <div>
+                            <Button
+                                variant="secondary"
+                                onClick={handleCloseLocationModal}
+                                fullWidth
+                            >
+                                閉じる
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {selectedParticipant && (
                 <ParticipantProfileModal participant={selectedParticipant} onClose={handleCloseProfile} />
