@@ -1,12 +1,12 @@
-insert into storage.buckets
+INSERT INTO storage.buckets
     (id, name, public)
 VALUES
-    ('abstracts', 'Abstracts Bucket', true)
+    ('abstracts', 'abstracts', true);
 
-insert into storage.buckets
+INSERT INTO storage.buckets
     (id, name, public)
 VALUES
-    ('maps', 'Maps Bucket', true);
+    ('maps', 'maps', true);
 
 CREATE POLICY "public can select in abstracts and maps"
     ON storage.objects
