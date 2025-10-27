@@ -16,33 +16,14 @@ const useQrScan = ({ conferenceId, onSuccess, onError } = {}) => {
                 throw new Error('カンファレンス情報が見つかりません。');
             }
 
-            const { data: map, error: mapError } = await supabase
-                .from('maps')
-                .select('id')
-                .eq('conference_id', conferenceId)
-                .eq('is_active', true)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .maybeSingle();
-
-            if (mapError) {
-                throw mapError;
-            }
-
-            if (!map?.id) {
-                throw new Error('この学会には有効な会場マップが登録されていません。');
-            }
-
             const { data: region, error: regionError } = await supabase
                 .from('map_regions')
                 .select(`
                     id,
-                    location_id,
                     qr_code,
                     is_active,
-                    location:locations(id, name)
+                    map_id
                 `)
-                .eq('map_id', map.id)
                 .eq('qr_code', qrValue)
                 .eq('is_active', true)
                 .maybeSingle();
@@ -51,13 +32,35 @@ const useQrScan = ({ conferenceId, onSuccess, onError } = {}) => {
                 throw regionError;
             }
 
-            if (!region?.location) {
-                throw new Error('このQRコードに対応する会場が見つかりませんでした。');
+            if (!region?.map_id) {
+                throw new Error('このQRコードに対応するマップが見つかりませんでした。');
+            }
+
+            const { data: map, error: mapError } = await supabase
+                .from('maps')
+                .select(`
+                    id,
+                    conference_id,
+                    is_active,
+                    location_id,
+                    location:locations(id, name)
+                `)
+                .eq('id', region.map_id)
+                .eq('conference_id', conferenceId)
+                .eq('is_active', true)
+                .maybeSingle();
+
+            if (mapError) {
+                throw mapError;
+            }
+
+            if (!map?.location_id || !map.location) {
+                throw new Error('このQRコードに紐づく場所情報が取得できませんでした。');
             }
 
             const location = {
-                id: region.location.id,
-                name: region.location.name
+                id: map.location.id,
+                name: map.location.name
             };
 
             const { data: participant, error: participantError } = await supabase

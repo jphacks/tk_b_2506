@@ -6,7 +6,7 @@ import ParticipantProfileModal from './ParticipantProfileModal';
 
 const DEFAULT_ASPECT_RATIO = '16 / 9';
 
-const getRegionLabel = (region) => region?.label || region?.location?.name || '未設定領域';
+const getRegionLabel = (region) => region?.label || '未設定領域';
 
 const createRegionShape = (region, { isHighlighted, isSelected }) => {
     if (!region?.coords) {
@@ -72,14 +72,11 @@ const VenueMap = ({
     onRetry = null
 }) => {
     const [selectedLocation, setSelectedLocation] = useState(null);
+    const [selectedRegionId, setSelectedRegionId] = useState(null);
     const [selectedParticipant, setSelectedParticipant] = useState(null);
 
     const regions = useMemo(() => mapData?.regions ?? [], [mapData]);
-    const regionByLocationId = useMemo(() => {
-        return new Map(regions.map((region) => [region.locationId, region]));
-    }, [regions]);
-
-    const highlightedLocationId = selectedLocation?.id ?? currentLocation?.id ?? null;
+    const mapLocation = mapData?.location ?? null;
 
     const hasValidDimensions = Number.isFinite(mapData?.imageWidth) && Number.isFinite(mapData?.imageHeight) && mapData.imageWidth > 0 && mapData.imageHeight > 0;
     const aspectRatio = hasValidDimensions
@@ -88,11 +85,16 @@ const VenueMap = ({
     const hasMapImage = Boolean(mapData?.imageUrl && hasValidDimensions);
 
     const handleRegionSelect = (region) => {
-        if (!region?.location) {
+        if (!region) {
             return;
         }
+        if (!mapLocation) {
+            return;
+        }
+
+        setSelectedRegionId(region.id ?? null);
         setSelectedLocation({
-            ...region.location,
+            ...mapLocation,
             qrCode: region.qrCode ?? null,
             mapRegionId: region.id,
             mapLabel: region.label ?? null
@@ -103,16 +105,8 @@ const VenueMap = ({
         if (!location) {
             return;
         }
-        const region = regionByLocationId.get(location.id);
-        setSelectedLocation(region
-            ? {
-                ...location,
-                qrCode: region.qrCode ?? null,
-                mapRegionId: region.id,
-                mapLabel: region.label ?? null
-            }
-            : location
-        );
+        setSelectedRegionId(null);
+        setSelectedLocation(location);
     };
 
     const handleOpenProfile = (participant) => {
@@ -125,11 +119,13 @@ const VenueMap = ({
 
     const handleCloseLocationModal = () => {
         setSelectedLocation(null);
+        setSelectedRegionId(null);
     };
 
     const renderRegion = (region) => {
-        const isSelected = highlightedLocationId != null && highlightedLocationId === region.locationId && !!selectedLocation;
-        const isHighlighted = highlightedLocationId != null && highlightedLocationId === region.locationId && !selectedLocation;
+        const isCurrentLocation = Boolean(mapLocation && currentLocation && mapLocation.id === currentLocation.id);
+        const isSelected = selectedRegionId != null && region.id === selectedRegionId;
+        const isHighlighted = !isSelected && isCurrentLocation;
 
         const shape = createRegionShape(region, { isHighlighted, isSelected });
         if (!shape) {
@@ -230,15 +226,18 @@ const VenueMap = ({
                         <div className="text-sm text-muted-foreground">会場情報がまだ登録されていません。</div>
                     )}
                     {locations.map((location) => {
-                        const region = regionByLocationId.get(location.id);
                         const isActive = selectedLocation?.id === location.id;
                         const isCurrent = !selectedLocation && currentLocation?.id === location.id;
+                        const isMapLocation = mapLocation && mapLocation.id === location.id;
 
                         const detailParts = [];
                         if (location.building) detailParts.push(location.building);
                         if (location.floor) detailParts.push(`${location.floor}F`);
                         if (location.location_type) detailParts.push(location.location_type);
-                        if (region?.qrCode) detailParts.push(`QR: ${region.qrCode}`);
+                        if (isMapLocation) detailParts.push('マップあり');
+                        if (isMapLocation && selectedLocation?.mapRegionId && selectedLocation.id === location.id && selectedLocation.mapLabel) {
+                            detailParts.push(`選択中: ${selectedLocation.mapLabel}`);
+                        }
 
                         return (
                             <button

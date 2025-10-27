@@ -83,14 +83,12 @@ const normalizeRegion = (rawRegion) => {
     return {
         id: rawRegion.id,
         mapId: rawRegion.map_id,
-        locationId: rawRegion.location_id,
         qrCode: rawRegion.qr_code ?? null,
         label: rawRegion.label ?? '',
         shapeType: rawRegion.shape_type,
         coords: normalizedCoords,
         zIndex: rawRegion.z_index ?? 0,
-        isActive: rawRegion.is_active !== false,
-        location: rawRegion.location ?? null
+        isActive: rawRegion.is_active !== false
     };
 };
 
@@ -100,29 +98,29 @@ const fetchConferenceMap = async (conferenceId) => {
         .select(`
             id,
             conference_id,
+            location_id,
             name,
             image_path,
             image_width,
             image_height,
             is_active,
             created_at,
+            location:locations(
+                id,
+                name,
+                floor,
+                building,
+                location_type
+            ),
             map_regions(
                 id,
                 map_id,
-                location_id,
                 qr_code,
                 label,
                 shape_type,
                 coords,
                 z_index,
-                is_active,
-                location:locations(
-                    id,
-                    name,
-                    floor,
-                    building,
-                    location_type
-                )
+                is_active
             )
         `)
         .eq('conference_id', conferenceId)
@@ -143,18 +141,20 @@ const fetchConferenceMap = async (conferenceId) => {
     const regions = Array.isArray(data.map_regions)
         ? data.map_regions
             .map(normalizeRegion)
-            .filter((region) => region && region.isActive && region.location)
+            .filter((region) => region && region.isActive)
         : [];
 
     return {
         id: data.id,
         conferenceId: data.conference_id,
+        locationId: data.location_id,
         name: data.name,
         imagePath: data.image_path,
         imageUrl,
         imageWidth: data.image_width,
         imageHeight: data.image_height,
-        regions
+        regions,
+        location: data.location ?? null
     };
 };
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { db } from "@/lib/supabase";
 import { Button } from "@/components/ui/Button";
@@ -23,7 +23,6 @@ interface Location {
   id: string;
   name: string;
   description: string;
-  qr_code: string;
   floor: string;
   building: string;
   location_type: string;
@@ -32,28 +31,31 @@ interface Location {
 interface Map {
   id: string;
   conference_id: string;
+  location_id: string | null;
   name: string;
   image_path: string;
   image_width: number;
   image_height: number;
   is_active: boolean;
   created_at: string;
+  location?: {
+    id: string;
+    name: string;
+    floor?: string;
+    building?: string;
+    location_type?: string;
+  };
 }
 
 interface MapRegion {
   id: string;
   map_id: string;
-  location_id: string;
   qr_code?: string;
   label: string;
   shape_type: 'polygon' | 'rect' | 'circle';
   coords: Record<string, any>;
   z_index: number;
   is_active: boolean;
-  location?: {
-    id: string;
-    name: string;
-  };
 }
 
 export default function ConferenceDetailPage() {
@@ -83,7 +85,6 @@ export default function ConferenceDetailPage() {
   const [newLocation, setNewLocation] = useState({
     name: "",
     description: "",
-    qr_code: "",
     floor: "",
     building: "",
     location_type: "",
@@ -97,6 +98,7 @@ export default function ConferenceDetailPage() {
   const [uploadingMap, setUploadingMap] = useState(false);
   const [newMap, setNewMap] = useState({
     name: "",
+    location_id: "",
     image_width: 1200,
     image_height: 800,
     is_active: true,
@@ -104,6 +106,41 @@ export default function ConferenceDetailPage() {
 
   // Map Regions
   const [mapRegions, setMapRegions] = useState<MapRegion[]>([]);
+
+  const locationById = useMemo(() => {
+    const dictionary: Record<string, Location> = {};
+    locations.forEach((location) => {
+      dictionary[location.id] = location;
+    });
+    return dictionary;
+  }, [locations]);
+
+  const mapByLocationId = useMemo(() => {
+    const dictionary: Record<string, Map> = {};
+    maps.forEach((map) => {
+      if (map.location_id) {
+        dictionary[map.location_id] = map;
+      }
+    });
+    return dictionary;
+  }, [maps]);
+
+  const availableLocationsForNewMap = useMemo(() => {
+    return locations.filter((location) => !mapByLocationId[location.id]);
+  }, [locations, mapByLocationId]);
+
+  const selectedMapLocation = useMemo(() => {
+    if (!selectedMap) {
+      return null;
+    }
+    if (selectedMap.location) {
+      return selectedMap.location;
+    }
+    if (selectedMap.location_id) {
+      return locationById[selectedMap.location_id] ?? null;
+    }
+    return null;
+  }, [selectedMap, locationById]);
 
   useEffect(() => {
     if (conferenceId) {
@@ -118,6 +155,31 @@ export default function ConferenceDetailPage() {
       loadMapRegions();
     }
   }, [selectedMap]);
+
+  useEffect(() => {
+    if (!showAddMap) {
+      return;
+    }
+
+    if (availableLocationsForNewMap.length === 0) {
+      setNewMap((prev) => ({
+        ...prev,
+        location_id: "",
+      }));
+      return;
+    }
+
+    const hasSelected = availableLocationsForNewMap.some(
+      (location) => location.id === newMap.location_id
+    );
+
+    if (!hasSelected) {
+      setNewMap((prev) => ({
+        ...prev,
+        location_id: availableLocationsForNewMap[0].id,
+      }));
+    }
+  }, [showAddMap, availableLocationsForNewMap, newMap.location_id]);
 
   const loadConference = async () => {
     setLoading(true);
@@ -154,7 +216,13 @@ export default function ConferenceDetailPage() {
     try {
       const data = await db.getMaps(conferenceId);
       setMaps(data);
-      if (data.length > 0 && !selectedMap) {
+
+      if (selectedMap) {
+        const updated = data.find((map) => map.id === selectedMap.id);
+        if (updated) {
+          setSelectedMap(updated);
+        }
+      } else if (data.length > 0) {
         setSelectedMap(data[0]);
       }
     } catch (err) {
@@ -214,8 +282,8 @@ export default function ConferenceDetailPage() {
     setError("");
 
     try {
-      if (!newLocation.name || !newLocation.qr_code) {
-        setError("場所名とQRコードは必須です");
+      if (!newLocation.name) {
+        setError("場所名を入力してください");
         return;
       }
 
@@ -231,7 +299,6 @@ export default function ConferenceDetailPage() {
       setNewLocation({
         name: "",
         description: "",
-        qr_code: "",
         floor: "",
         building: "",
         location_type: "",
@@ -272,8 +339,8 @@ export default function ConferenceDetailPage() {
     setUploadingMap(true);
 
     try {
-      if (!newMap.name || !mapFile) {
-        setError("マップ名と画像ファイルは必須です");
+      if (!newMap.name || !mapFile || !newMap.location_id) {
+        setError("マップ名・画像・紐づける場所を選択してください");
         setUploadingMap(false);
         return;
       }
@@ -287,8 +354,9 @@ export default function ConferenceDetailPage() {
       const { path } = await db.uploadFile('maps', storagePath, mapFile);
 
       // Create map record
-      await db.createMap({
+      const createdMap = await db.createMap({
         conference_id: conferenceId,
+        location_id: newMap.location_id,
         name: newMap.name,
         image_path: path,
         image_width: newMap.image_width,
@@ -298,12 +366,14 @@ export default function ConferenceDetailPage() {
 
       setNewMap({
         name: "",
+        location_id: "",
         image_width: 1200,
         image_height: 800,
         is_active: true,
       });
       setMapFile(null);
       setShowAddMap(false);
+      setSelectedMap(createdMap);
       loadMaps();
       setSuccess("マップを追加しました");
     } catch (err) {
@@ -323,6 +393,7 @@ export default function ConferenceDetailPage() {
       await db.deleteMap(mapId);
       if (selectedMap?.id === mapId) {
         setSelectedMap(null);
+        setMapRegions([]);
       }
       loadMaps();
       setSuccess("マップを削除しました");
@@ -345,7 +416,6 @@ export default function ConferenceDetailPage() {
 
       await db.createMapRegion({
         map_id: selectedMap.id,
-        location_id: region.location_id,
         qr_code: region.qr_code || undefined,
         label: region.label || undefined,
         shape_type: region.shape_type,
@@ -595,16 +665,6 @@ export default function ConferenceDetailPage() {
                   </div>
 
                   <Input
-                    label="QRコード"
-                    required
-                    value={newLocation.qr_code}
-                    onChange={(e) =>
-                      setNewLocation({ ...newLocation, qr_code: e.target.value })
-                    }
-                    placeholder="ユニークなQRコード文字列"
-                  />
-
-                  <Input
                     label="場所タイプ"
                     value={newLocation.location_type}
                     onChange={(e) =>
@@ -650,14 +710,22 @@ export default function ConferenceDetailPage() {
                           <h3 className="font-medium text-foreground">
                             {location.name}
                           </h3>
-                          <div className="text-sm text-muted-foreground mt-1 space-y-1">
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {mapByLocationId[location.id] ? (
+                              <span className="inline-flex items-center rounded-full bg-primary/10 text-primary px-2 py-0.5">
+                                マップ: {mapByLocationId[location.id].name}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5">
+                                マップ未登録
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-sm text-muted-foreground mt-2 space-y-1">
                             {location.building && (
                               <p>建物: {location.building}</p>
                             )}
                             {location.floor && <p>階: {location.floor}</p>}
-                            <p className="font-mono text-xs">
-                              QR: {location.qr_code}
-                            </p>
                             {location.description && (
                               <p className="mt-2">{location.description}</p>
                             )}
@@ -701,6 +769,40 @@ export default function ConferenceDetailPage() {
                     }
                     placeholder="例: 東京国際フォーラム 5F"
                   />
+
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      紐づける場所
+                    </label>
+                    <select
+                      value={newMap.location_id}
+                      onChange={(e) =>
+                        setNewMap({ ...newMap, location_id: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      disabled={availableLocationsForNewMap.length === 0}
+                      required
+                    >
+                      <option value="">
+                        {availableLocationsForNewMap.length === 0
+                          ? "割り当て可能な場所がありません"
+                          : "-- 場所を選択 --"}
+                      </option>
+                      {availableLocationsForNewMap.map((location) => (
+                        <option key={location.id} value={location.id}>
+                          {location.name}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      このマップと紐づける場所を選択してください（各場所につき1枚）。
+                    </p>
+                    {availableLocationsForNewMap.length === 0 && (
+                      <p className="mt-1 text-xs text-error">
+                        新しい場所を追加するか、既存マップを編集してください。
+                      </p>
+                    )}
+                  </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <Input
@@ -795,6 +897,15 @@ export default function ConferenceDetailPage() {
                           </h3>
                           <div className="text-sm text-muted-foreground mt-1 space-y-1">
                             <p>
+                              場所:
+                              {" "}
+                              {map.location?.name
+                                ? map.location.name
+                                : map.location_id
+                                  ? locationById[map.location_id]?.name ?? "不明な場所"
+                                  : "未割当"}
+                            </p>
+                            <p>
                               サイズ: {map.image_width} × {map.image_height}px
                             </p>
                             <p className="text-xs font-mono">
@@ -826,20 +937,25 @@ export default function ConferenceDetailPage() {
               <div className="bg-card border border-border rounded-xl shadow-soft p-6">
                 <h2 className="text-xl font-semibold text-foreground mb-4">
                   マップ領域管理: {selectedMap.name}
+                  {selectedMapLocation && (
+                    <span className="ml-2 text-base text-muted-foreground">
+                      （場所: {selectedMapLocation.name}）
+                    </span>
+                  )}
                 </h2>
 
+                {!selectedMapLocation && (
+                  <div className="mb-4 text-sm text-error">
+                    このマップにはまだ場所が紐づいていません。マップを再作成するか、データを整備してください。
+                  </div>
+                )}
                 <MapEditor
                   imageUrl={db.getStorageUrl('maps', selectedMap.image_path)}
                   imageWidth={selectedMap.image_width}
                   imageHeight={selectedMap.image_height}
-                  locations={locations.map((loc) => ({
-                    id: loc.id,
-                    name: loc.name,
-                  }))}
+                  locationName={selectedMapLocation?.name}
                   existingRegions={mapRegions.map((region) => ({
                     id: region.id,
-                    location_id: region.location_id,
-                    location_name: region.location?.name,
                     qr_code: region.qr_code,
                     label: region.label || "",
                     shape_type: region.shape_type,
