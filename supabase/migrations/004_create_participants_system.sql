@@ -1,6 +1,10 @@
--- Create participants and participant location tracking tables
--- Migration: 008_create_participants.sql
+-- Create participants and location tracking system
+-- Migration: 004_create_participants_system.sql
 -- Description: Creates tables for managing conference participants and their location history via QR scans
+
+-- ============================================
+-- Table Creation
+-- ============================================
 
 -- Create participants table
 CREATE TABLE IF NOT EXISTS public.participants (
@@ -23,20 +27,28 @@ CREATE TABLE IF NOT EXISTS public.participant_locations (
     scanned_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create indexes for participants
+-- ============================================
+-- Indexes
+-- ============================================
+
+-- Indexes for participants
 CREATE INDEX IF NOT EXISTS idx_participants_user ON public.participants(user_id);
 CREATE INDEX IF NOT EXISTS idx_participants_conference ON public.participants(conference_id);
 CREATE INDEX IF NOT EXISTS idx_participants_location ON public.participants(current_location_id);
 CREATE INDEX IF NOT EXISTS idx_participants_introduction ON public.participants(introduction_id);
 
--- Create indexes for participant_locations
+-- Indexes for participant_locations
 CREATE INDEX IF NOT EXISTS idx_participant_locations_participant ON public.participant_locations(participant_id);
 CREATE INDEX IF NOT EXISTS idx_participant_locations_location ON public.participant_locations(location_id);
 CREATE INDEX IF NOT EXISTS idx_participant_locations_scanned_at ON public.participant_locations(scanned_at);
 
--- Create composite index for location history queries
+-- Composite index for location history queries
 CREATE INDEX IF NOT EXISTS idx_participant_locations_history
 ON public.participant_locations(participant_id, scanned_at DESC);
+
+-- ============================================
+-- Triggers
+-- ============================================
 
 -- Create trigger for participants updated_at
 CREATE TRIGGER update_participants_updated_at
@@ -44,7 +56,11 @@ CREATE TRIGGER update_participants_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
--- Add comments for documentation
+-- ============================================
+-- Documentation
+-- ============================================
+
+-- Table comments
 COMMENT ON TABLE public.participants IS 'Stores conference participation records linking users to conferences';
 COMMENT ON COLUMN public.participants.current_location_id IS 'Current location of the participant (updated via QR scan)';
 COMMENT ON COLUMN public.participants.introduction_id IS 'Link to user introduction for this conference';

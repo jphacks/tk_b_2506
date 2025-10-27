@@ -1,6 +1,10 @@
--- Create presentations and tags tables
--- Migration: 007_create_presentations_and_tags.sql
+-- Create presentations and tags system
+-- Migration: 003_create_presentations_system.sql
 -- Description: Creates tables for managing presentations, abstracts, AI summaries, and tags
+
+-- ============================================
+-- Table Creation
+-- ============================================
 
 -- Create tags table
 CREATE TABLE IF NOT EXISTS public.tags (
@@ -42,25 +46,33 @@ CREATE TABLE IF NOT EXISTS public.presentation_tags (
     UNIQUE(presentation_id, tag_id)
 );
 
--- Create indexes for tags
+-- ============================================
+-- Indexes
+-- ============================================
+
+-- Indexes for tags
 CREATE INDEX IF NOT EXISTS idx_tags_name ON public.tags(name);
 
--- Create indexes for presentations
+-- Indexes for presentations
 CREATE INDEX IF NOT EXISTS idx_presentations_conference ON public.presentations(conference_id);
 CREATE INDEX IF NOT EXISTS idx_presentations_type ON public.presentations(presentation_type);
 CREATE INDEX IF NOT EXISTS idx_presentations_scheduled ON public.presentations(scheduled_at);
 CREATE INDEX IF NOT EXISTS idx_presentations_location ON public.presentations(location_id);
 
--- Create full-text search indexes for presentations
+-- Full-text search indexes for presentations
 CREATE INDEX IF NOT EXISTS idx_presentations_title_fts
 ON public.presentations USING gin(to_tsvector('english', title));
 
 CREATE INDEX IF NOT EXISTS idx_presentations_abstract_fts
 ON public.presentations USING gin(to_tsvector('english', COALESCE(abstract, '')));
 
--- Create indexes for presentation_tags
+-- Indexes for presentation_tags
 CREATE INDEX IF NOT EXISTS idx_presentation_tags_presentation ON public.presentation_tags(presentation_id);
 CREATE INDEX IF NOT EXISTS idx_presentation_tags_tag ON public.presentation_tags(tag_id);
+
+-- ============================================
+-- Triggers
+-- ============================================
 
 -- Create trigger for presentations updated_at
 CREATE TRIGGER update_presentations_updated_at
@@ -68,7 +80,11 @@ CREATE TRIGGER update_presentations_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
--- Add comments for documentation
+-- ============================================
+-- Documentation
+-- ============================================
+
+-- Table comments
 COMMENT ON TABLE public.tags IS 'Stores tags for categorizing presentations';
 COMMENT ON COLUMN public.tags.name IS 'Tag name (unique)';
 
