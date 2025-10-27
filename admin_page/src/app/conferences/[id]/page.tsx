@@ -223,7 +223,6 @@ export default function ConferenceDetailPage() {
         conference_id: conferenceId,
         name: newLocation.name,
         description: newLocation.description || undefined,
-        qr_code: newLocation.qr_code,
         floor: newLocation.floor || undefined,
         building: newLocation.building || undefined,
         location_type: newLocation.location_type || undefined,

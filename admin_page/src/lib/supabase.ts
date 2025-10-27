@@ -121,7 +121,6 @@ export const db = {
     conference_id: string;
     name: string;
     description?: string;
-    qr_code: string;
     floor?: string;
     building?: string;
     location_type?: string;
@@ -140,7 +139,6 @@ export const db = {
   async updateLocation(id: string, updates: Partial<{
     name: string;
     description: string;
-    qr_code: string;
     floor: string;
     building: string;
     location_type: string;
