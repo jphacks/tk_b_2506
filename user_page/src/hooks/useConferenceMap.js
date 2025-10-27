@@ -92,7 +92,7 @@ const normalizeRegion = (rawRegion) => {
     };
 };
 
-const fetchConferenceMap = async (conferenceId) => {
+const fetchConferenceMaps = async (conferenceId) => {
     const { data, error } = await supabase
         .from('maps')
         .select(`
@@ -125,43 +125,39 @@ const fetchConferenceMap = async (conferenceId) => {
         `)
         .eq('conference_id', conferenceId)
         .eq('is_active', true)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .order('created_at', { ascending: false });
 
     if (error) {
         throw error;
     }
 
-    if (!data) {
-        return null;
-    }
+    return (data ?? []).map((map) => {
+        const imageUrl = resolveImageUrl(map.image_path);
+        const regions = Array.isArray(map.map_regions)
+            ? map.map_regions
+                .map(normalizeRegion)
+                .filter((region) => region && region.isActive)
+            : [];
 
-    const imageUrl = resolveImageUrl(data.image_path);
-    const regions = Array.isArray(data.map_regions)
-        ? data.map_regions
-            .map(normalizeRegion)
-            .filter((region) => region && region.isActive)
-        : [];
-
-    return {
-        id: data.id,
-        conferenceId: data.conference_id,
-        locationId: data.location_id,
-        name: data.name,
-        imagePath: data.image_path,
-        imageUrl,
-        imageWidth: data.image_width,
-        imageHeight: data.image_height,
-        regions,
-        location: data.location ?? null
-    };
+        return {
+            id: map.id,
+            conferenceId: map.conference_id,
+            locationId: map.location_id,
+            name: map.name,
+            imagePath: map.image_path,
+            imageUrl,
+            imageWidth: map.image_width,
+            imageHeight: map.image_height,
+            regions,
+            location: map.location ?? null
+        };
+    });
 };
 
 const useConferenceMap = (conferenceId, options = {}) => {
     return useQuery({
-        queryKey: ['conferenceMap', conferenceId],
-        queryFn: () => fetchConferenceMap(conferenceId),
+        queryKey: ['conferenceMaps', conferenceId],
+        queryFn: () => fetchConferenceMaps(conferenceId),
         enabled: Boolean(conferenceId),
         staleTime: 1000 * 60,
         ...options

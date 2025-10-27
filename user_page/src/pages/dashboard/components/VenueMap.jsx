@@ -1,5 +1,5 @@
 import Button from 'components/ui/Button';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { cn } from 'utils/cn';
 import ParticipantList from './ParticipantList';
 import ParticipantProfileModal from './ParticipantProfileModal';
@@ -64,6 +64,8 @@ const createRegionShape = (region, { isHighlighted, isSelected }) => {
 const VenueMap = ({
     conferenceId,
     mapData,
+    mapsByLocationId = {},
+    onSelectMap,
     locations = [],
     currentLocation = null,
     isLoading = false,
@@ -77,6 +79,10 @@ const VenueMap = ({
 
     const regions = useMemo(() => mapData?.regions ?? [], [mapData]);
     const mapLocation = mapData?.location ?? null;
+
+    useEffect(() => {
+        setSelectedRegionId(null);
+    }, [mapData?.id]);
 
     const hasValidDimensions = Number.isFinite(mapData?.imageWidth) && Number.isFinite(mapData?.imageHeight) && mapData.imageWidth > 0 && mapData.imageHeight > 0;
     const aspectRatio = hasValidDimensions
@@ -104,6 +110,10 @@ const VenueMap = ({
     const handleLocationSelect = (location) => {
         if (!location) {
             return;
+        }
+        const mapForLocation = mapsByLocationId[location.id];
+        if (mapForLocation) {
+            onSelectMap?.(mapForLocation.id);
         }
         setSelectedRegionId(null);
         setSelectedLocation(location);
@@ -178,6 +188,30 @@ const VenueMap = ({
                 )}
             </div>
 
+            <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-foreground">
+                {mapData ? (
+                    mapLocation ? (
+                        <div className="flex flex-col gap-1">
+                            <div>
+                                <span className="font-semibold">表示中の場所：</span>
+                                {mapLocation.name}
+                            </div>
+                            {(mapLocation.building || mapLocation.floor || mapLocation.location_type) && (
+                                <div className="text-xs text-muted-foreground">
+                                    {[mapLocation.building, mapLocation.floor ? `${mapLocation.floor}` : null, mapLocation.location_type]
+                                        .filter(Boolean)
+                                        .join(' / ')}
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <span>このマップには紐づく場所が設定されていません。</span>
+                    )
+                ) : (
+                    <span>表示できるマップが選択されていません。</span>
+                )}
+            </div>
+
             <div
                 className="relative w-full bg-muted border border-border rounded-lg overflow-hidden"
                 style={{ position: 'relative', aspectRatio }}
@@ -228,14 +262,19 @@ const VenueMap = ({
                     {locations.map((location) => {
                         const isActive = selectedLocation?.id === location.id;
                         const isCurrent = !selectedLocation && currentLocation?.id === location.id;
-                        const isMapLocation = mapLocation && mapLocation.id === location.id;
+                        const mapForLocation = mapsByLocationId[location.id];
+                        const isMapLocation = Boolean(mapForLocation);
+                        const isMapActive = mapData?.locationId === location.id;
 
                         const detailParts = [];
                         if (location.building) detailParts.push(location.building);
-                        if (location.floor) detailParts.push(`${location.floor}F`);
+                        if (location.floor) detailParts.push(location.floor);
                         if (location.location_type) detailParts.push(location.location_type);
                         if (isMapLocation) detailParts.push('マップあり');
-                        if (isMapLocation && selectedLocation?.mapRegionId && selectedLocation.id === location.id && selectedLocation.mapLabel) {
+                        if (isMapActive && mapData?.location?.name) {
+                            detailParts.push('現在表示中');
+                        }
+                        if (selectedLocation?.mapRegionId && selectedLocation.id === location.id && selectedLocation.mapLabel) {
                             detailParts.push(`選択中: ${selectedLocation.mapLabel}`);
                         }
 
@@ -247,10 +286,12 @@ const VenueMap = ({
                                 className={cn(
                                     'border border-border rounded-lg px-3 py-2 text-sm transition-colors text-left w-full',
                                     isActive
-                                        ? 'bg-primary/10 border-primary text-primary'
-                                        : isCurrent
-                                            ? 'bg-primary/5 border-primary/40 text-primary'
-                                            : 'bg-background hover:bg-muted/50 cursor-pointer'
+                                        ? 'bg-primary/15 border-primary text-primary'
+                                        : isMapActive
+                                            ? 'bg-primary/10 border-primary/60 text-primary'
+                                            : isCurrent
+                                                ? 'bg-primary/5 border-primary/40 text-primary'
+                                                : 'bg-background hover:bg-muted/50 cursor-pointer'
                                 )}
                             >
                                 <div className="font-medium">{location.name}</div>
