@@ -437,5 +437,14 @@ export const db = {
       .getPublicUrl(path);
 
     return { path: data.path, publicUrl };
+  },
+
+  // Get public URL for a file in storage
+  getStorageUrl(bucket: string, path: string): string {
+    const { data: { publicUrl } } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(path);
+
+    return publicUrl;
   }
 };

@@ -6,6 +6,7 @@ import { db } from "@/lib/supabase";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
+import { MapEditor, type MapRegion as MapEditorRegion } from "@/components/MapEditor";
 
 interface Conference {
   id: string;
@@ -102,15 +103,6 @@ export default function ConferenceDetailPage() {
 
   // Map Regions
   const [mapRegions, setMapRegions] = useState<MapRegion[]>([]);
-  const [showAddRegion, setShowAddRegion] = useState(false);
-  const [newRegion, setNewRegion] = useState({
-    location_id: "",
-    label: "",
-    shape_type: "rect" as "polygon" | "rect" | "circle",
-    coords: "{}",
-    z_index: 1,
-    is_active: true,
-  });
 
   useEffect(() => {
     if (conferenceId) {
@@ -340,43 +332,27 @@ export default function ConferenceDetailPage() {
     }
   };
 
-  const handleAddRegion = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveRegionFromEditor = async (
+    region: Omit<MapEditorRegion, "id">
+  ) => {
     setError("");
 
     try {
-      if (!selectedMap || !newRegion.location_id || !newRegion.coords) {
-        setError("必須項目を入力してください");
-        return;
-      }
-
-      let parsedCoords;
-      try {
-        parsedCoords = JSON.parse(newRegion.coords);
-      } catch {
-        setError("座標データの形式が正しくありません（JSON形式で入力してください）");
+      if (!selectedMap) {
+        setError("マップが選択されていません");
         return;
       }
 
       await db.createMapRegion({
         map_id: selectedMap.id,
-        location_id: newRegion.location_id,
-        label: newRegion.label || undefined,
-        shape_type: newRegion.shape_type,
-        coords: parsedCoords,
-        z_index: newRegion.z_index,
-        is_active: newRegion.is_active,
+        location_id: region.location_id,
+        label: region.label || undefined,
+        shape_type: region.shape_type,
+        coords: region.coords,
+        z_index: region.z_index,
+        is_active: region.is_active,
       });
 
-      setNewRegion({
-        location_id: "",
-        label: "",
-        shape_type: "rect",
-        coords: "{}",
-        z_index: 1,
-        is_active: true,
-      });
-      setShowAddRegion(false);
       loadMapRegions();
       setSuccess("マップ領域を追加しました");
     } catch (err) {
@@ -561,7 +537,7 @@ export default function ConferenceDetailPage() {
                   description="空欄にすると誰でも参加できます"
                 />
 
-                <Button type="submit" loading={saving} fullWidth>
+                <Button type="submit" loading={saving} className="w-full">
                   更新
                 </Button>
               </div>
@@ -651,7 +627,7 @@ export default function ConferenceDetailPage() {
                     rows={2}
                   />
 
-                  <Button type="submit" size="sm" fullWidth>
+                  <Button type="submit" size="sm" className="w-full">
                     追加
                   </Button>
                 </form>
@@ -847,178 +823,31 @@ export default function ConferenceDetailPage() {
 
             {selectedMap && (
               <div className="bg-card border border-border rounded-xl shadow-soft p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-semibold text-foreground">
-                    マップ領域管理: {selectedMap.name}
-                  </h2>
-                  <Button
-                    size="sm"
-                    onClick={() => setShowAddRegion(!showAddRegion)}
-                  >
-                    {showAddRegion ? "キャンセル" : "領域を追加"}
-                  </Button>
-                </div>
+                <h2 className="text-xl font-semibold text-foreground mb-4">
+                  マップ領域管理: {selectedMap.name}
+                </h2>
 
-                {showAddRegion && (
-                  <form onSubmit={handleAddRegion} className="mb-6 space-y-4 p-4 bg-muted/50 rounded-lg">
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-2">
-                        場所を選択
-                      </label>
-                      <select
-                        required
-                        value={newRegion.location_id}
-                        onChange={(e) =>
-                          setNewRegion({ ...newRegion, location_id: e.target.value })
-                        }
-                        className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                      >
-                        <option value="">-- 場所を選択 --</option>
-                        {locations.map((location) => (
-                          <option key={location.id} value={location.id}>
-                            {location.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <Input
-                      label="ラベル"
-                      value={newRegion.label}
-                      onChange={(e) =>
-                        setNewRegion({ ...newRegion, label: e.target.value })
-                      }
-                      placeholder="領域のラベル（オプション）"
-                    />
-
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-2">
-                        シェイプタイプ
-                      </label>
-                      <select
-                        required
-                        value={newRegion.shape_type}
-                        onChange={(e) =>
-                          setNewRegion({
-                            ...newRegion,
-                            shape_type: e.target.value as "polygon" | "rect" | "circle",
-                          })
-                        }
-                        className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                      >
-                        <option value="rect">矩形（rect）</option>
-                        <option value="circle">円形（circle）</option>
-                        <option value="polygon">多角形（polygon）</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-2">
-                        座標データ（JSON形式）
-                      </label>
-                      <Textarea
-                        required
-                        value={newRegion.coords}
-                        onChange={(e) =>
-                          setNewRegion({ ...newRegion, coords: e.target.value })
-                        }
-                        placeholder={
-                          newRegion.shape_type === "rect"
-                            ? '{"x": 100, "y": 100, "width": 300, "height": 200}'
-                            : newRegion.shape_type === "circle"
-                            ? '{"cx": 500, "cy": 450, "r": 200}'
-                            : '{"points": [{"x": 200, "y": 150}, {"x": 450, "y": 150}]}'
-                        }
-                        rows={4}
-                      />
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        {newRegion.shape_type === "rect" && "矩形: x, y, width, height"}
-                        {newRegion.shape_type === "circle" && "円形: cx, cy, r"}
-                        {newRegion.shape_type === "polygon" && "多角形: points配列"}
-                      </p>
-                    </div>
-
-                    <Input
-                      label="Z-Index"
-                      type="number"
-                      value={newRegion.z_index.toString()}
-                      onChange={(e) =>
-                        setNewRegion({
-                          ...newRegion,
-                          z_index: parseInt(e.target.value) || 1,
-                        })
-                      }
-                    />
-
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="region_is_active"
-                        checked={newRegion.is_active}
-                        onChange={(e) =>
-                          setNewRegion({ ...newRegion, is_active: e.target.checked })
-                        }
-                        className="h-4 w-4 rounded border border-input bg-background text-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                      />
-                      <label
-                        htmlFor="region_is_active"
-                        className="text-sm font-medium text-foreground"
-                      >
-                        有効な領域として表示する
-                      </label>
-                    </div>
-
-                    <Button type="submit" size="sm" className="w-full">
-                      追加
-                    </Button>
-                  </form>
-                )}
-
-                <div className="space-y-3">
-                  {mapRegions.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-8">
-                      マップ領域が登録されていません
-                    </p>
-                  ) : (
-                    mapRegions.map((region) => (
-                      <div
-                        key={region.id}
-                        className="p-4 border border-border rounded-lg hover:bg-muted/30 transition-colors"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <h3 className="font-medium text-foreground">
-                              {region.location?.name || "場所未設定"}
-                            </h3>
-                            <div className="text-sm text-muted-foreground mt-1 space-y-1">
-                              {region.label && <p>ラベル: {region.label}</p>}
-                              <p>シェイプ: {region.shape_type}</p>
-                              <p>Z-Index: {region.z_index}</p>
-                              <p className="text-xs">
-                                状態: {region.is_active ? "有効" : "無効"}
-                              </p>
-                              <details className="mt-2">
-                                <summary className="text-xs cursor-pointer hover:text-foreground">
-                                  座標データを表示
-                                </summary>
-                                <pre className="mt-2 p-2 bg-muted rounded text-xs overflow-x-auto">
-                                  {JSON.stringify(region.coords, null, 2)}
-                                </pre>
-                              </details>
-                            </div>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteRegion(region.id)}
-                          >
-                            削除
-                          </Button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
+                <MapEditor
+                  imageUrl={db.getStorageUrl('maps', selectedMap.image_path)}
+                  imageWidth={selectedMap.image_width}
+                  imageHeight={selectedMap.image_height}
+                  locations={locations.map((loc) => ({
+                    id: loc.id,
+                    name: loc.name,
+                  }))}
+                  existingRegions={mapRegions.map((region) => ({
+                    id: region.id,
+                    location_id: region.location_id,
+                    location_name: region.location?.name,
+                    label: region.label || "",
+                    shape_type: region.shape_type,
+                    coords: region.coords as any,
+                    z_index: region.z_index,
+                    is_active: region.is_active,
+                  }))}
+                  onSaveRegion={handleSaveRegionFromEditor}
+                  onDeleteRegion={handleDeleteRegion}
+                />
               </div>
             )}
           </div>
