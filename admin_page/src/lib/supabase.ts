@@ -281,6 +281,147 @@ export const db = {
     if (error) throw error;
   },
 
+  // ========== Maps ==========
+  // Get all maps for a conference
+  async getMaps(conferenceId: string) {
+    const { data, error } = await supabase
+      .from('maps')
+      .select('*')
+      .eq('conference_id', conferenceId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data ?? [];
+  },
+
+  // Get a single map by ID
+  async getMap(id: string) {
+    const { data, error } = await supabase
+      .from('maps')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Create a new map
+  async createMap(map: {
+    conference_id: string;
+    name: string;
+    image_path: string;
+    image_width: number;
+    image_height: number;
+    is_active?: boolean;
+  }) {
+    const { data, error } = await supabase
+      .from('maps')
+      .insert(map)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Update a map
+  async updateMap(id: string, updates: Partial<{
+    name: string;
+    image_path: string;
+    image_width: number;
+    image_height: number;
+    is_active: boolean;
+  }>) {
+    const { data, error } = await supabase
+      .from('maps')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Delete a map
+  async deleteMap(id: string) {
+    const { error } = await supabase
+      .from('maps')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  },
+
+  // ========== Map Regions ==========
+  // Get all regions for a map
+  async getMapRegions(mapId: string) {
+    const { data, error } = await supabase
+      .from('map_regions')
+      .select(`
+        *,
+        location:locations(id, name)
+      `)
+      .eq('map_id', mapId)
+      .order('z_index', { ascending: false });
+
+    if (error) throw error;
+    return data ?? [];
+  },
+
+  // Create a new map region
+  async createMapRegion(region: {
+    map_id: string;
+    location_id: string;
+    qr_code?: string;
+    label?: string;
+    shape_type: 'polygon' | 'rect' | 'circle';
+    coords: Record<string, any>;
+    z_index?: number;
+    is_active?: boolean;
+  }) {
+    const { data, error } = await supabase
+      .from('map_regions')
+      .insert(region)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Update a map region
+  async updateMapRegion(id: string, updates: Partial<{
+    location_id: string;
+    qr_code: string;
+    label: string;
+    shape_type: 'polygon' | 'rect' | 'circle';
+    coords: Record<string, any>;
+    z_index: number;
+    is_active: boolean;
+  }>) {
+    const { data, error } = await supabase
+      .from('map_regions')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Delete a map region
+  async deleteMapRegion(id: string) {
+    const { error } = await supabase
+      .from('map_regions')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  },
+
   // ========== Storage ==========
   // Upload file to storage
   async uploadFile(bucket: string, path: string, file: File) {
@@ -298,5 +439,14 @@ export const db = {
       .getPublicUrl(path);
 
     return { path: data.path, publicUrl };
+  },
+
+  // Get public URL for a file in storage
+  getStorageUrl(bucket: string, path: string): string {
+    const { data: { publicUrl } } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(path);
+
+    return publicUrl;
   }
 };

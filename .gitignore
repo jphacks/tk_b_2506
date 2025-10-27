@@ -15,3 +15,5 @@ admin_page/out/
 admin_page/node_modules/
 admin_page/.env.local
 admin_page/.env*.local
+
+.temp/

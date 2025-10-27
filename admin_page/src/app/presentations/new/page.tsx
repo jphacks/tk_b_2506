@@ -110,11 +110,13 @@ export default function NewPresentationPage() {
     setError("");
 
     try {
-      // NOTE: Storage upload is mocked here. Generate a random public URL.
+      // Upload PDF to Supabase Storage
       const timestamp = Date.now();
       const random = Math.random().toString(36).slice(2, 10);
       const sanitizedName = file.name.replace(/[^a-zA-Z0-9_.-]/g, "_");
-      const publicUrl = `https://mock-storage.local/presentations/${timestamp}_${random}_${sanitizedName}`;
+      const storagePath = `presentations/${timestamp}_${random}_${sanitizedName}`;
+
+      const { publicUrl } = await db.uploadFile('abstracts', storagePath, file);
 
       // Call AI API to analyze PDF
       const formData = new FormData();
