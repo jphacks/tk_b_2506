@@ -90,6 +90,18 @@ const AuthPage = () => {
             }
 
             if (result.success) {
+                if (!isLogin) {
+                    setToast({
+                        isVisible: true,
+                        message: "確認メールを送信しました。メールを開いて手続きを完了してください。",
+                        type: 'success'
+                    });
+                    navigate('/auth/verify-email', {
+                        replace: true,
+                        state: { email: formData.email }
+                    });
+                    return;
+                }
                 try {
                     const { data: userData, error: userError } = await supabaseAuth.getCurrentUser();
                     if (userError || !userData?.user) {
