@@ -28,6 +28,32 @@ interface Location {
   location_type: string;
 }
 
+interface Map {
+  id: string;
+  conference_id: string;
+  name: string;
+  image_path: string;
+  image_width: number;
+  image_height: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+interface MapRegion {
+  id: string;
+  map_id: string;
+  location_id: string;
+  label: string;
+  shape_type: 'polygon' | 'rect' | 'circle';
+  coords: Record<string, any>;
+  z_index: number;
+  is_active: boolean;
+  location?: {
+    id: string;
+    name: string;
+  };
+}
+
 export default function ConferenceDetailPage() {
   const router = useRouter();
   const params = useParams();
@@ -61,12 +87,44 @@ export default function ConferenceDetailPage() {
     location_type: "",
   });
 
+  // Maps
+  const [maps, setMaps] = useState<Map[]>([]);
+  const [showAddMap, setShowAddMap] = useState(false);
+  const [selectedMap, setSelectedMap] = useState<Map | null>(null);
+  const [mapFile, setMapFile] = useState<File | null>(null);
+  const [uploadingMap, setUploadingMap] = useState(false);
+  const [newMap, setNewMap] = useState({
+    name: "",
+    image_width: 1200,
+    image_height: 800,
+    is_active: true,
+  });
+
+  // Map Regions
+  const [mapRegions, setMapRegions] = useState<MapRegion[]>([]);
+  const [showAddRegion, setShowAddRegion] = useState(false);
+  const [newRegion, setNewRegion] = useState({
+    location_id: "",
+    label: "",
+    shape_type: "rect" as "polygon" | "rect" | "circle",
+    coords: "{}",
+    z_index: 1,
+    is_active: true,
+  });
+
   useEffect(() => {
     if (conferenceId) {
       loadConference();
       loadLocations();
+      loadMaps();
     }
   }, [conferenceId]);
+
+  useEffect(() => {
+    if (selectedMap) {
+      loadMapRegions();
+    }
+  }, [selectedMap]);
 
   const loadConference = async () => {
     setLoading(true);
@@ -96,6 +154,28 @@ export default function ConferenceDetailPage() {
       setLocations(data);
     } catch (err) {
       console.error("Failed to load locations:", err);
+    }
+  };
+
+  const loadMaps = async () => {
+    try {
+      const data = await db.getMaps(conferenceId);
+      setMaps(data);
+      if (data.length > 0 && !selectedMap) {
+        setSelectedMap(data[0]);
+      }
+    } catch (err) {
+      console.error("Failed to load maps:", err);
+    }
+  };
+
+  const loadMapRegions = async () => {
+    if (!selectedMap) return;
+    try {
+      const data = await db.getMapRegions(selectedMap.id);
+      setMapRegions(data);
+    } catch (err) {
+      console.error("Failed to load map regions:", err);
     }
   };
 
@@ -185,6 +265,138 @@ export default function ConferenceDetailPage() {
     } catch (err) {
       console.error("Failed to delete location:", err);
       setError("場所の削除に失敗しました");
+    }
+  };
+
+  const handleMapFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setMapFile(e.target.files[0]);
+    }
+  };
+
+  const handleAddMap = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setUploadingMap(true);
+
+    try {
+      if (!newMap.name || !mapFile) {
+        setError("マップ名と画像ファイルは必須です");
+        setUploadingMap(false);
+        return;
+      }
+
+      // Upload map image to Supabase Storage
+      const timestamp = Date.now();
+      const random = Math.random().toString(36).slice(2, 10);
+      const sanitizedName = mapFile.name.replace(/[^a-zA-Z0-9_.-]/g, "_");
+      const storagePath = `maps/${conferenceId}/${timestamp}_${random}_${sanitizedName}`;
+
+      const { path } = await db.uploadFile('maps', storagePath, mapFile);
+
+      // Create map record
+      await db.createMap({
+        conference_id: conferenceId,
+        name: newMap.name,
+        image_path: path,
+        image_width: newMap.image_width,
+        image_height: newMap.image_height,
+        is_active: newMap.is_active,
+      });
+
+      setNewMap({
+        name: "",
+        image_width: 1200,
+        image_height: 800,
+        is_active: true,
+      });
+      setMapFile(null);
+      setShowAddMap(false);
+      loadMaps();
+      setSuccess("マップを追加しました");
+    } catch (err) {
+      console.error("Failed to add map:", err);
+      setError("マップの追加に失敗しました");
+    } finally {
+      setUploadingMap(false);
+    }
+  };
+
+  const handleDeleteMap = async (mapId: string) => {
+    if (!confirm("このマップを削除してもよろしいですか？")) {
+      return;
+    }
+
+    try {
+      await db.deleteMap(mapId);
+      if (selectedMap?.id === mapId) {
+        setSelectedMap(null);
+      }
+      loadMaps();
+      setSuccess("マップを削除しました");
+    } catch (err) {
+      console.error("Failed to delete map:", err);
+      setError("マップの削除に失敗しました");
+    }
+  };
+
+  const handleAddRegion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    try {
+      if (!selectedMap || !newRegion.location_id || !newRegion.coords) {
+        setError("必須項目を入力してください");
+        return;
+      }
+
+      let parsedCoords;
+      try {
+        parsedCoords = JSON.parse(newRegion.coords);
+      } catch {
+        setError("座標データの形式が正しくありません（JSON形式で入力してください）");
+        return;
+      }
+
+      await db.createMapRegion({
+        map_id: selectedMap.id,
+        location_id: newRegion.location_id,
+        label: newRegion.label || undefined,
+        shape_type: newRegion.shape_type,
+        coords: parsedCoords,
+        z_index: newRegion.z_index,
+        is_active: newRegion.is_active,
+      });
+
+      setNewRegion({
+        location_id: "",
+        label: "",
+        shape_type: "rect",
+        coords: "{}",
+        z_index: 1,
+        is_active: true,
+      });
+      setShowAddRegion(false);
+      loadMapRegions();
+      setSuccess("マップ領域を追加しました");
+    } catch (err) {
+      console.error("Failed to add map region:", err);
+      setError("マップ領域の追加に失敗しました");
+    }
+  };
+
+  const handleDeleteRegion = async (regionId: string) => {
+    if (!confirm("このマップ領域を削除してもよろしいですか？")) {
+      return;
+    }
+
+    try {
+      await db.deleteMapRegion(regionId);
+      loadMapRegions();
+      setSuccess("マップ領域を削除しました");
+    } catch (err) {
+      console.error("Failed to delete map region:", err);
+      setError("マップ領域の削除に失敗しました");
     }
   };
 
@@ -487,6 +699,328 @@ export default function ConferenceDetailPage() {
                 )}
               </div>
             </div>
+
+            <div className="bg-card border border-border rounded-xl shadow-soft p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-foreground">
+                  マップ管理
+                </h2>
+                <Button
+                  size="sm"
+                  onClick={() => setShowAddMap(!showAddMap)}
+                >
+                  {showAddMap ? "キャンセル" : "マップを追加"}
+                </Button>
+              </div>
+
+              {showAddMap && (
+                <form onSubmit={handleAddMap} className="mb-6 space-y-4 p-4 bg-muted/50 rounded-lg">
+                  <Input
+                    label="マップ名"
+                    required
+                    value={newMap.name}
+                    onChange={(e) =>
+                      setNewMap({ ...newMap, name: e.target.value })
+                    }
+                    placeholder="例: 東京国際フォーラム 5F"
+                  />
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="画像幅（px）"
+                      type="number"
+                      required
+                      value={newMap.image_width.toString()}
+                      onChange={(e) =>
+                        setNewMap({
+                          ...newMap,
+                          image_width: parseInt(e.target.value) || 1200,
+                        })
+                      }
+                    />
+
+                    <Input
+                      label="画像高さ（px）"
+                      type="number"
+                      required
+                      value={newMap.image_height.toString()}
+                      onChange={(e) =>
+                        setNewMap({
+                          ...newMap,
+                          image_height: parseInt(e.target.value) || 800,
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      マップ画像
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleMapFileChange}
+                      className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+                      required
+                    />
+                    {mapFile && (
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        選択: {mapFile.name}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="map_is_active"
+                      checked={newMap.is_active}
+                      onChange={(e) =>
+                        setNewMap({ ...newMap, is_active: e.target.checked })
+                      }
+                      className="h-4 w-4 rounded border border-input bg-background text-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    />
+                    <label
+                      htmlFor="map_is_active"
+                      className="text-sm font-medium text-foreground"
+                    >
+                      有効なマップとして表示する
+                    </label>
+                  </div>
+
+                  <Button type="submit" size="sm" loading={uploadingMap} className="w-full">
+                    追加
+                  </Button>
+                </form>
+              )}
+
+              <div className="space-y-3">
+                {maps.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    マップが登録されていません
+                  </p>
+                ) : (
+                  maps.map((map) => (
+                    <div
+                      key={map.id}
+                      className={`p-4 border rounded-lg hover:bg-muted/30 transition-colors cursor-pointer ${
+                        selectedMap?.id === map.id
+                          ? "border-primary bg-primary/5"
+                          : "border-border"
+                      }`}
+                      onClick={() => setSelectedMap(map)}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h3 className="font-medium text-foreground">
+                            {map.name}
+                          </h3>
+                          <div className="text-sm text-muted-foreground mt-1 space-y-1">
+                            <p>
+                              サイズ: {map.image_width} × {map.image_height}px
+                            </p>
+                            <p className="text-xs font-mono">
+                              画像: {map.image_path}
+                            </p>
+                            <p className="text-xs">
+                              状態: {map.is_active ? "有効" : "無効"}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteMap(map.id);
+                          }}
+                        >
+                          削除
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {selectedMap && (
+              <div className="bg-card border border-border rounded-xl shadow-soft p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold text-foreground">
+                    マップ領域管理: {selectedMap.name}
+                  </h2>
+                  <Button
+                    size="sm"
+                    onClick={() => setShowAddRegion(!showAddRegion)}
+                  >
+                    {showAddRegion ? "キャンセル" : "領域を追加"}
+                  </Button>
+                </div>
+
+                {showAddRegion && (
+                  <form onSubmit={handleAddRegion} className="mb-6 space-y-4 p-4 bg-muted/50 rounded-lg">
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        場所を選択
+                      </label>
+                      <select
+                        required
+                        value={newRegion.location_id}
+                        onChange={(e) =>
+                          setNewRegion({ ...newRegion, location_id: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      >
+                        <option value="">-- 場所を選択 --</option>
+                        {locations.map((location) => (
+                          <option key={location.id} value={location.id}>
+                            {location.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <Input
+                      label="ラベル"
+                      value={newRegion.label}
+                      onChange={(e) =>
+                        setNewRegion({ ...newRegion, label: e.target.value })
+                      }
+                      placeholder="領域のラベル（オプション）"
+                    />
+
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        シェイプタイプ
+                      </label>
+                      <select
+                        required
+                        value={newRegion.shape_type}
+                        onChange={(e) =>
+                          setNewRegion({
+                            ...newRegion,
+                            shape_type: e.target.value as "polygon" | "rect" | "circle",
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      >
+                        <option value="rect">矩形（rect）</option>
+                        <option value="circle">円形（circle）</option>
+                        <option value="polygon">多角形（polygon）</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        座標データ（JSON形式）
+                      </label>
+                      <Textarea
+                        required
+                        value={newRegion.coords}
+                        onChange={(e) =>
+                          setNewRegion({ ...newRegion, coords: e.target.value })
+                        }
+                        placeholder={
+                          newRegion.shape_type === "rect"
+                            ? '{"x": 100, "y": 100, "width": 300, "height": 200}'
+                            : newRegion.shape_type === "circle"
+                            ? '{"cx": 500, "cy": 450, "r": 200}'
+                            : '{"points": [{"x": 200, "y": 150}, {"x": 450, "y": 150}]}'
+                        }
+                        rows={4}
+                      />
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {newRegion.shape_type === "rect" && "矩形: x, y, width, height"}
+                        {newRegion.shape_type === "circle" && "円形: cx, cy, r"}
+                        {newRegion.shape_type === "polygon" && "多角形: points配列"}
+                      </p>
+                    </div>
+
+                    <Input
+                      label="Z-Index"
+                      type="number"
+                      value={newRegion.z_index.toString()}
+                      onChange={(e) =>
+                        setNewRegion({
+                          ...newRegion,
+                          z_index: parseInt(e.target.value) || 1,
+                        })
+                      }
+                    />
+
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="region_is_active"
+                        checked={newRegion.is_active}
+                        onChange={(e) =>
+                          setNewRegion({ ...newRegion, is_active: e.target.checked })
+                        }
+                        className="h-4 w-4 rounded border border-input bg-background text-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      />
+                      <label
+                        htmlFor="region_is_active"
+                        className="text-sm font-medium text-foreground"
+                      >
+                        有効な領域として表示する
+                      </label>
+                    </div>
+
+                    <Button type="submit" size="sm" className="w-full">
+                      追加
+                    </Button>
+                  </form>
+                )}
+
+                <div className="space-y-3">
+                  {mapRegions.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">
+                      マップ領域が登録されていません
+                    </p>
+                  ) : (
+                    mapRegions.map((region) => (
+                      <div
+                        key={region.id}
+                        className="p-4 border border-border rounded-lg hover:bg-muted/30 transition-colors"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h3 className="font-medium text-foreground">
+                              {region.location?.name || "場所未設定"}
+                            </h3>
+                            <div className="text-sm text-muted-foreground mt-1 space-y-1">
+                              {region.label && <p>ラベル: {region.label}</p>}
+                              <p>シェイプ: {region.shape_type}</p>
+                              <p>Z-Index: {region.z_index}</p>
+                              <p className="text-xs">
+                                状態: {region.is_active ? "有効" : "無効"}
+                              </p>
+                              <details className="mt-2">
+                                <summary className="text-xs cursor-pointer hover:text-foreground">
+                                  座標データを表示
+                                </summary>
+                                <pre className="mt-2 p-2 bg-muted rounded text-xs overflow-x-auto">
+                                  {JSON.stringify(region.coords, null, 2)}
+                                </pre>
+                              </details>
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteRegion(region.id)}
+                          >
+                            削除
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </main>
