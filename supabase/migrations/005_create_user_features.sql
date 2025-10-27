@@ -8,7 +8,7 @@
 
 -- Create user_interests table
 CREATE TABLE IF NOT EXISTS public.user_interests (
-    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
     tag_id UUID REFERENCES public.tags(id) ON DELETE CASCADE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS public.user_interests (
 
 -- Create saved_presentations table
 CREATE TABLE IF NOT EXISTS public.saved_presentations (
-    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
     presentation_id UUID REFERENCES public.presentations(id) ON DELETE CASCADE NOT NULL,
     notes TEXT,

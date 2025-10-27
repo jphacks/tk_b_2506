@@ -8,7 +8,7 @@
 
 -- Create tags table
 CREATE TABLE IF NOT EXISTS public.tags (
-    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
     description TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS public.tags (
 
 -- Create presentations table
 CREATE TABLE IF NOT EXISTS public.presentations (
-    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     conference_id UUID REFERENCES public.conferences(id) ON DELETE CASCADE NOT NULL,
     title VARCHAR(500) NOT NULL,
     abstract TEXT,
@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS public.presentations (
 
 -- Create presentation_tags junction table
 CREATE TABLE IF NOT EXISTS public.presentation_tags (
-    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     presentation_id UUID REFERENCES public.presentations(id) ON DELETE CASCADE NOT NULL,
     tag_id UUID REFERENCES public.tags(id) ON DELETE CASCADE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

@@ -2,16 +2,14 @@
 -- Migration: 001_create_introductions_table.sql
 -- Description: Creates the introductions table with all necessary constraints, indexes, RLS policies, and helper functions
 
--- Enable UUID extension if not already enabled
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
 -- ============================================
 -- Table Creation
 -- ============================================
 
 -- Create the introductions table with all fields
+-- Note: Using gen_random_uuid() which is built-in to PostgreSQL 13+
 CREATE TABLE IF NOT EXISTS public.introductions (
-    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     affiliation VARCHAR(500),
     research_topic VARCHAR(500),

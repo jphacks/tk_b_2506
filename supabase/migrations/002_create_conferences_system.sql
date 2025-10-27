@@ -8,7 +8,7 @@
 
 -- Create conferences table with all fields including join_password
 CREATE TABLE IF NOT EXISTS public.conferences (
-    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     name VARCHAR(500) NOT NULL,
     description TEXT,
     start_date DATE NOT NULL,
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS public.conferences (
 
 -- Create locations table (QR code enabled locations)
 CREATE TABLE IF NOT EXISTS public.locations (
-    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     conference_id UUID REFERENCES public.conferences(id) ON DELETE CASCADE NOT NULL,
     name VARCHAR(255) NOT NULL,
     description TEXT,

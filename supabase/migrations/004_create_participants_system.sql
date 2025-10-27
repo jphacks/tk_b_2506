@@ -8,7 +8,7 @@
 
 -- Create participants table
 CREATE TABLE IF NOT EXISTS public.participants (
-    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
     conference_id UUID REFERENCES public.conferences(id) ON DELETE CASCADE NOT NULL,
     introduction_id UUID REFERENCES public.introductions(id) ON DELETE SET NULL,
@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS public.participants (
 
 -- Create participant_locations table (QR scan history)
 CREATE TABLE IF NOT EXISTS public.participant_locations (
-    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     participant_id UUID REFERENCES public.participants(id) ON DELETE CASCADE NOT NULL,
     location_id UUID REFERENCES public.locations(id) ON DELETE CASCADE NOT NULL,
     scanned_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
