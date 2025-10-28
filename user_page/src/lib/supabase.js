@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Supabase設定
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://norgtcdqffgbtqfytmrb.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vcmd0Y2RxZmZnYnRxZnl0bXJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3Mzk2MDYsImV4cCI6MjA3NjMxNTYwNn0.M6dnFhI86UwfjSFIS7Kl1fC1kOM1uHpWys1GqcvBwAI';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Supabaseクライアントを作成
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -380,6 +380,87 @@ export const db = {
 
         if (error) throw error;
         return data ?? [];
+    },
+
+    async createMeetRequest({ conferenceId, fromParticipantId, toParticipantId, message }) {
+        if (!conferenceId || !fromParticipantId || !toParticipantId) {
+            throw new Error('conferenceId, fromParticipantId, toParticipantId は必須です。');
+        }
+
+        const payload = {
+            conference_id: conferenceId,
+            from_participant_id: fromParticipantId,
+            to_participant_id: toParticipantId,
+            status: 'pending',
+            message: message?.trim() ? message.trim() : null
+        };
+
+        const { data, error } = await supabase
+            .from('participant_meet_requests')
+            .upsert(payload, {
+                onConflict: 'conference_id,from_participant_id,to_participant_id',
+                ignoreDuplicates: false
+            })
+            .select()
+            .maybeSingle();
+
+        if (error) throw error;
+        return data;
+    }
+};
+
+// リアルタイム監視ヘルパー関数
+export const realtime = {
+    /**
+     * ミートリクエストのリアルタイム監視を開始
+     * @param {string} participantId - 監視対象の参加者ID
+     * @param {function} onNewRequest - 新しいリクエストを受信した際のコールバック関数
+     * @returns {function} クリーンアップ関数（unsubscribe用）
+     */
+    subscribeMeetRequests(participantId, onNewRequest) {
+        if (!participantId) {
+            console.warn('[realtime.subscribeMeetRequests] participantId is required');
+            return () => {};
+        }
+
+        const channel = supabase.channel(`meet-requests-to-${participantId}`);
+
+        channel.on(
+            'postgres_changes',
+            {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'participant_meet_requests',
+                filter: `to_participant_id=eq.${participantId}`
+            },
+            (payload) => {
+                const newRequest = payload?.new;
+                if (!newRequest) {
+                    return;
+                }
+
+                // 自分自身からのリクエストは無視
+                if (newRequest.from_participant_id === participantId) {
+                    return;
+                }
+
+                // コールバック関数を実行
+                if (typeof onNewRequest === 'function') {
+                    onNewRequest(newRequest);
+                }
+            }
+        );
+
+        channel.subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+                console.log(`[Realtime] Subscribed to meet requests for participant ${participantId}`);
+            }
+        });
+
+        // クリーンアップ関数を返す
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }
 };
 

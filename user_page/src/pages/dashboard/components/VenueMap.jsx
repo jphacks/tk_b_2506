@@ -66,6 +66,7 @@ const VenueMap = ({
     mapData,
     mapsByLocationId = {},
     onSelectMap,
+    currentParticipant = null,
     locations = [],
     currentLocation = null,
     isLoading = false,
@@ -331,6 +332,7 @@ const VenueMap = ({
                             <ParticipantList
                                 conferenceId={conferenceId}
                                 locationId={selectedLocation.id}
+                                currentParticipant={currentParticipant}
                                 onOpenProfile={handleOpenProfile}
                             />
                         </div>
@@ -348,7 +350,12 @@ const VenueMap = ({
             )}
 
             {selectedParticipant && (
-                <ParticipantProfileModal participant={selectedParticipant} onClose={handleCloseProfile} />
+                <ParticipantProfileModal
+                    participant={selectedParticipant}
+                    currentParticipant={currentParticipant}
+                    conferenceId={conferenceId}
+                    onClose={handleCloseProfile}
+                />
             )}
         </div>
     );

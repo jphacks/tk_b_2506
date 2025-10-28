@@ -13,6 +13,7 @@ import QrScanButton from './components/QrScanButton';
 import VenueMap from './components/VenueMap';
 import ParticipantList from './components/ParticipantList';
 import RecommendedPresentations from './components/RecommendedPresentations';
+import { realtime } from '../../lib/supabase';
 
 const Dashboard = () => {
     const { conferenceId: routeConferenceId } = useParams();
@@ -215,6 +216,38 @@ const Dashboard = () => {
         });
     };
 
+    useEffect(() => {
+        if (!conferenceId || !currentParticipant?.id) {
+            return undefined;
+        }
+
+        const unsubscribe = realtime.subscribeMeetRequests(
+            currentParticipant.id,
+            (newRequest) => {
+                const sender = participants.find(
+                    (p) => p.id === newRequest.from_participant_id
+                );
+
+                const senderName =
+                    sender?.introduction?.name ||
+                    sender?.introduction?.affiliation ||
+                    '他の参加者';
+
+                const messagePreview = newRequest.message?.trim()
+                    ? newRequest.message.trim()
+                    : 'メッセージをご確認ください。';
+
+                setToast({
+                    isVisible: true,
+                    message: `新しいミートリクエスト\n差出人: ${senderName}\n内容: ${messagePreview}`,
+                    type: 'success'
+                });
+            }
+        );
+
+        return unsubscribe;
+    }, [conferenceId, currentParticipant?.id, participants]);
+
     if (!conferenceId) {
         return (
             <div className="min-h-screen bg-background">
@@ -306,6 +339,7 @@ const Dashboard = () => {
                             mapData={selectedMap}
                             maps={maps}
                             mapsByLocationId={mapsByLocationId}
+                            currentParticipant={currentParticipant}
                             onSelectMap={handleSelectMap}
                             locations={locations}
                             currentLocation={currentLocation}
@@ -321,6 +355,8 @@ const Dashboard = () => {
                     <div className="order-2 xl:order-3">
                         <ParticipantList
                             participants={visibleParticipants}
+                            conferenceId={conferenceId}
+                            currentParticipant={currentParticipant}
                             isLoading={participantsLoading}
                             error={participantsError}
                             onRetry={refetchParticipants}

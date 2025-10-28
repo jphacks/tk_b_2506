@@ -1,7 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import Button from '../../../components/ui/Button';
+import Textarea from '../../../components/ui/Textarea';
+import { db } from '../../../lib/supabase';
+
+const MAX_MESSAGE_LENGTH = 300;
 
 const ProfileField = ({ label, value }) => (
     <div className="space-y-1">
@@ -29,7 +33,7 @@ const formatDateTime = (value) => {
     }).format(parsed);
 };
 
-const ParticipantProfileModal = ({ participant, onClose }) => {
+const ParticipantProfileModal = ({ participant, currentParticipant = null, conferenceId = null, onClose }) => {
     if (!participant || typeof document === 'undefined') {
         return null;
     }
@@ -51,6 +55,28 @@ const ParticipantProfileModal = ({ participant, onClose }) => {
         : null;
 
     const registeredAt = formatDateTime(participant.registered_at);
+
+    const [message, setMessage] = useState('');
+    const [sending, setSending] = useState(false);
+    const [hasSent, setHasSent] = useState(false);
+    const [feedback, setFeedback] = useState({ type: null, text: '' });
+
+    const effectiveConferenceId = useMemo(
+        () => conferenceId ?? participant.conference_id ?? currentParticipant?.conference_id ?? null,
+        [conferenceId, participant?.conference_id, currentParticipant?.conference_id]
+    );
+
+    const fromParticipantId = currentParticipant?.id ?? null;
+    const toParticipantId = participant?.id ?? null;
+    const isSelf = fromParticipantId && toParticipantId && fromParticipantId === toParticipantId;
+    const canSendRequest = Boolean(effectiveConferenceId && fromParticipantId && toParticipantId && !isSelf);
+
+    useEffect(() => {
+        setMessage('');
+        setSending(false);
+        setHasSent(false);
+        setFeedback({ type: null, text: '' });
+    }, [participant?.id]);
 
     useEffect(() => {
         const originalOverflow = document.body.style.overflow;
@@ -74,6 +100,73 @@ const ParticipantProfileModal = ({ participant, onClose }) => {
             document.removeEventListener('keydown', handleKeyDown);
         };
     }, [onClose]);
+
+    const handleSendRequest = async () => {
+        if (!canSendRequest || sending) {
+            return;
+        }
+
+        const trimmed = message.trim();
+        if (!trimmed) {
+            setFeedback({
+                type: 'error',
+                text: 'メッセージを入力してください。'
+            });
+            return;
+        }
+
+        setSending(true);
+        setFeedback({ type: null, text: '' });
+
+        try {
+            await db.createMeetRequest({
+                conferenceId: effectiveConferenceId,
+                fromParticipantId,
+                toParticipantId,
+                message: trimmed
+            });
+            setHasSent(true);
+            setFeedback({
+                type: 'success',
+                text: 'メッセージを送信しました。相手からの返答をお待ちください。'
+            });
+        } catch (error) {
+            console.error('Failed to create meet request:', error);
+            setFeedback({
+                type: 'error',
+                text: error?.message || 'メッセージの送信に失敗しました。時間をおいて再度お試しください。'
+            });
+        } finally {
+            setSending(false);
+        }
+    };
+
+    const helperText = useMemo(() => {
+        if (canSendRequest) {
+            return '待ち合わせの希望時間や場所を具体的に書き添えてください。';
+        }
+        if (isSelf) {
+            return '自分自身にはメッセージを送信できません。';
+        }
+        if (!fromParticipantId) {
+            return 'まずは学会への参加登録と自己紹介の作成を完了してください。';
+        }
+        if (!toParticipantId) {
+            return 'この参加者の情報が不足しているため、メッセージを送信できません。';
+        }
+        return '現在、メッセージの送信ができません。';
+    }, [canSendRequest, isSelf, fromParticipantId, toParticipantId]);
+
+    const handleMessageChange = (event) => {
+        const value = event.target.value.slice(0, MAX_MESSAGE_LENGTH);
+        setMessage(value);
+        if (feedback.type) {
+            setFeedback({ type: null, text: '' });
+        }
+        if (hasSent) {
+            setHasSent(false);
+        }
+    };
 
     return createPortal(
         <>
@@ -112,8 +205,10 @@ const ParticipantProfileModal = ({ participant, onClose }) => {
                         )}
 
                         <div className="grid gap-4">
-                            <ProfileField label="所属" value={introduction.affiliation} />
-                            <ProfileField label="職業" value={occupation} />
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <ProfileField label="所属" value={introduction.affiliation} />
+                                <ProfileField label="職業" value={occupation} />
+                            </div>
                             <ProfileField label="研究トピック" value={introduction.research_topic} />
                             <ProfileField label="興味・関心" value={introduction.interests} />
                             <ProfileField label="現在地" value={locationDisplay} />
@@ -121,14 +216,64 @@ const ParticipantProfileModal = ({ participant, onClose }) => {
                         </div>
                     </div>
 
-                    <footer className="px-6 py-4 border-t border-border bg-muted/40">
-                        <Button
-                            variant="secondary"
-                            fullWidth
-                            onClick={onClose}
-                        >
-                            閉じる
-                        </Button>
+                    <footer className="px-6 py-3 border-t border-border bg-muted/40">
+                        {canSendRequest ? (
+                            <div className="space-y-1">
+                                <Textarea
+                                    label="ミートリクエストを送信"
+                                    placeholder="例: セッション後に5Fロビーでお話ししませんか？"
+                                    value={message}
+                                    onChange={handleMessageChange}
+                                    rows={1}
+                                    maxLength={MAX_MESSAGE_LENGTH}
+                                    description={`最大${MAX_MESSAGE_LENGTH}文字（${message.length}/${MAX_MESSAGE_LENGTH}）`}
+                                    error={feedback.type === 'error' ? feedback.text : undefined}
+                                    disabled={sending}
+                                    className="min-h-0 h-9 text-sm leading-tight"
+                                />
+                                {feedback.type === 'success' && (
+                                    <p className="text-xs text-primary text-left">
+                                        {feedback.text}
+                                    </p>
+                                )}
+                                <p className="text-xs text-muted-foreground text-left">
+                                    {helperText}
+                                </p>
+                                <div className="flex flex-col sm:flex-row gap-2">
+                                    <Button
+                                        variant="secondary"
+                                        onClick={onClose}
+                                        fullWidth
+                                        disabled={sending}
+                                    >
+                                        閉じる
+                                    </Button>
+                                    <Button
+                                        onClick={handleSendRequest}
+                                        loading={sending}
+                                        disabled={sending || !message.trim()}
+                                        iconName="Send"
+                                        iconPosition="right"
+                                        fullWidth
+                                    >
+                                        {hasSent ? 'もう一度送信' : 'メッセージを送信'}
+                                    </Button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                <p className="text-xs text-muted-foreground text-left">
+                                    {helperText}
+                                </p>
+                                <Button
+                                    variant="secondary"
+                                    fullWidth
+                                    onClick={onClose}
+                                >
+                                    閉じる
+                                </Button>
+                            </div>
+                        )}
                     </footer>
                 </div>
             </div>
