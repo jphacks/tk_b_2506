@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Supabase設定
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://norgtcdqffgbtqfytmrb.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vcmd0Y2RxZmZnYnRxZnl0bXJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3Mzk2MDYsImV4cCI6MjA3NjMxNTYwNn0.M6dnFhI86UwfjSFIS7Kl1fC1kOM1uHpWys1GqcvBwAI';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Supabaseクライアントを作成
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
