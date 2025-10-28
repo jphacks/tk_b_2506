@@ -32,6 +32,7 @@ const ParticipantList = ({
     participants: participantsProp,
     locationId,
     conferenceId,
+    currentParticipant = null,
 
     // 状態/ハンドラ
     isLoading: isLoadingProp,
@@ -276,6 +277,8 @@ const ParticipantList = ({
             {selectedParticipant && (
                 <ParticipantProfileModal
                     participant={selectedParticipant}
+                    currentParticipant={currentParticipant}
+                    conferenceId={conferenceId}
                     onClose={handleCloseProfile}
                 />
             )}

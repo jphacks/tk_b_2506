@@ -380,6 +380,32 @@ export const db = {
 
         if (error) throw error;
         return data ?? [];
+    },
+
+    async createMeetRequest({ conferenceId, fromParticipantId, toParticipantId, message }) {
+        if (!conferenceId || !fromParticipantId || !toParticipantId) {
+            throw new Error('conferenceId, fromParticipantId, toParticipantId は必須です。');
+        }
+
+        const payload = {
+            conference_id: conferenceId,
+            from_participant_id: fromParticipantId,
+            to_participant_id: toParticipantId,
+            status: 'pending',
+            message: message?.trim() ? message.trim() : null
+        };
+
+        const { data, error } = await supabase
+            .from('participant_meet_requests')
+            .upsert(payload, {
+                onConflict: 'conference_id,from_participant_id,to_participant_id',
+                ignoreDuplicates: false
+            })
+            .select()
+            .maybeSingle();
+
+        if (error) throw error;
+        return data;
     }
 };
 

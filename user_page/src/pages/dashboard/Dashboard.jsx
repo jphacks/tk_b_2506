@@ -306,6 +306,7 @@ const Dashboard = () => {
                             mapData={selectedMap}
                             maps={maps}
                             mapsByLocationId={mapsByLocationId}
+                            currentParticipant={currentParticipant}
                             onSelectMap={handleSelectMap}
                             locations={locations}
                             currentLocation={currentLocation}
@@ -321,6 +322,8 @@ const Dashboard = () => {
                     <div className="order-2 xl:order-3">
                         <ParticipantList
                             participants={visibleParticipants}
+                            conferenceId={conferenceId}
+                            currentParticipant={currentParticipant}
                             isLoading={participantsLoading}
                             error={participantsError}
                             onRetry={refetchParticipants}
