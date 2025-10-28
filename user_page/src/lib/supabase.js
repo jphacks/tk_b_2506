@@ -409,6 +409,61 @@ export const db = {
     }
 };
 
+// リアルタイム監視ヘルパー関数
+export const realtime = {
+    /**
+     * ミートリクエストのリアルタイム監視を開始
+     * @param {string} participantId - 監視対象の参加者ID
+     * @param {function} onNewRequest - 新しいリクエストを受信した際のコールバック関数
+     * @returns {function} クリーンアップ関数（unsubscribe用）
+     */
+    subscribeMeetRequests(participantId, onNewRequest) {
+        if (!participantId) {
+            console.warn('[realtime.subscribeMeetRequests] participantId is required');
+            return () => {};
+        }
+
+        const channel = supabase.channel(`meet-requests-to-${participantId}`);
+
+        channel.on(
+            'postgres_changes',
+            {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'participant_meet_requests',
+                filter: `to_participant_id=eq.${participantId}`
+            },
+            (payload) => {
+                const newRequest = payload?.new;
+                if (!newRequest) {
+                    return;
+                }
+
+                // 自分自身からのリクエストは無視
+                if (newRequest.from_participant_id === participantId) {
+                    return;
+                }
+
+                // コールバック関数を実行
+                if (typeof onNewRequest === 'function') {
+                    onNewRequest(newRequest);
+                }
+            }
+        );
+
+        channel.subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+                console.log(`[Realtime] Subscribed to meet requests for participant ${participantId}`);
+            }
+        });
+
+        // クリーンアップ関数を返す
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }
+};
+
 // 認証ヘルパー関数
 export const auth = {
     // 現在のユーザーを取得

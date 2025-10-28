@@ -13,7 +13,7 @@ import QrScanButton from './components/QrScanButton';
 import VenueMap from './components/VenueMap';
 import ParticipantList from './components/ParticipantList';
 import RecommendedPresentations from './components/RecommendedPresentations';
-import { supabase } from '../../lib/supabase';
+import { realtime } from '../../lib/supabase';
 
 const Dashboard = () => {
     const { conferenceId: routeConferenceId } = useParams();
@@ -221,26 +221,9 @@ const Dashboard = () => {
             return undefined;
         }
 
-        const channel = supabase.channel(`meet-requests-to-${currentParticipant.id}`);
-
-        channel.on(
-            'postgres_changes',
-            {
-                event: 'INSERT',
-                schema: 'public',
-                table: 'participant_meet_requests',
-                filter: `to_participant_id=eq.${currentParticipant.id}`
-            },
-            (payload) => {
-                const newRequest = payload?.new;
-                if (!newRequest) {
-                    return;
-                }
-
-                if (newRequest.from_participant_id === currentParticipant.id) {
-                    return;
-                }
-
+        const unsubscribe = realtime.subscribeMeetRequests(
+            currentParticipant.id,
+            (newRequest) => {
                 const sender = participants.find(
                     (p) => p.id === newRequest.from_participant_id
                 );
@@ -262,15 +245,7 @@ const Dashboard = () => {
             }
         );
 
-        channel.subscribe((status) => {
-            if (status === 'SUBSCRIBED') {
-                console.log(`[Realtime] Subscribed to meet requests for participant ${currentParticipant.id}`);
-            }
-        });
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
+        return unsubscribe;
     }, [conferenceId, currentParticipant?.id, participants]);
 
     if (!conferenceId) {
