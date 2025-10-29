@@ -1,7 +1,3 @@
-import { useState } from 'react';
-import Button from '../../../components/ui/Button';
-import Select from '../../../components/ui/Select';
-import QrScanButton from './QrScanButton';
 import VenueMap from './VenueMap';
 
 const LocationTab = ({
@@ -22,22 +18,6 @@ const LocationTab = ({
   locationError,
   mapError
 }) => {
-  const [selectedLocationId, setSelectedLocationId] = useState(
-    currentParticipant?.current_location_id || ''
-  );
-  const [isUpdating, setIsUpdating] = useState(false);
-
-  const handleLocationUpdate = async () => {
-    if (!selectedLocationId) return;
-
-    setIsUpdating(true);
-    try {
-      await onLocationUpdate(selectedLocationId);
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-
   return (
     <div className="space-y-6">
       {/* 現在地表示 */}
@@ -46,71 +26,28 @@ const LocationTab = ({
           <span>📍</span>
           現在地
         </h2>
-        {currentLocation ? (
+        {currentLocation || currentParticipant?.current_map_region ? (
           <div className="space-y-1">
-            <p className="text-sm font-medium">{currentLocation.name}</p>
-            {(currentLocation.building || currentLocation.floor) && (
-              <p className="text-xs text-muted-foreground">
-                {[currentLocation.building, currentLocation.floor]
-                  .filter(Boolean)
-                  .join(' / ')}
-              </p>
-            )}
+            <p className="text-sm font-medium">
+              {currentLocation?.name || '位置情報が設定されていません'}
+              {currentParticipant?.current_map_region?.label && (
+                <span className="ml-2 text-muted-foreground">
+                  - {currentParticipant.current_map_region.label}
+                </span>
+              )}
+            </p>
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">位置情報が設定されていません</p>
         )}
       </div>
 
-      {/* 位置情報更新 */}
-      <div className="bg-background border border-border rounded-lg p-4 space-y-4">
-        <h3 className="font-semibold">位置情報を更新</h3>
-
-        <div className="space-y-4">
-          {/* QRコードスキャン */}
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              QRコードをスキャン
-            </label>
-            <QrScanButton
-              onLocationScanned={(locationId) => {
-                setSelectedLocationId(locationId);
-                onLocationUpdate(locationId);
-              }}
-            />
-          </div>
-
-          {/* 手動選択 */}
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              または手動で選択
-            </label>
-            <Select
-              value={selectedLocationId}
-              onChange={(e) => setSelectedLocationId(e.target.value)}
-              disabled={isUpdating}
-            >
-              <option value="">位置を選択してください</option>
-              {locations.map((location) => (
-                <option key={location.id} value={location.id}>
-                  {location.name}
-                  {(location.building || location.floor) &&
-                    ` (${[location.building, location.floor]
-                      .filter(Boolean)
-                      .join(' / ')})`}
-                </option>
-              ))}
-            </Select>
-          </div>
-
-          <Button
-            onClick={handleLocationUpdate}
-            disabled={!selectedLocationId || isUpdating}
-            className="w-full"
-          >
-            {isUpdating ? '更新中...' : '位置情報を更新'}
-          </Button>
-        </div>
+      {/* 位置情報更新の説明 */}
+      <div className="bg-muted/30 border border-border rounded-lg p-4">
+        <h3 className="font-semibold mb-2">位置情報の更新方法</h3>
+        <p className="text-sm text-muted-foreground">
+          下の会場マップから机をクリックし、「この机に移動する」ボタンで位置情報を更新できます。
+        </p>
       </div>
 
       {/* 会場マップ */}

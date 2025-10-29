@@ -32,6 +32,10 @@ const fetchParticipants = async (conferenceId, options = {}) => {
                 floor,
                 building,
                 location_type
+            ),
+            current_map_region:map_regions!current_map_region_id(
+                id,
+                label
             )
         `)
         .eq('conference_id', conferenceId);

@@ -66,7 +66,7 @@ const QrScanButton = ({
             <div>
                 <h2 className="text-lg font-semibold text-foreground">現在地を更新</h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                    会場に設置されたQRコードをスキャンして現在地を共有しましょう。
+                    机に設置されたQRコードをスキャンして、現在地を更新しましょう。
                 </p>
             </div>
             <Button

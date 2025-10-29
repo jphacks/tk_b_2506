@@ -192,18 +192,9 @@ const VenueMap = ({
             <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-foreground">
                 {mapData ? (
                     mapLocation ? (
-                        <div className="flex flex-col gap-1">
-                            <div>
-                                <span className="font-semibold">表示中の場所：</span>
-                                {mapLocation.name}
-                            </div>
-                            {(mapLocation.building || mapLocation.floor || mapLocation.location_type) && (
-                                <div className="text-xs text-muted-foreground">
-                                    {[mapLocation.building, mapLocation.floor ? `${mapLocation.floor}` : null, mapLocation.location_type]
-                                        .filter(Boolean)
-                                        .join(' / ')}
-                                </div>
-                            )}
+                        <div>
+                            <span className="font-semibold">表示中の場所：</span>
+                            {mapLocation.name}
                         </div>
                     ) : (
                         <span>このマップには紐づく場所が設定されていません。</span>
@@ -268,10 +259,6 @@ const VenueMap = ({
                         const isMapActive = mapData?.locationId === location.id;
 
                         const detailParts = [];
-                        if (location.building) detailParts.push(location.building);
-                        if (location.floor) detailParts.push(location.floor);
-                        if (location.location_type) detailParts.push(location.location_type);
-                        if (isMapLocation) detailParts.push('マップあり');
                         if (isMapActive && mapData?.location?.name) {
                             detailParts.push('現在表示中');
                         }
