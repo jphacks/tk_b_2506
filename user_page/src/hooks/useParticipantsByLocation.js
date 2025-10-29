@@ -12,6 +12,7 @@ const fetchParticipantsByLocation = async (locationId) => {
             conference_id,
             introduction_id,
             current_location_id,
+            current_map_region_id,
             registered_at,
             updated_at,
             line_user_id,

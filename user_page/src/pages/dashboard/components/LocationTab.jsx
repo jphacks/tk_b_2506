@@ -15,7 +15,12 @@ const LocationTab = ({
   onLocationUpdate,
   onRefetchLocations,
   onRefetchMaps,
-  conferenceId
+  conferenceId,
+  mapsByLocationId,
+  locationsLoading,
+  mapsLoading,
+  locationError,
+  mapError
 }) => {
   const [selectedLocationId, setSelectedLocationId] = useState(
     currentParticipant?.current_location_id || ''
@@ -109,35 +114,25 @@ const LocationTab = ({
       </div>
 
       {/* 会場マップ */}
-      {maps && maps.length > 0 && (
-        <div className="bg-background border border-border rounded-lg p-4 space-y-4">
-          <h3 className="font-semibold">会場マップ</h3>
-
-          {maps.length > 1 && (
-            <Select
-              value={selectedMapId || ''}
-              onChange={(e) => onMapSelect(e.target.value)}
-            >
-              <option value="">マップを選択してください</option>
-              {maps.map((map) => (
-                <option key={map.id} value={map.id}>
-                  {map.name || `マップ ${map.id}`}
-                </option>
-              ))}
-            </Select>
-          )}
-
-          {selectedMap && (
-            <VenueMap
-              mapData={selectedMap}
-              locations={locations}
-              currentParticipant={currentParticipant}
-              onRefetchMaps={onRefetchMaps}
-              onRefetchLocations={onRefetchLocations}
-              conferenceId={conferenceId}
-            />
-          )}
-        </div>
+      {maps && maps.length > 0 && selectedMap && (
+        <VenueMap
+          conferenceId={conferenceId}
+          mapData={selectedMap}
+          maps={maps}
+          mapsByLocationId={mapsByLocationId}
+          currentParticipant={currentParticipant}
+          onSelectMap={onMapSelect}
+          locations={locations}
+          currentLocation={currentLocation}
+          isLoading={locationsLoading || mapsLoading}
+          locationError={locationError}
+          mapError={mapError}
+          onRetry={() => {
+            onRefetchLocations();
+            onRefetchMaps();
+          }}
+          onLocationUpdate={onLocationUpdate}
+        />
       )}
     </div>
   );

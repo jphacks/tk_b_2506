@@ -72,7 +72,8 @@ const VenueMap = ({
     isLoading = false,
     locationError = null,
     mapError = null,
-    onRetry = null
+    onRetry = null,
+    onLocationUpdate = null
 }) => {
     const [selectedLocation, setSelectedLocation] = useState(null);
     const [selectedRegionId, setSelectedRegionId] = useState(null);
@@ -117,7 +118,6 @@ const VenueMap = ({
             onSelectMap?.(mapForLocation.id);
         }
         setSelectedRegionId(null);
-        setSelectedLocation(location);
     };
 
     const handleOpenProfile = (participant) => {
@@ -332,11 +332,30 @@ const VenueMap = ({
                             <ParticipantList
                                 conferenceId={conferenceId}
                                 locationId={selectedLocation.id}
+                                mapRegionId={selectedLocation.mapRegionId}
                                 currentParticipant={currentParticipant}
                                 onOpenProfile={handleOpenProfile}
                             />
                         </div>
-                        <div>
+                        <div className="flex gap-2">
+                            {onLocationUpdate && (
+                                selectedLocation.id !== currentLocation?.id ||
+                                selectedLocation.mapRegionId !== currentParticipant?.current_map_region_id
+                            ) && (
+                                    <Button
+                                        variant="primary"
+                                        onClick={() => {
+                                            onLocationUpdate(selectedLocation.id, {
+                                                mapRegionId: selectedLocation.mapRegionId,
+                                                deskLabel: selectedLocation.mapLabel
+                                            });
+                                            handleCloseLocationModal();
+                                        }}
+                                        fullWidth
+                                    >
+                                        📍 この机に移動する
+                                    </Button>
+                                )}
                             <Button
                                 variant="secondary"
                                 onClick={handleCloseLocationModal}

@@ -10,7 +10,6 @@ const Select = React.forwardRef(({
     options = [],
     value,
     defaultValue,
-    placeholder = "Select an option",
     multiple = false,
     disabled = false,
     required = false,
@@ -40,20 +39,6 @@ const Select = React.forwardRef(({
         )
         : options;
 
-    // Get selected option(s) for display
-    const getSelectedDisplay = () => {
-        if (!value) return placeholder;
-
-        if (multiple) {
-            const selectedOptions = options?.filter(opt => value?.includes(opt?.value));
-            if (selectedOptions?.length === 0) return placeholder;
-            if (selectedOptions?.length === 1) return selectedOptions?.[0]?.label;
-            return `${selectedOptions?.length} items selected`;
-        }
-
-        const selectedOption = options?.find(opt => opt?.value === value);
-        return selectedOption ? selectedOption?.label : placeholder;
-    };
 
     const handleToggle = () => {
         if (!disabled) {
@@ -118,7 +103,7 @@ const Select = React.forwardRef(({
                     id={selectId}
                     type="button"
                     className={cn(
-                        "flex h-10 w-full items-center justify-between rounded-md border border-input bg-white text-black px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+                        "flex h-10 w-full items-center justify-between rounded-md border border-input bg-white text-black px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
                         error && "border-destructive focus:ring-destructive",
                         !hasValue && "text-muted-foreground"
                     )}
@@ -128,7 +113,7 @@ const Select = React.forwardRef(({
                     aria-haspopup="listbox"
                     {...props}
                 >
-                    <span className="truncate">{getSelectedDisplay()}</span>
+                    <span className="truncate">{value}</span>
 
                     <div className="flex items-center gap-1">
                         {loading && (

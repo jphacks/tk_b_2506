@@ -263,23 +263,48 @@ const Dashboard = () => {
         });
     };
 
-    const handleLocationUpdate = async (locationId) => {
+    const handleLocationUpdate = async (locationId, deskInfo = {}) => {
         if (!currentParticipant?.id || !locationId) return;
 
         try {
+            // Update current location in participants table
+            const updateData = {
+                current_location_id: locationId,
+                current_map_region_id: deskInfo.mapRegionId || null
+            };
+
             const { error } = await supabase
                 .from('participants')
-                .update({ current_location_id: locationId })
+                .update(updateData)
                 .eq('id', currentParticipant.id);
 
             if (error) throw error;
 
+            // Also record in participant_locations history
+            const { error: historyError } = await supabase
+                .from('participant_locations')
+                .insert({
+                    participant_id: currentParticipant.id,
+                    location_id: locationId,
+                    map_region_id: deskInfo.mapRegionId || null,
+                    scanned_at: new Date().toISOString()
+                });
+
+            if (historyError) {
+                console.error('Failed to record location history:', historyError);
+                // Don't throw - the main update succeeded
+            }
+
             await refetchParticipants();
             await refetchLocations();
 
+            const message = deskInfo.deskLabel
+                ? `${deskInfo.deskLabel}に移動しました！`
+                : '位置情報を更新しました！';
+
             setToast({
                 isVisible: true,
-                message: '位置情報を更新しました！',
+                message,
                 type: 'success'
             });
         } catch (error) {
@@ -544,6 +569,24 @@ const Dashboard = () => {
                             onOccupationFilterChange={setOccupationFilter}
                             isLoading={participantsLoading}
                             error={participantsError}
+                            // 会場マップ関連
+                            maps={maps}
+                            selectedMap={selectedMap}
+                            selectedMapId={selectedMapId}
+                            mapsByLocationId={mapsByLocationId}
+                            locations={locations}
+                            currentLocation={currentLocation}
+                            onMapSelect={handleSelectMap}
+                            onLocationUpdate={handleLocationUpdate}
+                            onQrScanSuccess={handleScanSuccess}
+                            onQrScanError={handleScanError}
+                            onRefetchLocations={refetchLocations}
+                            onRefetchMaps={refetchMaps}
+                            locationsLoading={locationsLoading}
+                            mapsLoading={mapsLoading}
+                            locationError={locationsError}
+                            mapError={mapsError}
+                            user={user}
                         />
                     )}
 
@@ -571,6 +614,11 @@ const Dashboard = () => {
                             onRefetchLocations={refetchLocations}
                             onRefetchMaps={refetchMaps}
                             conferenceId={conferenceId}
+                            mapsByLocationId={mapsByLocationId}
+                            locationsLoading={locationsLoading}
+                            mapsLoading={mapsLoading}
+                            locationError={locationsError}
+                            mapError={mapsError}
                         />
                     )}
 
