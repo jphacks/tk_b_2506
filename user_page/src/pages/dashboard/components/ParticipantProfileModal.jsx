@@ -40,18 +40,15 @@ const ParticipantProfileModal = ({ participant, currentParticipant = null, confe
 
     const introduction = participant.introduction || {};
     const location = participant.location || null;
+    const mapRegion = participant.current_map_region || null;
 
     const occupation =
         introduction.occupation === 'その他'
             ? introduction.occupation_other || 'その他（詳細未設定）'
             : introduction.occupation || null;
 
-    const locationMeta = location
-        ? [location.building, location.floor].filter(Boolean).join(' / ') || null
-        : null;
-
     const locationDisplay = location
-        ? [location.name, locationMeta].filter(Boolean).join(' - ')
+        ? [location.name, mapRegion?.label].filter(Boolean).join(' - ')
         : null;
 
     const registeredAt = formatDateTime(participant.registered_at);
