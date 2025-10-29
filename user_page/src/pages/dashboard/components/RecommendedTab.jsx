@@ -18,12 +18,10 @@ const RecommendedTab = ({
       </div>
 
       <RecommendedPresentations
-        recommendedPresentations={recommendedPresentations}
-        currentParticipant={currentParticipant}
-        conferenceId={conferenceId}
+        presentations={recommendedPresentations}
         isLoading={isLoading}
         error={error}
-        refetch={onRefetch}
+        onRetry={onRefetch}
       />
     </div>
   );
