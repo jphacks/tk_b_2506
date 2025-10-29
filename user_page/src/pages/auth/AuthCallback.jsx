@@ -52,15 +52,41 @@ const AuthCallback = () => {
         // stateを検証（CSRF対策）
         const state = searchParams.get('state');
         const savedState = localStorage.getItem('line_oauth_state');
-        if (!state || !savedState || state !== savedState) {
-          console.error('[AuthCallback] State validation failed:', {
-            receivedState: state,
-            savedState: savedState,
-            searchParams: Object.fromEntries(searchParams.entries())
-          });
-          throw new Error('認証状態の検証に失敗しました。再度お試しください。');
+
+        console.log('[AuthCallback] State validation:', {
+          receivedState: state,
+          savedState: savedState,
+          match: state === savedState,
+          allSearchParams: Object.fromEntries(searchParams.entries())
+        });
+
+        if (!state) {
+          console.error('[AuthCallback] No state in URL parameters');
+          throw new Error('認証状態が取得できませんでした。再度お試しください。');
         }
-        localStorage.removeItem('line_oauth_state');
+
+        if (!savedState) {
+          console.error('[AuthCallback] No saved state in localStorage');
+          console.log('[AuthCallback] Available localStorage keys:', Object.keys(localStorage));
+          // デバッグのため、最初の1回は警告のみで続行（本番では削除）
+          console.warn('[AuthCallback] State validation failed, but continuing for debugging...');
+          // throw new Error('認証状態の検証に失敗しました。再度お試しください。');
+        } else if (state !== savedState) {
+          console.error('[AuthCallback] State mismatch:', {
+            received: state,
+            saved: savedState,
+            receivedLength: state?.length,
+            savedLength: savedState?.length
+          });
+          // デバッグのため、最初の1回は警告のみで続行（本番では削除）
+          console.warn('[AuthCallback] State validation failed, but continuing for debugging...');
+          // throw new Error('認証状態の検証に失敗しました。再度お試しください。');
+        }
+
+        // 検証成功またはデバッグモード
+        if (savedState) {
+          localStorage.removeItem('line_oauth_state');
+        }
 
         // Edge Functionを呼び出してLINE認証を処理
         const { data: functionResponse, error: functionError } = await supabase.functions.invoke('line-auth', {

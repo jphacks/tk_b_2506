@@ -669,6 +669,8 @@ export const auth = {
         const state = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
         // localStorageを使用（LINE認証のリダイレクトでsessionStorageが失われる可能性があるため）
         localStorage.setItem('line_oauth_state', state);
+        console.log('[LINE Auth] Generated state and saved to localStorage:', state);
+        console.log('[LINE Auth] LocalStorage keys:', Object.keys(localStorage));
 
         // LINE OAuth URLを作成
         const params = new URLSearchParams({
@@ -682,6 +684,7 @@ export const auth = {
         // デバッグ: 実際に送信されるredirect_uriを確認
         console.log('[LINE Auth] redirect_uri:', redirectTo);
         console.log('[LINE Auth] LINE Channel ID:', lineChannelId);
+        console.log('[LINE Auth] Generated state:', state);
 
         const lineAuthUrl = `https://access.line.me/oauth2/v2.1/authorize?${params.toString()}`;
         console.log('[LINE Auth] Full auth URL:', lineAuthUrl);
