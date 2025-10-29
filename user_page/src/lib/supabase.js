@@ -436,15 +436,6 @@ export const db = {
         }
 
         debugLog('[db.createMeetRequest] 作成成功:', data);
-        console.log('[DB DEBUG] ミートリクエスト作成成功:', data);
-        console.log('[DB DEBUG] 作成されたミートリクエスト詳細:', {
-            id: data?.id,
-            from_participant_id: data?.from_participant_id,
-            to_participant_id: data?.to_participant_id,
-            conference_id: data?.conference_id,
-            status: data?.status,
-            message: data?.message
-        });
         return data;
     }
 };
@@ -520,59 +511,34 @@ export const realtime = {
 
         // イベントハンドラーを統合
         const handleMeetRequestEvent = async (payload, eventType) => {
-            console.log(`[REALTIME DEBUG] ${eventType}イベントを受信:`, payload);
             debugLog(`[realtime.subscribeMeetRequests] ${eventType}イベントを受信:`, payload);
 
             const newRequest = payload?.new;
             if (!newRequest) {
-                console.log('[REALTIME DEBUG] newRequestが存在しません');
                 debugLog('[realtime.subscribeMeetRequests] newRequestが存在しません');
                 return;
             }
 
-            console.log('[REALTIME DEBUG] 新しいリクエスト:', newRequest);
             debugLog('[realtime.subscribeMeetRequests] 新しいリクエスト:', newRequest);
 
             // 自分自身からのリクエストは無視
             if (newRequest.from_participant_id === participantId) {
-                console.log('[REALTIME DEBUG] 自分自身からのリクエストのため無視');
                 debugLog('[realtime.subscribeMeetRequests] 自分自身からのリクエストのため無視');
                 return;
             }
 
-            console.log('[REALTIME DEBUG] コールバック関数を実行中...');
             debugLog('[realtime.subscribeMeetRequests] コールバック関数を実行中...');
             // コールバック関数を実行
             if (typeof onNewRequest === 'function') {
                 onNewRequest(newRequest);
-                console.log('[REALTIME DEBUG] コールバック関数実行完了');
                 debugLog('[realtime.subscribeMeetRequests] コールバック関数実行完了');
             } else {
                 console.warn('[realtime.subscribeMeetRequests] onNewRequestが関数ではありません:', typeof onNewRequest);
             }
         };
 
-        // すべてのイベントを監視（デバッグ用）
+        // INSERTとUPDATEイベントを監視
         channel
-            .on('postgres_changes', {
-                event: '*',
-                schema: 'public',
-                table: 'participant_meet_requests'
-            }, (payload) => {
-                console.log('[REALTIME DEBUG] 全イベント受信:', payload);
-                console.log('[REALTIME DEBUG] イベント詳細:', {
-                    eventType: payload?.eventType,
-                    new: payload?.new,
-                    to_participant_id: payload?.new?.to_participant_id,
-                    participantId: participantId,
-                    matches: payload?.new?.to_participant_id === participantId
-                });
-                if (payload?.new?.to_participant_id === participantId) {
-                    handleMeetRequestEvent(payload, payload.eventType || 'UNKNOWN');
-                } else {
-                    console.log('[REALTIME DEBUG] フィルター条件に一致しませんでした');
-                }
-            })
             .on('postgres_changes', {
                 event: 'INSERT',
                 schema: 'public',
@@ -586,49 +552,24 @@ export const realtime = {
                 filter: `to_participant_id=eq.${participantId}`
             }, (payload) => handleMeetRequestEvent(payload, 'UPDATE'))
             .subscribe((status) => {
-                console.log(`[REALTIME DEBUG] チャンネル状態変更:`, status);
                 debugLog(`[realtime.subscribeMeetRequests] チャンネル状態変更:`, status);
                 if (status === 'SUBSCRIBED') {
-                    console.log(`[REALTIME DEBUG] チャンネル購読成功: ${participantId}`);
                     debugLog(`[Realtime] Successfully subscribed to meet requests for participant ${participantId}`);
                     debugLog(`[Realtime] 監視対象テーブル: participant_meet_requests`);
                     debugLog(`[Realtime] 監視対象フィルター: to_participant_id=eq.${participantId}`);
                     debugLog(`[Realtime] 監視イベント: INSERT, UPDATE`);
-
-                    // 接続テスト用のログを追加
-                    console.log(`[Realtime] リアルタイム接続が確立されました。参加者ID: ${participantId}`);
-                    console.log(`[Realtime] チャンネル名: ${channelName}`);
-                    console.log(`[Realtime] 接続状態: ${realtimeClient.connectionState()}`);
                 } else if (status === 'CHANNEL_ERROR') {
-                    console.error(`[REALTIME DEBUG] チャンネルエラー: ${participantId}`);
                     console.error(`[Realtime] Channel error for participant ${participantId}`);
                 } else if (status === 'TIMED_OUT') {
-                    console.error(`[REALTIME DEBUG] チャンネルタイムアウト: ${participantId}`);
                     console.error(`[Realtime] Channel timeout for participant ${participantId}`);
                 } else if (status === 'CLOSED') {
-                    console.log(`[REALTIME DEBUG] チャンネルクローズ: ${participantId}`);
                     debugLog(`[Realtime] Channel closed for participant ${participantId}`);
                 }
             });
 
-        // 接続状態の監視を開始（デバッグ用）
-        const connectionMonitor = setInterval(() => {
-            const isConnected = realtimeClient.isConnected();
-            const connectionState = realtimeClient.connectionState();
-            const channels = realtimeClient.getChannels();
-
-            debugLog('[realtime.subscribeMeetRequests] 接続状態監視:', {
-                isConnected,
-                connectionState,
-                channelCount: channels.length,
-                channelStates: channels.map(ch => ({ topic: ch.topic, state: ch.state }))
-            });
-        }, 10000); // 10秒ごとに監視
-
         // クリーンアップ関数を返す
         return () => {
             debugLog('[realtime.subscribeMeetRequests] チャンネルを削除中...');
-            clearInterval(connectionMonitor);
             supabase.removeChannel(channel);
         };
     }

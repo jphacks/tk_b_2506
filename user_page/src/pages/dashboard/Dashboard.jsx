@@ -308,7 +308,6 @@ const Dashboard = () => {
         };
 
         // 非同期関数を即座に実行
-        console.log('[Dashboard] セットアップ開始！！！！！！！！...');
         setupRealtime();
 
         return () => {
