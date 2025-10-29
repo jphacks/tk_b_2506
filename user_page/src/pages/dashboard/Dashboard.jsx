@@ -292,13 +292,6 @@ const Dashboard = () => {
                             console.log('[Dashboard] Updated notifications:', updated);
                             return updated;
                         });
-
-                        // Toast通知も表示（短時間）
-                        setToast({
-                            isVisible: true,
-                            message: `新しいミートリクエストを受信しました`,
-                            type: 'success'
-                        });
                     }
                 );
                 console.log('[Dashboard] Realtime subscription setup completed');
@@ -320,7 +313,7 @@ const Dashboard = () => {
     if (!conferenceId) {
         return (
             <div className="min-h-screen bg-background">
-                <Header />
+                <Header notifications={[]} onNotificationClick={() => { }} showSettings={false} />
                 <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
                     <div className="bg-card border border-border rounded-xl shadow-soft p-8 text-center">
                         <h1 className="text-2xl font-semibold text-foreground mb-4">ダッシュボードを表示できません</h1>
@@ -338,6 +331,7 @@ const Dashboard = () => {
             <Header
                 notifications={notifications}
                 onNotificationClick={handleNotificationClick}
+                showSettings={true}
             />
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
                 <div className="flex flex-col gap-2">

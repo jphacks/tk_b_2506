@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import Icon from '../AppIcon';
 import SettingsPanel from '../settings/SettingsPanel';
+import HelpModal from './HelpModal';
 import NotificationButton from './NotificationButton';
 
-const Header = ({ notifications = [], onNotificationClick = () => { } }) => {
+const Header = ({ notifications = [], onNotificationClick = () => { }, showSettings = false }) => {
     const navigate = useNavigate();
     const { user, logout } = useAuth();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [isHelpOpen, setIsHelpOpen] = useState(false);
 
     const handleCloseSettings = useCallback(() => {
         setIsSettingsOpen(false);
@@ -22,6 +24,14 @@ const Header = ({ notifications = [], onNotificationClick = () => { } }) => {
         }
         setIsSettingsOpen(true);
     };
+
+    const handleHelpClick = () => {
+        setIsHelpOpen(true);
+    };
+
+    const handleCloseHelp = useCallback(() => {
+        setIsHelpOpen(false);
+    }, []);
 
     const handleLogout = useCallback(async () => {
         await logout();
@@ -49,15 +59,15 @@ const Header = ({ notifications = [], onNotificationClick = () => { } }) => {
                                     SympoLink!
                                 </h1>
                                 <p className="text-xs font-caption text-muted-foreground hidden sm:block">
-                                    ちょっとシャイな研究者の会話支援サービス
+                                    ちょっとシャイな研究者に向けた会話支援サービス
                                 </p>
                             </div>
                         </div>
 
                         {/* Navigation Actions */}
                         <div className="flex items-center space-x-4">
-                            {/* Notification Button */}
-                            {user && (
+                            {/* Notification Button - Only show when showSettings is true */}
+                            {user && showSettings && (
                                 <NotificationButton
                                     notifications={notifications}
                                     onNotificationClick={onNotificationClick}
@@ -66,6 +76,7 @@ const Header = ({ notifications = [], onNotificationClick = () => { } }) => {
 
                             {/* Help Button */}
                             <button
+                                onClick={handleHelpClick}
                                 className="flex items-center justify-center w-10 h-10 rounded-lg bg-muted hover:bg-muted/80 transition-gentle press-feedback touch-target"
                                 aria-label="Help and support"
                             >
@@ -77,21 +88,23 @@ const Header = ({ notifications = [], onNotificationClick = () => { } }) => {
                                 />
                             </button>
 
-                            {/* Settings Button */}
-                            <button
-                                onClick={handleSettingsClick}
-                                className="flex items-center justify-center w-10 h-10 rounded-lg bg-muted hover:bg-muted/80 transition-gentle press-feedback touch-target"
-                                aria-label="Settings"
-                                aria-haspopup="dialog"
-                                aria-expanded={isSettingsOpen}
-                            >
-                                <Icon
-                                    name="Settings"
-                                    size={20}
-                                    color="var(--color-muted-foreground)"
-                                    strokeWidth={2}
-                                />
-                            </button>
+                            {/* Settings Button - Only show when showSettings is true */}
+                            {showSettings && (
+                                <button
+                                    onClick={handleSettingsClick}
+                                    className="flex items-center justify-center w-10 h-10 rounded-lg bg-muted hover:bg-muted/80 transition-gentle press-feedback touch-target"
+                                    aria-label="Settings"
+                                    aria-haspopup="dialog"
+                                    aria-expanded={isSettingsOpen}
+                                >
+                                    <Icon
+                                        name="Settings"
+                                        size={20}
+                                        color="var(--color-muted-foreground)"
+                                        strokeWidth={2}
+                                    />
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -102,6 +115,11 @@ const Header = ({ notifications = [], onNotificationClick = () => { } }) => {
                 onClose={handleCloseSettings}
                 user={user}
                 onLogout={handleLogout}
+            />
+
+            <HelpModal
+                isOpen={isHelpOpen}
+                onClose={handleCloseHelp}
             />
         </>
     );

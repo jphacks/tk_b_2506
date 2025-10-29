@@ -5,9 +5,9 @@ import Button from '../../components/ui/Button';
 import Header from '../../components/ui/Header';
 import Input from '../../components/ui/Input';
 import Toast from '../../components/ui/Toast';
+import { clearStoredConferenceId, setStoredConferenceId } from '../../constants/conference';
 import { useAuth } from '../../contexts/AuthContext';
 import { db, auth as supabaseAuth } from '../../lib/supabase';
-import { clearStoredConferenceId, setStoredConferenceId } from '../../constants/conference';
 
 const AuthPage = () => {
     const { login, signup } = useAuth();
@@ -196,7 +196,7 @@ const AuthPage = () => {
 
     return (
         <div className="min-h-screen bg-background">
-            <Header />
+            <Header notifications={[]} onNotificationClick={() => { }} showSettings={false} />
             <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
                 <div className="max-w-md mx-auto">
                     {/* Auth Header */}

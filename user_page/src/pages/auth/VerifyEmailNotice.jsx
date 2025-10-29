@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import Header from '../../components/ui/Header';
 import Button from '../../components/ui/Button';
+import Header from '../../components/ui/Header';
 
 const VerifyEmailNotice = () => {
     const location = useLocation();
@@ -14,7 +14,7 @@ const VerifyEmailNotice = () => {
 
     return (
         <div className="min-h-screen bg-background">
-            <Header />
+            <Header notifications={[]} onNotificationClick={() => { }} showSettings={false} />
             <main className="w-full px-4 sm:px-6 lg:px-8 py-12 flex justify-center">
                 <div className="max-w-lg w-full bg-card border border-border rounded-2xl shadow-soft p-8 space-y-6 text-center">
                     <div className="space-y-2">
@@ -45,4 +45,3 @@ const VerifyEmailNotice = () => {
 };
 
 export default VerifyEmailNotice;
-
