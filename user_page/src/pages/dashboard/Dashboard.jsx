@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import LineUserBinding from '../../components/LineUserBinding';
 import Button from '../../components/ui/Button';
 import Header from '../../components/ui/Header';
 import MessageModal from '../../components/ui/MessageModal';
+import Tabs from '../../components/ui/Tabs';
 import Toast from '../../components/ui/Toast';
 import { useAuth } from '../../contexts/AuthContext';
 import useConferenceMap from '../../hooks/useConferenceMap';
@@ -12,16 +13,20 @@ import useLocations from '../../hooks/useLocations';
 import useParticipants from '../../hooks/useParticipants';
 import useRecommendedPresentations from '../../hooks/useRecommendedPresentations';
 import { db, realtime, supabase } from '../../lib/supabase';
-import ParticipantList from './components/ParticipantList';
-import QrScanButton from './components/QrScanButton';
-import RecommendedPresentations from './components/RecommendedPresentations';
-import VenueMap from './components/VenueMap';
+import HomeTab from './components/HomeTab';
+import LocationTab from './components/LocationTab';
+import MessagesTab from './components/MessagesTab';
+import RecommendedTab from './components/RecommendedTab';
 
 const Dashboard = () => {
     const { conferenceId: routeConferenceId } = useParams();
     const conferenceId = routeConferenceId;
     const { user } = useAuth();
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    // URLパラメータからタブを取得、デフォルトは'home'
+    const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'home');
 
     const [toast, setToast] = useState({
         isVisible: false,
@@ -178,6 +183,40 @@ const Dashboard = () => {
         setSelectedMapId(mapForLocation.id);
     }, [currentLocation, mapsByLocationId, selectedMapId, hasUserSelectedMap]);
 
+    // URLパラメータからタブとビューを読み取る
+    useEffect(() => {
+        const tab = searchParams.get('tab');
+        const view = searchParams.get('view');
+
+        if (tab && tab !== activeTab) {
+            setActiveTab(tab);
+        }
+
+        if (view === 'notifications') {
+            setIsMessageModalOpen(true);
+        } else if (view === 'settings') {
+            // 設定モーダルを開く処理（既存のものがあれば）
+        }
+    }, [searchParams]);
+
+    // タブ変更ハンドラー
+    const handleTabChange = (tabId) => {
+        setActiveTab(tabId);
+        setSearchParams({ tab: tabId });
+    };
+
+    // タブ定義
+    const tabs = useMemo(() => {
+        const unreadCount = notifications.filter(n => !n.is_read).length;
+
+        return [
+            { id: 'home', label: 'ホーム', icon: '🏠' },
+            { id: 'recommended', label: 'おすすめ', icon: '⭐' },
+            { id: 'location', label: '位置情報', icon: '📍' },
+            { id: 'messages', label: 'メッセージ', icon: '💬' }
+        ];
+    }, [notifications]);
+
     const handleSelectMap = (mapId) => {
         if (!mapId || mapId === selectedMapId) {
             return;
@@ -224,6 +263,35 @@ const Dashboard = () => {
         });
     };
 
+    const handleLocationUpdate = async (locationId) => {
+        if (!currentParticipant?.id || !locationId) return;
+
+        try {
+            const { error } = await supabase
+                .from('participants')
+                .update({ current_location_id: locationId })
+                .eq('id', currentParticipant.id);
+
+            if (error) throw error;
+
+            await refetchParticipants();
+            await refetchLocations();
+
+            setToast({
+                isVisible: true,
+                message: '位置情報を更新しました！',
+                type: 'success'
+            });
+        } catch (error) {
+            console.error('Failed to update location:', error);
+            setToast({
+                isVisible: true,
+                message: '位置情報の更新に失敗しました。',
+                type: 'error'
+            });
+        }
+    };
+
     const handleNotificationClick = async (notification) => {
         setSelectedMessage(notification);
         setIsMessageModalOpen(true);
@@ -244,49 +312,33 @@ const Dashboard = () => {
     };
 
     useEffect(() => {
-        console.log('[Dashboard] useEffect for realtime subscription triggered:', {
-            conferenceId,
-            currentParticipantId: currentParticipant?.id,
-            participantsCount: participants.length
-        });
-
         if (!conferenceId || !currentParticipant?.id) {
-            console.log('[Dashboard] Skipping realtime subscription - missing required data');
             return;
         }
-
-        console.log('[Dashboard] Setting up realtime subscription for participant:', currentParticipant.id);
 
         // 非同期安全なパターン：useEffect内で直接非同期処理を実行
         let unsubscribe;
 
         const setupRealtime = async () => {
             try {
-                console.log('[Dashboard] Starting realtime subscription setup...');
                 unsubscribe = await realtime.subscribeMeetRequests(
                     currentParticipant.id,
                     (newRequest) => {
-                        console.log('[Dashboard] Received meet request event:', newRequest);
-
                         // 既存の通知を更新するか、新しい通知を追加するかを判定
                         setNotifications(prev => {
                             const existingIndex = prev.findIndex(n => n.id === newRequest.id);
 
                             if (existingIndex !== -1) {
                                 // 既存の通知を更新（UPDATEイベントの場合）
-                                console.log('[Dashboard] Updating existing notification:', newRequest.id);
                                 const updated = [...prev];
                                 updated[existingIndex] = {
                                     ...updated[existingIndex],
                                     is_read: newRequest.is_read || false,
                                     requestData: newRequest
                                 };
-                                console.log('[Dashboard] Updated existing notification:', updated[existingIndex]);
                                 return updated;
                             } else {
                                 // 新しい通知を追加（INSERTイベントの場合）
-                                console.log('[Dashboard] Adding new notification:', newRequest.id);
-
                                 const sender = participants.find(
                                     (p) => p.id === newRequest.from_participant_id
                                 );
@@ -311,15 +363,13 @@ const Dashboard = () => {
                                     requestData: newRequest
                                 };
 
-                                console.log('[Dashboard] Adding new notification:', newNotification);
                                 return [newNotification, ...prev];
                             }
                         });
                     }
                 );
-                console.log('[Dashboard] Realtime subscription setup completed');
             } catch (error) {
-                console.error('[Dashboard] Failed to setup realtime subscription:', error);
+                console.error('Failed to setup realtime subscription:', error);
             }
         };
 
@@ -476,56 +526,60 @@ const Dashboard = () => {
                     </div>
                 )}
 
-                <div className="grid grid-cols-1 gap-6 xl:grid-cols-[320px_minmax(0,1fr)_360px]">
-                    <div className="order-1">
-                        <QrScanButton
-                            conferenceId={conferenceId}
-                            onScanSuccess={handleScanSuccess}
-                            onScanError={handleScanError}
-                            disabled={!user}
-                        />
-                    </div>
-                    <div className="order-3 xl:order-2">
-                        <VenueMap
-                            conferenceId={conferenceId}
-                            mapData={selectedMap}
-                            maps={maps}
-                            mapsByLocationId={mapsByLocationId}
-                            currentParticipant={currentParticipant}
-                            onSelectMap={handleSelectMap}
-                            locations={locations}
-                            currentLocation={currentLocation}
-                            isLoading={locationsLoading || mapsLoading}
-                            locationError={locationsError}
-                            mapError={mapsError}
-                            onRetry={() => {
-                                refetchLocations();
-                                refetchMaps();
-                            }}
-                        />
-                    </div>
-                    <div className="order-2 xl:order-3">
-                        <ParticipantList
+                {/* タブUI */}
+                <Tabs
+                    tabs={tabs}
+                    activeTab={activeTab}
+                    onTabChange={handleTabChange}
+                />
+
+                {/* タブコンテンツ */}
+                <div className="mt-6">
+                    {activeTab === 'home' && (
+                        <HomeTab
                             participants={visibleParticipants}
-                            conferenceId={conferenceId}
                             currentParticipant={currentParticipant}
-                            isLoading={participantsLoading}
-                            error={participantsError}
-                            onRetry={refetchParticipants}
+                            conferenceId={conferenceId}
                             occupationFilter={occupationFilter}
                             onOccupationFilterChange={setOccupationFilter}
+                            isLoading={participantsLoading}
+                            error={participantsError}
                         />
-                    </div>
-                </div>
+                    )}
 
-                {/* 興味のある発表セクション */}
-                <div className="mt-6">
-                    <RecommendedPresentations
-                        presentations={recommendedPresentations}
-                        isLoading={presentationsLoading}
-                        error={presentationsError}
-                        onRetry={refetchPresentations}
-                    />
+                    {activeTab === 'recommended' && (
+                        <RecommendedTab
+                            recommendedPresentations={recommendedPresentations}
+                            currentParticipant={currentParticipant}
+                            conferenceId={conferenceId}
+                            isLoading={presentationsLoading}
+                            error={presentationsError}
+                            onRefetch={refetchPresentations}
+                        />
+                    )}
+
+                    {activeTab === 'location' && (
+                        <LocationTab
+                            currentParticipant={currentParticipant}
+                            currentLocation={currentLocation}
+                            locations={locations}
+                            maps={maps}
+                            selectedMap={selectedMap}
+                            selectedMapId={selectedMapId}
+                            onMapSelect={handleSelectMap}
+                            onLocationUpdate={handleLocationUpdate}
+                            onRefetchLocations={refetchLocations}
+                            onRefetchMaps={refetchMaps}
+                            conferenceId={conferenceId}
+                        />
+                    )}
+
+                    {activeTab === 'messages' && (
+                        <MessagesTab
+                            currentParticipant={currentParticipant}
+                            conferenceId={conferenceId}
+                        />
+                    )}
                 </div>
             </main>
 

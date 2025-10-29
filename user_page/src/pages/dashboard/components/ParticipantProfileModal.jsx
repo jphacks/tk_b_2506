@@ -119,13 +119,6 @@ const ParticipantProfileModal = ({ participant, currentParticipant = null, confe
         setFeedback({ type: null, text: '' });
 
         try {
-            console.log('[ParticipantProfileModal] ミートリクエストを送信中:', {
-                conferenceId: effectiveConferenceId,
-                fromParticipantId,
-                toParticipantId,
-                message: trimmed
-            });
-
             const result = await db.createMeetRequest({
                 conferenceId: effectiveConferenceId,
                 fromParticipantId,
@@ -133,13 +126,8 @@ const ParticipantProfileModal = ({ participant, currentParticipant = null, confe
                 message: trimmed
             });
 
-            console.log('[ParticipantProfileModal] ミートリクエスト送信成功:', result);
-
             // LINE通知を送信（受信者のLINEユーザーIDがある場合のみ）
             try {
-                console.log('[ParticipantProfileModal] participant data:', participant);
-                console.log('[ParticipantProfileModal] participant.line_user_id:', participant?.line_user_id);
-
                 if (participant?.line_user_id) {
                     const senderName = currentParticipant?.introduction?.name ||
                         currentParticipant?.introduction?.affiliation ||
@@ -147,17 +135,11 @@ const ParticipantProfileModal = ({ participant, currentParticipant = null, confe
 
                     const messageText = `送信者: ${senderName}\nメッセージ: ${trimmed || 'メッセージをご確認ください。'}`;
 
-                    console.log('[ParticipantProfileModal] Sending LINE notification:', {
-                        userId: participant.line_user_id,
-                        message: messageText,
-                        type: 'meet_request'
-                    });
-
                     // Supabaseセッションを取得して認証ヘッダーに使用
                     const { data: { session } } = await supabase.auth.getSession();
                     const authToken = session?.access_token;
 
-                    const lineResponse = await fetch('https://cqudhplophskbgzepoti.supabase.co/functions/v1/send-line-notification', {
+                    await fetch('https://cqudhplophskbgzepoti.supabase.co/functions/v1/send-line-notification', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -169,14 +151,9 @@ const ParticipantProfileModal = ({ participant, currentParticipant = null, confe
                             type: 'meet_request'
                         })
                     });
-
-                    const lineResult = await lineResponse.json();
-                    console.log('[ParticipantProfileModal] LINE通知送信結果:', lineResult);
-                } else {
-                    console.log('[ParticipantProfileModal] LINE通知スキップ: line_user_idが設定されていません');
                 }
             } catch (lineError) {
-                console.error('[ParticipantProfileModal] LINE通知送信失敗:', lineError);
+                console.error('Failed to send LINE notification:', lineError);
                 // LINE通知の失敗はユーザーに表示しない
             }
 
