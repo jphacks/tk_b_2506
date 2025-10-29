@@ -1,19 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import Button from '../../components/ui/Button';
 import Header from '../../components/ui/Header';
+import MessageModal from '../../components/ui/MessageModal';
 import Toast from '../../components/ui/Toast';
 import { useAuth } from '../../contexts/AuthContext';
+import useConferenceMap from '../../hooks/useConferenceMap';
+import useConferences from '../../hooks/useConferences';
 import useLocations from '../../hooks/useLocations';
 import useParticipants from '../../hooks/useParticipants';
-import useConferences from '../../hooks/useConferences';
 import useRecommendedPresentations from '../../hooks/useRecommendedPresentations';
-import useConferenceMap from '../../hooks/useConferenceMap';
-import Button from '../../components/ui/Button';
-import QrScanButton from './components/QrScanButton';
-import VenueMap from './components/VenueMap';
-import ParticipantList from './components/ParticipantList';
-import RecommendedPresentations from './components/RecommendedPresentations';
 import { realtime } from '../../lib/supabase';
+import ParticipantList from './components/ParticipantList';
+import QrScanButton from './components/QrScanButton';
+import RecommendedPresentations from './components/RecommendedPresentations';
+import VenueMap from './components/VenueMap';
 
 const Dashboard = () => {
     const { conferenceId: routeConferenceId } = useParams();
@@ -26,6 +27,10 @@ const Dashboard = () => {
         message: '',
         type: 'success'
     });
+
+    const [notifications, setNotifications] = useState([]);
+    const [selectedMessage, setSelectedMessage] = useState(null);
+    const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
 
     const [occupationFilter, setOccupationFilter] = useState('all');
 
@@ -216,37 +221,102 @@ const Dashboard = () => {
         });
     };
 
+    const handleNotificationClick = (notification) => {
+        setSelectedMessage(notification);
+        setIsMessageModalOpen(true);
+
+        // 通知を既読にする
+        setNotifications(prev =>
+            prev.map(n =>
+                n.id === notification.id ? { ...n, read: true } : n
+            )
+        );
+    };
+
     useEffect(() => {
+        console.log('[Dashboard] useEffect for realtime subscription triggered:', {
+            conferenceId,
+            currentParticipantId: currentParticipant?.id,
+            participantsCount: participants.length
+        });
+
         if (!conferenceId || !currentParticipant?.id) {
-            return undefined;
+            console.log('[Dashboard] Skipping realtime subscription - missing required data');
+            return;
         }
 
-        const unsubscribe = realtime.subscribeMeetRequests(
-            currentParticipant.id,
-            (newRequest) => {
-                const sender = participants.find(
-                    (p) => p.id === newRequest.from_participant_id
+        console.log('[Dashboard] Setting up realtime subscription for participant:', currentParticipant.id);
+
+        // 非同期安全なパターン：useEffect内で直接非同期処理を実行
+        let unsubscribe;
+
+        const setupRealtime = async () => {
+            try {
+                console.log('[Dashboard] Starting realtime subscription setup...');
+                unsubscribe = await realtime.subscribeMeetRequests(
+                    currentParticipant.id,
+                    (newRequest) => {
+                        console.log('[Dashboard] Received new meet request:', newRequest);
+
+                        const sender = participants.find(
+                            (p) => p.id === newRequest.from_participant_id
+                        );
+
+                        console.log('[Dashboard] Found sender:', sender);
+
+                        const senderName =
+                            sender?.introduction?.name ||
+                            sender?.introduction?.affiliation ||
+                            '他の参加者';
+
+                        const messagePreview = newRequest.message?.trim()
+                            ? newRequest.message.trim()
+                            : 'メッセージをご確認ください。';
+
+                        // 通知を追加
+                        const newNotification = {
+                            id: newRequest.id,
+                            title: '新しいミートリクエスト',
+                            message: messagePreview,
+                            senderName,
+                            content: newRequest.message,
+                            timestamp: newRequest.created_at,
+                            read: false,
+                            requestData: newRequest
+                        };
+
+                        console.log('[Dashboard] Adding notification:', newNotification);
+
+                        setNotifications(prev => {
+                            const updated = [newNotification, ...prev];
+                            console.log('[Dashboard] Updated notifications:', updated);
+                            return updated;
+                        });
+
+                        // Toast通知も表示（短時間）
+                        setToast({
+                            isVisible: true,
+                            message: `新しいミートリクエストを受信しました`,
+                            type: 'success'
+                        });
+                    }
                 );
-
-                const senderName =
-                    sender?.introduction?.name ||
-                    sender?.introduction?.affiliation ||
-                    '他の参加者';
-
-                const messagePreview = newRequest.message?.trim()
-                    ? newRequest.message.trim()
-                    : 'メッセージをご確認ください。';
-
-                setToast({
-                    isVisible: true,
-                    message: `新しいミートリクエスト\n差出人: ${senderName}\n内容: ${messagePreview}`,
-                    type: 'success'
-                });
+                console.log('[Dashboard] Realtime subscription setup completed');
+            } catch (error) {
+                console.error('[Dashboard] Failed to setup realtime subscription:', error);
             }
-        );
+        };
 
-        return unsubscribe;
-    }, [conferenceId, currentParticipant?.id, participants]);
+        // 非同期関数を即座に実行
+        console.log('[Dashboard] セットアップ開始！！！！！！！！...');
+        setupRealtime();
+
+        return () => {
+            if (unsubscribe) {
+                unsubscribe();
+            }
+        };
+    }, [conferenceId, currentParticipant?.id]);
 
     if (!conferenceId) {
         return (
@@ -266,7 +336,10 @@ const Dashboard = () => {
 
     return (
         <div className="min-h-screen bg-background">
-            <Header />
+            <Header
+                notifications={notifications}
+                onNotificationClick={handleNotificationClick}
+            />
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
                 <div className="flex flex-col gap-2">
                     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -383,6 +456,15 @@ const Dashboard = () => {
                 type={toast.type}
                 position="bottom"
                 onClose={() => setToast(prev => ({ ...prev, isVisible: false }))}
+            />
+
+            <MessageModal
+                isOpen={isMessageModalOpen}
+                message={selectedMessage}
+                onClose={() => {
+                    setIsMessageModalOpen(false);
+                    setSelectedMessage(null);
+                }}
             />
         </div>
     );

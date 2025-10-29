@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import Icon from '../AppIcon';
 import SettingsPanel from '../settings/SettingsPanel';
+import NotificationButton from './NotificationButton';
 
-const Header = () => {
+const Header = ({ notifications = [], onNotificationClick = () => { } }) => {
     const navigate = useNavigate();
     const { user, logout } = useAuth();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -55,6 +56,14 @@ const Header = () => {
 
                         {/* Navigation Actions */}
                         <div className="flex items-center space-x-4">
+                            {/* Notification Button */}
+                            {user && (
+                                <NotificationButton
+                                    notifications={notifications}
+                                    onNotificationClick={onNotificationClick}
+                                />
+                            )}
+
                             {/* Help Button */}
                             <button
                                 className="flex items-center justify-center w-10 h-10 rounded-lg bg-muted hover:bg-muted/80 transition-gentle press-feedback touch-target"
