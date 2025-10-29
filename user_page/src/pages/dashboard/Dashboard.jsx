@@ -10,7 +10,7 @@ import useConferences from '../../hooks/useConferences';
 import useLocations from '../../hooks/useLocations';
 import useParticipants from '../../hooks/useParticipants';
 import useRecommendedPresentations from '../../hooks/useRecommendedPresentations';
-import { realtime } from '../../lib/supabase';
+import { db, realtime } from '../../lib/supabase';
 import ParticipantList from './components/ParticipantList';
 import QrScanButton from './components/QrScanButton';
 import RecommendedPresentations from './components/RecommendedPresentations';
@@ -221,16 +221,23 @@ const Dashboard = () => {
         });
     };
 
-    const handleNotificationClick = (notification) => {
+    const handleNotificationClick = async (notification) => {
         setSelectedMessage(notification);
         setIsMessageModalOpen(true);
 
-        // 通知を既読にする
-        setNotifications(prev =>
-            prev.map(n =>
-                n.id === notification.id ? { ...n, read: true } : n
-            )
-        );
+        // データベースで既読にする
+        try {
+            await db.markMeetRequestAsRead(notification.id);
+
+            // ローカル状態も更新
+            setNotifications(prev =>
+                prev.map(n =>
+                    n.id === notification.id ? { ...n, is_read: true } : n
+                )
+            );
+        } catch (error) {
+            console.error('Failed to mark notification as read:', error);
+        }
     };
 
     useEffect(() => {
@@ -281,7 +288,7 @@ const Dashboard = () => {
                             senderName,
                             content: newRequest.message,
                             timestamp: newRequest.created_at,
-                            read: false,
+                            is_read: newRequest.is_read || false,
                             requestData: newRequest
                         };
 
@@ -309,6 +316,45 @@ const Dashboard = () => {
             }
         };
     }, [conferenceId, currentParticipant?.id]);
+
+    // 既存の未読通知を読み込む
+    useEffect(() => {
+        const loadExistingNotifications = async () => {
+            if (!currentParticipant?.id) return;
+
+            try {
+                const unreadRequests = await db.getUnreadMeetRequests(currentParticipant.id);
+
+                const existingNotifications = unreadRequests.map(request => {
+                    const sender = participants.find(p => p.id === request.from_participant_id);
+                    const senderName = sender?.introduction?.name ||
+                        sender?.introduction?.affiliation ||
+                        '他の参加者';
+
+                    const messagePreview = request.message?.trim()
+                        ? request.message.trim()
+                        : 'メッセージをご確認ください。';
+
+                    return {
+                        id: request.id,
+                        title: 'ミートリクエスト',
+                        message: messagePreview,
+                        senderName,
+                        content: request.message,
+                        timestamp: request.created_at,
+                        is_read: request.is_read || false,
+                        requestData: request
+                    };
+                });
+
+                setNotifications(existingNotifications);
+            } catch (error) {
+                console.error('Failed to load existing notifications:', error);
+            }
+        };
+
+        loadExistingNotifications();
+    }, [currentParticipant?.id, participants]);
 
     if (!conferenceId) {
         return (

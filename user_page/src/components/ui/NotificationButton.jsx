@@ -8,7 +8,7 @@ const NotificationButton = ({
   className = ""
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter(n => !n.is_read).length;
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -57,7 +57,7 @@ const NotificationButton = ({
               {notifications.map((notification, index) => (
                 <div
                   key={notification.id || index}
-                  className={`p-3 hover:bg-muted/50 cursor-pointer transition-colors ${!notification.read ? 'bg-muted/30' : ''
+                  className={`p-3 hover:bg-muted/50 cursor-pointer transition-colors ${!notification.is_read ? 'bg-muted/30' : ''
                     }`}
                   onClick={() => handleNotificationClick(notification)}
                 >
@@ -66,11 +66,11 @@ const NotificationButton = ({
                       <Icon
                         name="MessageCircle"
                         size={16}
-                        className={!notification.read ? 'text-primary' : 'text-muted-foreground'}
+                        className={!notification.is_read ? 'text-primary' : 'text-muted-foreground'}
                       />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm ${!notification.read ? 'font-medium' : ''}`}>
+                      <p className={`text-sm ${!notification.is_read ? 'font-medium' : ''}`}>
                         {notification.title || '新しいミートリクエスト'}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
@@ -80,7 +80,7 @@ const NotificationButton = ({
                         {notification.timestamp}
                       </p>
                     </div>
-                    {!notification.read && (
+                    {!notification.is_read && (
                       <div className="flex-shrink-0">
                         <div className="w-2 h-2 bg-primary rounded-full"></div>
                       </div>

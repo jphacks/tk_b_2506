@@ -415,6 +415,7 @@ export const db = {
             to_participant_id: toParticipantId,
             status: 'pending',
             message: message?.trim() ? message.trim() : null,
+            is_read: false,
             created_at: new Date().toISOString()
         };
 
@@ -437,6 +438,54 @@ export const db = {
 
         debugLog('[db.createMeetRequest] 作成成功:', data);
         return data;
+    },
+
+    // ミートリクエストを既読にする
+    async markMeetRequestAsRead(requestId) {
+        if (!requestId) {
+            throw new Error('requestId は必須です。');
+        }
+
+        debugLog('[db.markMeetRequestAsRead] 既読処理開始:', { requestId });
+
+        const { data, error } = await supabase
+            .from('participant_meet_requests')
+            .update({ is_read: true, updated_at: new Date().toISOString() })
+            .eq('id', requestId)
+            .select()
+            .maybeSingle();
+
+        if (error) {
+            console.error('[db.markMeetRequestAsRead] エラー:', error);
+            throw error;
+        }
+
+        debugLog('[db.markMeetRequestAsRead] 既読処理成功:', data);
+        return data;
+    },
+
+    // ユーザーの未読ミートリクエストを取得
+    async getUnreadMeetRequests(participantId) {
+        if (!participantId) {
+            throw new Error('participantId は必須です。');
+        }
+
+        debugLog('[db.getUnreadMeetRequests] 未読リクエスト取得開始:', { participantId });
+
+        const { data, error } = await supabase
+            .from('participant_meet_requests')
+            .select('*')
+            .eq('to_participant_id', participantId)
+            .eq('is_read', false)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('[db.getUnreadMeetRequests] エラー:', error);
+            throw error;
+        }
+
+        debugLog('[db.getUnreadMeetRequests] 未読リクエスト取得成功:', data);
+        return data || [];
     }
 };
 
