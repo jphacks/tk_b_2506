@@ -119,19 +119,29 @@ const ParticipantProfileModal = ({ participant, currentParticipant = null, confe
         setFeedback({ type: null, text: '' });
 
         try {
-            await db.createMeetRequest({
+            console.log('[ParticipantProfileModal] ミートリクエストを送信中:', {
                 conferenceId: effectiveConferenceId,
                 fromParticipantId,
                 toParticipantId,
                 message: trimmed
             });
+
+            const result = await db.createMeetRequest({
+                conferenceId: effectiveConferenceId,
+                fromParticipantId,
+                toParticipantId,
+                message: trimmed
+            });
+
+            console.log('[ParticipantProfileModal] ミートリクエスト送信成功:', result);
+
             setHasSent(true);
             setFeedback({
                 type: 'success',
                 text: 'メッセージを送信しました。相手からの返答をお待ちください。'
             });
         } catch (error) {
-            console.error('Failed to create meet request:', error);
+            console.error('[ParticipantProfileModal] Failed to create meet request:', error);
             setFeedback({
                 type: 'error',
                 text: error?.message || 'メッセージの送信に失敗しました。時間をおいて再度お試しください。'
