@@ -14,6 +14,7 @@ const fetchParticipantsByLocation = async (locationId) => {
             current_location_id,
             registered_at,
             updated_at,
+            line_user_id,
             introduction:introductions(
                 id,
                 name,

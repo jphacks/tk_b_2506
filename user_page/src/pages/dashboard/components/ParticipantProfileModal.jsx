@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 
 import Button from '../../../components/ui/Button';
 import Textarea from '../../../components/ui/Textarea';
-import { db } from '../../../lib/supabase';
+import { db, supabase } from '../../../lib/supabase';
 
 const MAX_MESSAGE_LENGTH = 300;
 
@@ -134,6 +134,51 @@ const ParticipantProfileModal = ({ participant, currentParticipant = null, confe
             });
 
             console.log('[ParticipantProfileModal] ミートリクエスト送信成功:', result);
+
+            // LINE通知を送信（受信者のLINEユーザーIDがある場合のみ）
+            try {
+                console.log('[ParticipantProfileModal] participant data:', participant);
+                console.log('[ParticipantProfileModal] participant.line_user_id:', participant?.line_user_id);
+
+                if (participant?.line_user_id) {
+                    const senderName = currentParticipant?.introduction?.name ||
+                        currentParticipant?.introduction?.affiliation ||
+                        '他の参加者';
+
+                    const messageText = `送信者: ${senderName}\nメッセージ: ${trimmed || 'メッセージをご確認ください。'}`;
+
+                    console.log('[ParticipantProfileModal] Sending LINE notification:', {
+                        userId: participant.line_user_id,
+                        message: messageText,
+                        type: 'meet_request'
+                    });
+
+                    // Supabaseセッションを取得して認証ヘッダーに使用
+                    const { data: { session } } = await supabase.auth.getSession();
+                    const authToken = session?.access_token;
+
+                    const lineResponse = await fetch('https://cqudhplophskbgzepoti.supabase.co/functions/v1/send-line-notification', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${authToken}`
+                        },
+                        body: JSON.stringify({
+                            userId: participant.line_user_id,
+                            message: messageText,
+                            type: 'meet_request'
+                        })
+                    });
+
+                    const lineResult = await lineResponse.json();
+                    console.log('[ParticipantProfileModal] LINE通知送信結果:', lineResult);
+                } else {
+                    console.log('[ParticipantProfileModal] LINE通知スキップ: line_user_idが設定されていません');
+                }
+            } catch (lineError) {
+                console.error('[ParticipantProfileModal] LINE通知送信失敗:', lineError);
+                // LINE通知の失敗はユーザーに表示しない
+            }
 
             setHasSent(true);
             setFeedback({
