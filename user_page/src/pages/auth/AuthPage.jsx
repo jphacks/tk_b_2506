@@ -10,7 +10,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { db, auth as supabaseAuth } from '../../lib/supabase';
 
 const AuthPage = () => {
-    const { login, signup } = useAuth();
+    const { login, signup, loginWithLine } = useAuth();
     const navigate = useNavigate();
     const [isLogin, setIsLogin] = useState(true);
     const [formData, setFormData] = useState({
@@ -194,6 +194,30 @@ const AuthPage = () => {
         setErrors({});
     };
 
+    // Handle LINE login
+    const handleLineLogin = async () => {
+        setIsLoading(true);
+        try {
+            const result = await loginWithLine();
+            if (!result.success) {
+                setToast({
+                    isVisible: true,
+                    message: result.error || 'LINEログインに失敗しました。',
+                    type: 'error'
+                });
+            }
+            // LINE認証はリダイレクトされるため、ここには到達しない
+        } catch (error) {
+            setToast({
+                isVisible: true,
+                message: 'LINEログインに失敗しました。',
+                type: 'error'
+            });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-background">
             <Header notifications={[]} onNotificationClick={() => { }} showSettings={false} />
@@ -285,6 +309,32 @@ const AuthPage = () => {
                                 ? (isLogin ? "ログイン中..." : "作成中...")
                                 : (isLogin ? "ログイン" : "アカウント作成")
                             }
+                        </Button>
+
+                        {/* LINE Login Button */}
+                        <div className="relative">
+                            <div className="absolute inset-0 flex items-center">
+                                <div className="w-full border-t border-border"></div>
+                            </div>
+                            <div className="relative flex justify-center text-xs uppercase">
+                                <span className="bg-card px-2 text-muted-foreground">または</span>
+                            </div>
+                        </div>
+
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="lg"
+                            fullWidth
+                            onClick={handleLineLogin}
+                            disabled={isLoading}
+                            iconPosition="left"
+                            className="bg-[#06C755] hover:bg-[#05B64A] text-white border-[#06C755]"
+                        >
+                            <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.348 0 .627.285.627.63 0 .349-.279.63-.627.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629h-1.754l-.84 1.275c-.104.156-.282.25-.464.25-.345 0-.63-.283-.63-.629 0-.24.143-.45.346-.555l1.422-.87-1.422-.87c-.203-.104-.346-.314-.346-.554 0-.346.285-.63.63-.63.182 0 .36.104.464.25l.84 1.274h1.755c.349 0 .63.285.63.63M7.423 15.052H4.227c-.346 0-.627-.285-.627-.63V8.108c0-.345.281-.63.63-.63.345 0 .63.285.63.63v5.684h2.563c.348 0 .629.283.629.63 0 .344-.282.63-.629.63" />
+                            </svg>
+                            LINEでログイン
                         </Button>
 
                         {/* Mode Toggle */}

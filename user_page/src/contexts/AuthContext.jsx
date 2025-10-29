@@ -113,6 +113,25 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const loginWithLine = async () => {
+        try {
+            console.log('Attempting LINE login...');
+            const { data, error } = await auth.signInWithLine();
+
+            if (error) {
+                console.error('LINE login error:', error);
+                return { success: false, error: error.message };
+            }
+
+            // LINE認証はリダイレクトされるため、ここには到達しない
+            // 成功はコールバックで処理される
+            return { success: true };
+        } catch (error) {
+            console.error('LINE login exception:', error);
+            return { success: false, error: error.message };
+        }
+    };
+
     const logout = async () => {
         try {
             await auth.signOut();
@@ -127,6 +146,7 @@ export const AuthProvider = ({ children }) => {
         isLoading,
         login,
         signup,
+        loginWithLine,
         logout,
         isAuthenticated: !!user
     };

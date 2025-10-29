@@ -28,6 +28,14 @@ const Dashboard = () => {
     // URLパラメータからタブを取得、デフォルトは'home'
     const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'home');
 
+    // URLパラメータが変更されたときにタブを更新
+    useEffect(() => {
+        const tabFromUrl = searchParams.get('tab');
+        if (tabFromUrl && tabFromUrl !== activeTab) {
+            setActiveTab(tabFromUrl);
+        }
+    }, [searchParams]);
+
     const [toast, setToast] = useState({
         isVisible: false,
         message: '',
