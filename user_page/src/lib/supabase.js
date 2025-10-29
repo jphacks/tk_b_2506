@@ -415,24 +415,26 @@ export const db = {
             to_participant_id: toParticipantId,
             status: 'pending',
             message: message?.trim() ? message.trim() : null,
-            is_read: false,
-            created_at: new Date().toISOString()
+            is_read: false
+            // created_atは自動生成されるため削除
         };
 
         debugLog('[db.createMeetRequest] 送信するペイロード:', payload);
 
-        // より確実な方法：upsertを使用してINSERTイベントを確実に発火
+        // 複数の通知を許可するため、insertを使用
         const { data, error } = await supabase
             .from('participant_meet_requests')
-            .upsert(payload, {
-                onConflict: 'conference_id,from_participant_id,to_participant_id',
-                ignoreDuplicates: false
-            })
+            .insert(payload)
             .select()
-            .maybeSingle();
+            .single();
 
         if (error) {
-            console.error('[db.createMeetRequest] エラー:', error);
+            console.error('[db.createMeetRequest] エラー詳細:', {
+                message: error.message,
+                details: error.details,
+                hint: error.hint,
+                code: error.code
+            });
             throw error;
         }
 

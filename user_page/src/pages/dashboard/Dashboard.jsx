@@ -295,6 +295,7 @@ const Dashboard = () => {
                         console.log('[Dashboard] Adding notification:', newNotification);
 
                         setNotifications(prev => {
+                            // 新しい通知を常に追加（重複チェックは不要）
                             const updated = [newNotification, ...prev];
                             console.log('[Dashboard] Updated notifications:', updated);
                             return updated;
@@ -347,7 +348,12 @@ const Dashboard = () => {
                     };
                 });
 
-                setNotifications(existingNotifications);
+                // 既存の通知と新しい通知をマージ（重複を避ける）
+                setNotifications(prev => {
+                    const existingIds = new Set(prev.map(n => n.id));
+                    const newNotifications = existingNotifications.filter(n => !existingIds.has(n.id));
+                    return [...newNotifications, ...prev];
+                });
             } catch (error) {
                 console.error('Failed to load existing notifications:', error);
             }
