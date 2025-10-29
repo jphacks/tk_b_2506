@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 import Header from '../../components/ui/Header';
@@ -10,7 +10,7 @@ import useConferences from '../../hooks/useConferences';
 import useLocations from '../../hooks/useLocations';
 import useParticipants from '../../hooks/useParticipants';
 import useRecommendedPresentations from '../../hooks/useRecommendedPresentations';
-import { db, realtime } from '../../lib/supabase';
+import { db, realtime, supabase } from '../../lib/supabase';
 import ParticipantList from './components/ParticipantList';
 import QrScanButton from './components/QrScanButton';
 import RecommendedPresentations from './components/RecommendedPresentations';
@@ -31,6 +31,7 @@ const Dashboard = () => {
     const [notifications, setNotifications] = useState([]);
     const [selectedMessage, setSelectedMessage] = useState(null);
     const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
+    const notificationsLoadedRef = useRef(false);
 
     const [occupationFilter, setOccupationFilter] = useState('all');
 
@@ -263,42 +264,54 @@ const Dashboard = () => {
                 unsubscribe = await realtime.subscribeMeetRequests(
                     currentParticipant.id,
                     (newRequest) => {
-                        console.log('[Dashboard] Received new meet request:', newRequest);
+                        console.log('[Dashboard] Received meet request event:', newRequest);
 
-                        const sender = participants.find(
-                            (p) => p.id === newRequest.from_participant_id
-                        );
-
-                        console.log('[Dashboard] Found sender:', sender);
-
-                        const senderName =
-                            sender?.introduction?.name ||
-                            sender?.introduction?.affiliation ||
-                            '他の参加者';
-
-                        const messagePreview = newRequest.message?.trim()
-                            ? newRequest.message.trim()
-                            : 'メッセージをご確認ください。';
-
-                        // 通知を追加
-                        const newNotification = {
-                            id: newRequest.id,
-                            title: '新しいミートリクエスト',
-                            message: messagePreview,
-                            senderName,
-                            content: newRequest.message,
-                            timestamp: newRequest.created_at,
-                            is_read: newRequest.is_read || false,
-                            requestData: newRequest
-                        };
-
-                        console.log('[Dashboard] Adding notification:', newNotification);
-
+                        // 既存の通知を更新するか、新しい通知を追加するかを判定
                         setNotifications(prev => {
-                            // 新しい通知を常に追加（重複チェックは不要）
-                            const updated = [newNotification, ...prev];
-                            console.log('[Dashboard] Updated notifications:', updated);
-                            return updated;
+                            const existingIndex = prev.findIndex(n => n.id === newRequest.id);
+
+                            if (existingIndex !== -1) {
+                                // 既存の通知を更新（UPDATEイベントの場合）
+                                console.log('[Dashboard] Updating existing notification:', newRequest.id);
+                                const updated = [...prev];
+                                updated[existingIndex] = {
+                                    ...updated[existingIndex],
+                                    is_read: newRequest.is_read || false,
+                                    requestData: newRequest
+                                };
+                                console.log('[Dashboard] Updated existing notification:', updated[existingIndex]);
+                                return updated;
+                            } else {
+                                // 新しい通知を追加（INSERTイベントの場合）
+                                console.log('[Dashboard] Adding new notification:', newRequest.id);
+
+                                const sender = participants.find(
+                                    (p) => p.id === newRequest.from_participant_id
+                                );
+
+                                const senderName =
+                                    sender?.introduction?.name ||
+                                    sender?.introduction?.affiliation ||
+                                    '他の参加者';
+
+                                const messagePreview = newRequest.message?.trim()
+                                    ? newRequest.message.trim()
+                                    : 'メッセージをご確認ください。';
+
+                                const newNotification = {
+                                    id: newRequest.id,
+                                    title: '新しいミートリクエスト',
+                                    message: messagePreview,
+                                    senderName,
+                                    content: newRequest.message,
+                                    timestamp: newRequest.created_at,
+                                    is_read: newRequest.is_read || false,
+                                    requestData: newRequest
+                                };
+
+                                console.log('[Dashboard] Adding new notification:', newNotification);
+                                return [newNotification, ...prev];
+                            }
                         });
                     }
                 );
@@ -318,15 +331,26 @@ const Dashboard = () => {
         };
     }, [conferenceId, currentParticipant?.id]);
 
-    // 既存の未読通知を読み込む
+    // 既存の通知を読み込む（既読・未読問わず）
     useEffect(() => {
         const loadExistingNotifications = async () => {
-            if (!currentParticipant?.id) return;
+            if (!currentParticipant?.id || participants.length === 0 || notificationsLoadedRef.current) return;
 
             try {
-                const unreadRequests = await db.getUnreadMeetRequests(currentParticipant.id);
+                // すべての通知を取得（既読・未読問わず）
+                const { data: allRequests, error } = await supabase
+                    .from('participant_meet_requests')
+                    .select('*')
+                    .eq('to_participant_id', currentParticipant.id)
+                    .order('created_at', { ascending: false });
 
-                const existingNotifications = unreadRequests.map(request => {
+                if (error) {
+                    console.error('Failed to load existing notifications:', error);
+                    return;
+                }
+
+                const existingNotifications = allRequests.map(request => {
+                    // 参加者情報をリアルタイムで取得
                     const sender = participants.find(p => p.id === request.from_participant_id);
                     const senderName = sender?.introduction?.name ||
                         sender?.introduction?.affiliation ||
@@ -348,19 +372,16 @@ const Dashboard = () => {
                     };
                 });
 
-                // 既存の通知と新しい通知をマージ（重複を避ける）
-                setNotifications(prev => {
-                    const existingIds = new Set(prev.map(n => n.id));
-                    const newNotifications = existingNotifications.filter(n => !existingIds.has(n.id));
-                    return [...newNotifications, ...prev];
-                });
+                // 既存の通知を完全に置き換える（重複を避けるため）
+                setNotifications(existingNotifications);
+                notificationsLoadedRef.current = true;
             } catch (error) {
                 console.error('Failed to load existing notifications:', error);
             }
         };
 
         loadExistingNotifications();
-    }, [currentParticipant?.id, participants]);
+    }, [currentParticipant?.id, participants]); // participantsを依存配列に戻す
 
     if (!conferenceId) {
         return (
