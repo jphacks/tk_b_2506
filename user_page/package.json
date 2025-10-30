@@ -27,7 +27,6 @@
         "warning": "🚨 CRITICAL: DO NOT REMOVE OR MODIFY ABOVE DEPENDENCIES - Required for app functionality"
     },
     "dependencies": {
-        "@auth0/auth0-spa-js": "^2.8.0",
         "@dhiwise/component-tagger": "^1.0.10",
         "@line/liff": "^2.27.2",
         "@radix-ui/react-slot": "^1.2.3",

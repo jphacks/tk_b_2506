@@ -1,17 +1,6 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
-type VerifyResponse = {
-  iss: string;
-  sub: string; // LINE user id
-  aud: string;
-  exp: number;
-  iat: number;
-  amr?: string[];
-  name?: string;
-  picture?: string;
-  email?: string;
-};
 
 interface RequestBody {
   id_token: string;
@@ -23,11 +12,10 @@ interface RequestBody {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const LINE_CHANNEL_ID = Deno.env.get("LINE_CHANNEL_ID")!;
 
-if (!SUPABASE_URL || !SERVICE_ROLE || !LINE_CHANNEL_ID) {
+if (!SUPABASE_URL || !SERVICE_ROLE) {
   throw new Error(
-    "Missing required env vars: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, LINE_CHANNEL_ID",
+    "Missing required env vars: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY",
   );
 }
 
@@ -53,31 +41,6 @@ const json = (data: any, status = 200) =>
     },
   });
 
-async function verifyLineIdToken(idToken: string): Promise<VerifyResponse> {
-  const url = `https://api.line.me/oauth2/v2.1/verify?id_token=${encodeURIComponent(idToken)}&client_id=${encodeURIComponent(LINE_CHANNEL_ID)}`;
-
-  console.log("LINE verification URL:", url);
-  console.log("LINE_CHANNEL_ID:", LINE_CHANNEL_ID);
-  console.log("ID token length:", idToken.length);
-
-  const res = await fetch(url);
-
-  console.log("LINE verification response:", {
-    status: res.status,
-    statusText: res.statusText,
-    ok: res.ok
-  });
-
-  if (!res.ok) {
-    const errorText = await res.text();
-    console.error("LINE verification error response:", errorText);
-    throw new Error(`LINE ID token verification failed: ${res.statusText} - ${errorText}`);
-  }
-
-  const result = await res.json();
-  console.log("LINE verification success:", result);
-  return result;
-}
 
 
 async function upsertParticipant(lineUserId: string, userId: string) {
