@@ -497,7 +497,7 @@ const Dashboard = () => {
                 notifications={notifications}
                 onNotificationClick={handleNotificationClick}
                 showSettings={true}
-                currentLocation={currentLocation}
+                onConferenceSwitch={handleConferenceSwitch}
             />
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
                 <div className="flex flex-col gap-2">
@@ -523,18 +523,7 @@ const Dashboard = () => {
                                     </>
                                 ) : ''}
                             </span>
-                            {/* 学会切り替えボタン */}
-                            {conferenceMeta && (
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={handleConferenceSwitch}
-                                    iconName="RefreshCw"
-                                    iconPosition="left"
-                                >
-                                    学会を切り替え
-                                </Button>
-                            )}
+                            {/* 学会切り替えボタン削除（元は515-523行 Button）*/}
                         </div>
                     </div>
                     {!conferenceMeta && !conferencesLoading && (

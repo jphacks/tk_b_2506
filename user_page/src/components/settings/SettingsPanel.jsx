@@ -1,5 +1,8 @@
-import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { db, supabase } from '../../lib/supabase';
+import VisibilityToggle from '../../pages/self-introduction-form/components/VisibilityToggle';
+import { cn } from '../../utils/cn';
 import Icon from '../AppIcon';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
@@ -7,9 +10,6 @@ import MultiSelect from '../ui/MultiSelect';
 import Select from '../ui/Select';
 import Textarea from '../ui/Textarea';
 import Toast from '../ui/Toast';
-import { db, supabase } from '../../lib/supabase';
-import { cn } from '../../utils/cn';
-import VisibilityToggle from '../../pages/self-introduction-form/components/VisibilityToggle';
 
 const initialIntroForm = {
     name: '',
@@ -38,7 +38,7 @@ const initialPasswordForm = {
     confirmPassword: ''
 };
 
-const SettingsPanel = ({ isOpen, onClose, user, onLogout }) => {
+const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch }) => {
     const panelRef = useRef(null);
     const [introForm, setIntroForm] = useState(initialIntroForm);
     const [introErrors, setIntroErrors] = useState({});
@@ -56,6 +56,7 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout }) => {
     const [passwordForm, setPasswordForm] = useState(initialPasswordForm);
     const [passwordErrors, setPasswordErrors] = useState({});
     const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+    const [showPasswordForm, setShowPasswordForm] = useState(false);
 
     const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -581,53 +582,94 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout }) => {
                             )}
                         </section>
 
+                        {/* 学会切り替えボタン 新設 */}
+                        <section className="px-6 py-5 border-b border-border">
+                            <div>
+                                <h3 className="text-sm font-semibold text-foreground">学会の切り替え</h3>
+                                <p className="text-sm text-muted-foreground">他の学会の情報を閲覧・参加するには学会を切り替えてください。</p>
+                            </div>
+                            <div className="flex justify-end mt-4">
+                                <Button
+                                    type="button"
+                                    variant="primary"
+                                    onClick={onConferenceSwitch}
+                                    iconName="RefreshCw"
+                                    iconPosition="left"
+                                >
+                                    学会を切り替え
+                                </Button>
+                            </div>
+                        </section>
+
                         <section className="px-6 py-5 space-y-5 border-b border-border">
                             <div>
                                 <h3 className="text-sm font-semibold text-foreground">パスワードの更新</h3>
                                 <p className="text-sm text-muted-foreground">アカウントのセキュリティを高めるため定期的に変更しましょう。</p>
                             </div>
 
-                            <form className="space-y-4" onSubmit={handleUpdatePassword}>
-                                <Input
-                                    name="currentPassword"
-                                    type="password"
-                                    value={passwordForm.currentPassword}
-                                    onChange={handlePasswordChange}
-                                    label="現在のパスワード"
-                                    required
-                                    error={passwordErrors.currentPassword}
-                                />
-                                <Input
-                                    name="newPassword"
-                                    type="password"
-                                    value={passwordForm.newPassword}
-                                    onChange={handlePasswordChange}
-                                    label="新しいパスワード"
-                                    required
-                                    error={passwordErrors.newPassword}
-                                    description="6文字以上で設定してください"
-                                />
-                                <Input
-                                    name="confirmPassword"
-                                    type="password"
-                                    value={passwordForm.confirmPassword}
-                                    onChange={handlePasswordChange}
-                                    label="新しいパスワード（確認）"
-                                    required
-                                    error={passwordErrors.confirmPassword}
-                                />
+                            {showPasswordForm ? (
+                                <form className="space-y-4" onSubmit={handleUpdatePassword}>
+                                    <Input
+                                        name="currentPassword"
+                                        type="password"
+                                        value={passwordForm.currentPassword}
+                                        onChange={handlePasswordChange}
+                                        label="現在のパスワード"
+                                        required
+                                        error={passwordErrors.currentPassword}
+                                    />
+                                    <Input
+                                        name="newPassword"
+                                        type="password"
+                                        value={passwordForm.newPassword}
+                                        onChange={handlePasswordChange}
+                                        label="新しいパスワード"
+                                        required
+                                        error={passwordErrors.newPassword}
+                                        description="6文字以上で設定してください"
+                                    />
+                                    <Input
+                                        name="confirmPassword"
+                                        type="password"
+                                        value={passwordForm.confirmPassword}
+                                        onChange={handlePasswordChange}
+                                        label="新しいパスワード（確認）"
+                                        required
+                                        error={passwordErrors.confirmPassword}
+                                    />
 
+                                    <div className="flex justify-end gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="secondary"
+                                            onClick={() => setShowPasswordForm(false)}
+                                            disabled={isUpdatingPassword}
+                                        >
+                                            キャンセル
+                                        </Button>
+                                        <Button
+                                            type="submit"
+                                            variant="primary"
+                                            loading={isUpdatingPassword}
+                                            disabled={isUpdatingPassword}
+                                        >
+                                            パスワードを更新
+                                        </Button>
+                                    </div>
+                                </form>
+                            ) : (
                                 <div className="flex justify-end">
                                     <Button
-                                        type="submit"
-                                        variant="secondary"
-                                        loading={isUpdatingPassword}
-                                        disabled={isUpdatingPassword}
+                                        type="button"
+                                        variant="primary"
+                                        onClick={() => setShowPasswordForm(true)}
+                                        iconName="Lock"
+                                        iconPosition="left"
                                     >
                                         パスワードを変更
                                     </Button>
                                 </div>
-                            </form>
+                            )}
                         </section>
 
                         <section className="px-6 py-5">
