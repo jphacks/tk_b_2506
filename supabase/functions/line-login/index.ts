@@ -162,6 +162,16 @@ Deno.serve(async (req) => {
       console.error('Failed to update user metadata:', updateMetaErr);
     }
 
+    // 5) If participant rows already exist for this user, stamp line_user_id onto them
+    //    （自動作成はしないが、既存行の同期は行う）
+    const { error: updateParticipantErr } = await supabaseAdmin
+      .from('participants')
+      .update({ line_user_id: lineUserId })
+      .eq('user_id', userId);
+    if (updateParticipantErr) {
+      console.error('Failed to sync line_user_id to participants:', updateParticipantErr);
+    }
+
     // 5) Generate magic link to establish session on client
     const redirectUrl = "https://unmilted-amirah-nonethnologic.ngrok-free.dev/auth/callback";
     console.log("Magic link redirect URL:", redirectUrl);

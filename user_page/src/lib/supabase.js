@@ -116,6 +116,12 @@ export const db = {
         }
 
         const existing = await db.getParticipantByUser(userId);
+        // auth メタから line_user_id を取得
+        let lineUserId = null;
+        try {
+            const { data: authData } = await supabase.auth.getUser();
+            lineUserId = authData?.user?.user_metadata?.line_user_id ?? null;
+        } catch { }
         const updatePayload = {
             conference_id: conferenceId,
             updated_at: new Date().toISOString()
@@ -123,7 +129,8 @@ export const db = {
         const insertPayload = {
             user_id: userId,
             conference_id: conferenceId,
-            registered_at: new Date().toISOString()
+            registered_at: new Date().toISOString(),
+            ...(lineUserId ? { line_user_id: lineUserId } : {})
         };
 
         if (introductionId !== undefined) {
@@ -132,6 +139,10 @@ export const db = {
         }
 
         if (existing?.id) {
+            // 既存行に line_user_id が未設定で、auth メタにある場合は合わせて更新
+            if (!existing.line_user_id && lineUserId) {
+                updatePayload.line_user_id = lineUserId;
+            }
             const { data, error } = await supabase
                 .from('participants')
                 .update(updatePayload)
@@ -182,6 +193,12 @@ export const db = {
 
         // 既に参加済みかチェック
         const existing = await db.getParticipantByUser(userId);
+        // auth メタから line_user_id を取得
+        let lineUserId = null;
+        try {
+            const { data: authData } = await supabase.auth.getUser();
+            lineUserId = authData?.user?.user_metadata?.line_user_id ?? null;
+        } catch { }
 
         let resolvedIntroductionId = introductionId;
         let shouldUpdateIntroduction = introductionId !== undefined;
@@ -208,7 +225,8 @@ export const db = {
         const insertPayload = {
             user_id: userId,
             conference_id: conferenceId,
-            registered_at: new Date().toISOString()
+            registered_at: new Date().toISOString(),
+            ...(lineUserId ? { line_user_id: lineUserId } : {})
         };
 
         if (shouldUpdateIntroduction) {
@@ -217,6 +235,10 @@ export const db = {
 
         // 参加登録または更新
         if (existing?.id) {
+            // 既存行に line_user_id が未設定で、auth メタにある場合は合わせて更新
+            if (!existing.line_user_id && lineUserId) {
+                updatePayload.line_user_id = lineUserId;
+            }
             const { data, error } = await supabase
                 .from('participants')
                 .update(updatePayload)
