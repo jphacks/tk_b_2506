@@ -53,19 +53,27 @@ const LiffEntry = () => {
         // APIがトークンを返す場合はクライアント側でセッションを確立
         if (res.ok) {
           try {
-            const tokens = await res.json();
-            if (tokens?.access_token && tokens?.refresh_token) {
+            const payload = await res.json();
+            // 1) token ペア方式
+            if (payload?.access_token && payload?.refresh_token) {
               await supabase.auth.setSession({
-                access_token: tokens.access_token,
-                refresh_token: tokens.refresh_token
+                access_token: payload.access_token,
+                refresh_token: payload.refresh_token
               });
+              navigate(redirect, { replace: true });
+              return;
+            }
+            // 2) magic link 方式（URLが返るケース）
+            if (payload?.url) {
+              window.location.replace(payload.url);
+              return;
             }
           } catch (_) {
             // JSON以外（Cookie方式）の場合は無視
           }
         }
-
-        navigate(redirect, { replace: true });
+        // 何も返ってこない場合は通常の認証ページへ
+        navigate('/auth', { replace: true });
       } catch (e) {
         setMessage('LINE連携に失敗しました。通常ログインをご利用ください。');
         // 3秒後に認証ページへ案内
