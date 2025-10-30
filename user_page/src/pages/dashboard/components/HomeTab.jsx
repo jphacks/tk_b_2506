@@ -16,7 +16,7 @@ const HomeTab = ({
   return (
     <div className="space-y-6">
       {/* 現在地を更新ボタン */}
-      <div className="flex justify-center">
+      <div className="flex justify-center w-full">
         <QrScanButton
           conferenceId={conferenceId}
           onScanSuccess={onQrScanSuccess}
