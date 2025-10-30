@@ -6,6 +6,7 @@ import AuthCallback from "./pages/auth/AuthCallback";
 import AuthPage from "./pages/auth/AuthPage";
 import VerifyEmailNotice from "./pages/auth/VerifyEmailNotice";
 import Dashboard from "./pages/dashboard/Dashboard";
+import LiffEntry from "./pages/liff-entry/LiffEntry";
 import SelectConferencePage from "./pages/select-conference/SelectConference";
 import SelfIntroductionForm from './pages/self-introduction-form/index';
 
@@ -27,6 +28,8 @@ const Routes = () => {
                     {/* Self Introduction Routes */}
                     <Route path="/new-introduction" element={<SelfIntroductionForm />} />
                     <Route path="/self-introduction-form" element={<SelfIntroductionForm />} />
+                    {/* LIFF bridge (login → redirect) */}
+                    <Route path="/liff-entry" element={<LiffEntry />} />
 
                     {/* Dashboard */}
                     <Route path="/dashboard/:conferenceId" element={<Dashboard />} />

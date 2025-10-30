@@ -481,8 +481,13 @@ const Dashboard = () => {
         return region?.label || '';
     }, [currentParticipant, currentLocation, mapsByLocationId]);
 
-    // LIFF 自動ログインの強化版
+    // LIFF 自動ログイン（liff-entryを導線にしたためデフォルト無効）
     useEffect(() => {
+        const enableBootstrap = import.meta.env.VITE_ENABLE_DASHBOARD_LIFF === 'true';
+        if (!enableBootstrap) {
+            // ダッシュボードからの自動LIFF起動を抑止（ループ防止）
+            return;
+        }
         // すでにログイン済みなら何もしない（メール/既存フローを尊重）
         if (supabase?.auth?.getUser) {
             // getUser はPromiseを返すため、非同期で確認する
