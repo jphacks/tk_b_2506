@@ -90,20 +90,20 @@ const Header = ({ notifications = [], onNotificationClick = () => { }, showSetti
 
                             {/* Settings Button - Only show when showSettings is true */}
                             {showSettings && (
-                                <button
-                                    onClick={handleSettingsClick}
-                                    className="flex items-center justify-center w-10 h-10 rounded-lg bg-muted hover:bg-muted/80 transition-gentle press-feedback touch-target"
-                                    aria-label="Settings"
-                                    aria-haspopup="dialog"
-                                    aria-expanded={isSettingsOpen}
-                                >
-                                    <Icon
-                                        name="Settings"
-                                        size={20}
-                                        color="var(--color-muted-foreground)"
-                                        strokeWidth={2}
-                                    />
-                                </button>
+                            <button
+                                onClick={handleSettingsClick}
+                                className="flex items-center justify-center w-10 h-10 rounded-lg bg-muted hover:bg-muted/80 transition-gentle press-feedback touch-target"
+                                aria-label="Settings"
+                                aria-haspopup="dialog"
+                                aria-expanded={isSettingsOpen}
+                            >
+                                <Icon
+                                    name="Settings"
+                                    size={20}
+                                    color="var(--color-muted-foreground)"
+                                    strokeWidth={2}
+                                />
+                            </button>
                             )}
                         </div>
                     </div>

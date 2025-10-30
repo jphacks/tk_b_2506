@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import Button from './ui/Button';
 import Input from './ui/Input';
@@ -7,6 +7,35 @@ const LineUserBinding = ({ participantId, onSuccess }) => {
   const [lineUserId, setLineUserId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [currentLineId, setCurrentLineId] = useState(null);
+  const [isChecking, setIsChecking] = useState(true);
+
+  // 現在のLINE IDを確認
+  useEffect(() => {
+    const checkCurrentLineId = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('participants')
+          .select('line_user_id')
+          .eq('id', participantId)
+          .single();
+
+        if (error) {
+          console.error('Error fetching LINE ID:', error);
+        } else {
+          setCurrentLineId(data?.line_user_id);
+        }
+      } catch (error) {
+        console.error('Error checking LINE ID:', error);
+      } finally {
+        setIsChecking(false);
+      }
+    };
+
+    if (participantId) {
+      checkCurrentLineId();
+    }
+  }, [participantId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -38,6 +67,50 @@ const LineUserBinding = ({ participantId, onSuccess }) => {
       setIsLoading(false);
     }
   };
+
+  if (isChecking) {
+    return (
+      <div className="space-y-4">
+        <div className="text-center">
+          <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+          <p className="text-sm text-muted-foreground">LINE IDを確認中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (currentLineId) {
+    return (
+      <div className="space-y-4">
+        <div>
+          <h3 className="text-lg font-medium text-foreground mb-2">
+            LINE通知設定
+          </h3>
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h4 className="text-sm font-medium text-green-800">
+                  LINE通知が有効です
+                </h4>
+                <p className="text-sm text-green-700 mt-1">
+                  LINE ID: {currentLineId}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="text-sm text-muted-foreground">
+          <p>LINE認証により自動で設定されました。通知を受け取ることができます。</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

@@ -13,6 +13,7 @@ const debugLog = (message, ...args) => {
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+
 // Supabaseクライアントを作成（Realtimeを有効化）
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     realtime: {
@@ -652,49 +653,49 @@ export const auth = {
         return { data, error };
     },
 
-    // LINE認証でサインイン（LINE OAuth URLにリダイレクト）
-    async signInWithLine(options = {}) {
-        // 環境変数からngrok URLを取得（開発環境用）
-        // 本番環境では環境変数が設定されていない場合はwindow.location.originを使用
-        const lineRedirectUri = import.meta.env.VITE_LINE_REDIRECT_URI || `${window.location.origin}/auth/callback`;
-        const { redirectTo = lineRedirectUri } = options;
+    // LINE認証（LIFF + Edge Function）
+    async loginWithLine() {
+        try {
+            const liff = await import('@line/liff');
 
-        // LINE Developersから取得した値を使用（環境変数から取得）
-        const lineChannelId = import.meta.env.VITE_LINE_CHANNEL_ID;
-        if (!lineChannelId) {
-            throw new Error('LINE Channel IDが設定されていません');
+            await liff.default.init({ liffId: import.meta.env.VITE_LIFF_ID });
+            if (!liff.default.isLoggedIn()) await liff.default.login();
+
+            const idToken = liff.default.getIDToken();
+            const p = await liff.default.getProfile();
+
+            const resp = await fetch(
+                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/line-login`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+                    },
+                    body: JSON.stringify({
+                        id_token: idToken,
+                        line_user_id: p.userId,
+                        name: p.displayName,
+                        picture: p.pictureUrl,
+                        redirect_to: `${window.location.origin}/auth/callback`,
+                    }),
+                }
+            );
+
+            if (!resp.ok) {
+                console.error('line-login failed:', await resp.text());
+                alert('LINEログインに失敗しました');
+                return;
+            }
+
+            const { url } = await resp.json();
+            window.location.href = url;
+        } catch (e) {
+            console.error(e);
+            alert('LINEログイン処理でエラーが発生しました');
         }
-
-        // CSRF対策のstateを生成
-        const state = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
-        // localStorageを使用（LINE認証のリダイレクトでsessionStorageが失われる可能性があるため）
-        localStorage.setItem('line_oauth_state', state);
-        console.log('[LINE Auth] Generated state and saved to localStorage:', state);
-        console.log('[LINE Auth] LocalStorage keys:', Object.keys(localStorage));
-
-        // LINE OAuth URLを作成
-        const params = new URLSearchParams({
-            response_type: 'code',
-            client_id: lineChannelId,
-            redirect_uri: redirectTo,
-            scope: 'profile openid',
-            state: state,
-        });
-
-        // デバッグ: 実際に送信されるredirect_uriを確認
-        console.log('[LINE Auth] redirect_uri:', redirectTo);
-        console.log('[LINE Auth] LINE Channel ID:', lineChannelId);
-        console.log('[LINE Auth] Generated state:', state);
-
-        const lineAuthUrl = `https://access.line.me/oauth2/v2.1/authorize?${params.toString()}`;
-        console.log('[LINE Auth] Full auth URL:', lineAuthUrl);
-
-        // LINE認証ページにリダイレクト
-        window.location.href = lineAuthUrl;
-
-        // リダイレクトされるため、ここには到達しない
-        return { data: null, error: null };
     },
+
 
     // サインアウト
     async signOut() {
