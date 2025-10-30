@@ -55,9 +55,11 @@ const Header = ({ notifications = [], onNotificationClick = () => { }, showSetti
                                 />
                             </div>
                             <div className="flex flex-col">
-                                <h1 className="text-lg font-heading font-semibold text-foreground">
-                                    SympoLink!
-                                </h1>
+                                <div className="flex items-center space-x-3">
+                                    <h1 className="text-lg font-heading font-semibold text-foreground">
+                                        SympoLink!
+                                    </h1>
+                                </div>
                                 <p className="text-xs font-caption text-muted-foreground hidden sm:block">
                                     ちょっとシャイな研究者に向けた会話支援サービス
                                 </p>
@@ -90,20 +92,20 @@ const Header = ({ notifications = [], onNotificationClick = () => { }, showSetti
 
                             {/* Settings Button - Only show when showSettings is true */}
                             {showSettings && (
-                            <button
-                                onClick={handleSettingsClick}
-                                className="flex items-center justify-center w-10 h-10 rounded-lg bg-muted hover:bg-muted/80 transition-gentle press-feedback touch-target"
-                                aria-label="Settings"
-                                aria-haspopup="dialog"
-                                aria-expanded={isSettingsOpen}
-                            >
-                                <Icon
-                                    name="Settings"
-                                    size={20}
-                                    color="var(--color-muted-foreground)"
-                                    strokeWidth={2}
-                                />
-                            </button>
+                                <button
+                                    onClick={handleSettingsClick}
+                                    className="flex items-center justify-center w-10 h-10 rounded-lg bg-muted hover:bg-muted/80 transition-gentle press-feedback touch-target"
+                                    aria-label="Settings"
+                                    aria-haspopup="dialog"
+                                    aria-expanded={isSettingsOpen}
+                                >
+                                    <Icon
+                                        name="Settings"
+                                        size={20}
+                                        color="var(--color-muted-foreground)"
+                                        strokeWidth={2}
+                                    />
+                                </button>
                             )}
                         </div>
                     </div>

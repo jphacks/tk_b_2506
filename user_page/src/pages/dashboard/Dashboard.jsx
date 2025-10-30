@@ -466,6 +466,15 @@ const Dashboard = () => {
         loadExistingNotifications();
     }, [currentParticipant?.id, participants]); // participantsを依存配列に戻す
 
+    // バッジ用: 机名取得
+    const mapRegionLabel = useMemo(() => {
+        if (!currentParticipant?.current_map_region_id || !currentLocation) return '';
+        const map = mapsByLocationId?.[currentLocation.id];
+        if (!map || !Array.isArray(map.regions)) return '';
+        const region = map.regions.find(r => String(r.id) === String(currentParticipant.current_map_region_id));
+        return region?.label || '';
+    }, [currentParticipant, currentLocation, mapsByLocationId]);
+
     if (!conferenceId) {
         return (
             <div className="min-h-screen bg-background">
@@ -488,6 +497,7 @@ const Dashboard = () => {
                 notifications={notifications}
                 onNotificationClick={handleNotificationClick}
                 showSettings={true}
+                currentLocation={currentLocation}
             />
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
                 <div className="flex flex-col gap-2">
@@ -502,18 +512,30 @@ const Dashboard = () => {
                                         : `学会情報未取得${conferenceId ? ` (ID: ${conferenceId})` : ''}`}
                             </span>
                         </div>
-                        {/* 学会切り替えボタン */}
-                        {conferenceMeta && (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={handleConferenceSwitch}
-                                iconName="RefreshCw"
-                                iconPosition="left"
-                            >
-                                学会を切り替え
-                            </Button>
-                        )}
+                        {/* ここに現在地バッジを追加 */}
+                        <div className="flex items-center gap-2">
+                            <span className="flex items-center bg-primary text-white font-bold px-3 py-1 rounded-full text-sm shadow border border-primary">
+                                <span>現在地：</span>
+                                {currentLocation ? (
+                                    <>
+                                        {currentLocation.name || ''}
+                                        {mapRegionLabel && `   ・ ${mapRegionLabel}`}
+                                    </>
+                                ) : ''}
+                            </span>
+                            {/* 学会切り替えボタン */}
+                            {conferenceMeta && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleConferenceSwitch}
+                                    iconName="RefreshCw"
+                                    iconPosition="left"
+                                >
+                                    学会を切り替え
+                                </Button>
+                            )}
+                        </div>
                     </div>
                     {!conferenceMeta && !conferencesLoading && (
                         <div>
