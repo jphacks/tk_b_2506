@@ -38,7 +38,7 @@ const initialPasswordForm = {
     confirmPassword: ''
 };
 
-const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch }) => {
+const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, conferenceName }) => {
     const panelRef = useRef(null);
     const [introForm, setIntroForm] = useState(initialIntroForm);
     const [introErrors, setIntroErrors] = useState({});
@@ -59,6 +59,8 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch }) 
     const [showPasswordForm, setShowPasswordForm] = useState(false);
 
     const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const [showConferenceConfirm, setShowConferenceConfirm] = useState(false);
+    const [showPasswordDialog, setShowPasswordDialog] = useState(false);
 
     const [toast, setToast] = useState({
         isVisible: false,
@@ -408,9 +410,9 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch }) 
             }
 
             setPasswordForm({ ...initialPasswordForm });
-            showToast('パスワードを更新しました。', 'success');
+            showToast('パスワードを変更しました。', 'success');
         } catch (error) {
-            showToast(error.message || 'パスワードの更新に失敗しました。', 'error');
+            showToast(error.message || 'パスワードの変更に失敗しました。', 'error');
         } finally {
             setIsUpdatingPassword(false);
         }
@@ -569,11 +571,15 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch }) 
                                         onChange={setIsPublic}
                                     />
 
-                                    <div className="flex justify-end">
+                                    <div className="mt-5">
+                                        {/* 自己紹介を保存ボタン */}
                                         <Button
                                             type="submit"
                                             loading={isSavingIntro}
                                             disabled={isSavingIntro}
+                                            fullWidth
+                                            size="xl"
+                                            className="h-10"
                                         >
                                             自己紹介を保存
                                         </Button>
@@ -582,105 +588,43 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch }) 
                             )}
                         </section>
 
-                        {/* 学会切り替えボタン 新設 */}
-                        <section className="px-6 py-5 border-b border-border">
-                            <div>
-                                <h3 className="text-sm font-semibold text-foreground">学会の切り替え</h3>
-                                <p className="text-sm text-muted-foreground">他の学会の情報を閲覧・参加するには学会を切り替えてください。</p>
-                            </div>
-                            <div className="flex justify-end mt-4">
+                        <div className="px-6 py-5 border-b border-border">
+                            <div className="flex flex-col md:flex-row gap-4 w-full justify-around my-3">
+                                {/* 学会変更 ボタン */}
                                 <Button
                                     type="button"
+                                    size="xl"
                                     variant="primary"
-                                    onClick={onConferenceSwitch}
+                                    fullWidth={false}
                                     iconName="RefreshCw"
                                     iconPosition="left"
+                                    className="flex-1 h-10"
+                                    onClick={() => setShowConferenceConfirm(true)}
                                 >
-                                    学会を切り替え
+                                    学会を変更
                                 </Button>
-                            </div>
-                        </section>
-
-                        <section className="px-6 py-5 space-y-5 border-b border-border">
-                            <div>
-                                <h3 className="text-sm font-semibold text-foreground">パスワードの更新</h3>
-                                <p className="text-sm text-muted-foreground">アカウントのセキュリティを高めるため定期的に変更しましょう。</p>
-                            </div>
-
-                            {showPasswordForm ? (
-                                <form className="space-y-4" onSubmit={handleUpdatePassword}>
-                                    <Input
-                                        name="currentPassword"
-                                        type="password"
-                                        value={passwordForm.currentPassword}
-                                        onChange={handlePasswordChange}
-                                        label="現在のパスワード"
-                                        required
-                                        error={passwordErrors.currentPassword}
-                                    />
-                                    <Input
-                                        name="newPassword"
-                                        type="password"
-                                        value={passwordForm.newPassword}
-                                        onChange={handlePasswordChange}
-                                        label="新しいパスワード"
-                                        required
-                                        error={passwordErrors.newPassword}
-                                        description="6文字以上で設定してください"
-                                    />
-                                    <Input
-                                        name="confirmPassword"
-                                        type="password"
-                                        value={passwordForm.confirmPassword}
-                                        onChange={handlePasswordChange}
-                                        label="新しいパスワード（確認）"
-                                        required
-                                        error={passwordErrors.confirmPassword}
-                                    />
-
-                                    <div className="flex justify-end gap-2">
-                                        <Button
-                                            type="button"
-                                            variant="secondary"
-                                            onClick={() => setShowPasswordForm(false)}
-                                            disabled={isUpdatingPassword}
-                                        >
-                                            キャンセル
-                                        </Button>
-                                        <Button
-                                            type="submit"
-                                            variant="primary"
-                                            loading={isUpdatingPassword}
-                                            disabled={isUpdatingPassword}
-                                        >
-                                            パスワードを更新
-                                        </Button>
-                                    </div>
-                                </form>
-                            ) : (
-                                <div className="flex justify-end">
-                                    <Button
-                                        type="button"
-                                        variant="primary"
-                                        onClick={() => setShowPasswordForm(true)}
-                                        iconName="Lock"
-                                        iconPosition="left"
-                                    >
-                                        パスワードを変更
-                                    </Button>
-                                </div>
-                            )}
-                        </section>
-
-                        <section className="px-6 py-5">
-                            <div className="rounded-xl border border-border bg-muted/20 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                                <div>
-                                    <h3 className="text-sm font-semibold text-foreground">ログアウト</h3>
-                                    <p className="text-sm text-muted-foreground">アカウントからサインアウトします。</p>
-                                </div>
+                                {/* パスワード変更 ボタン */}
                                 <Button
                                     type="button"
+                                    size="xl"
+                                    variant="primary"
+                                    fullWidth={false}
+                                    iconName="Lock"
+                                    iconPosition="left"
+                                    className="flex-1 h-10"
+                                    onClick={() => setShowPasswordDialog(true)}
+                                >
+                                    パスワードを変更
+                                </Button>
+                                {/* ログアウト ボタン */}
+                                <Button
+                                    type="button"
+                                    size="xl"
                                     variant="danger"
+                                    fullWidth={false}
+                                    iconName="LogOut"
+                                    iconPosition="left"
+                                    className="flex-1 h-10"
                                     onClick={handleLogoutClick}
                                     loading={isLoggingOut}
                                     disabled={isLoggingOut}
@@ -688,7 +632,105 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch }) 
                                     ログアウト
                                 </Button>
                             </div>
-                        </section>
+
+                            {/* 学会切り替え モーダル */}
+                            {showConferenceConfirm && (
+                                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                                    <div className="bg-card p-8 rounded-xl shadow-xl w-full max-w-md border border-border flex flex-col gap-6">
+                                        <div className="space-y-2">
+                                            <h4 className="text-lg font-bold">現在選択中の学会</h4>
+                                            <div className="p-2 bg-primary/10 text-primary font-semibold text-center rounded">
+                                                {conferenceName || '学会名未取得'}
+                                            </div>
+                                        </div>
+                                        <div className="flex justify-center gap-8 mt-4">
+                                            <Button variant="secondary" type="button" size="xl" className="w-40 h-10" onClick={() => setShowConferenceConfirm(false)}>
+                                                閉じる
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="primary"
+                                                iconName="RefreshCw"
+                                                iconPosition="left"
+                                                size="xl"
+                                                className="w-40 h-10"
+                                                onClick={() => {
+                                                    setShowConferenceConfirm(false);
+                                                    onClose?.();
+                                                    onConferenceSwitch?.();
+                                                }}
+                                            >
+                                                学会を変更
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* パスワード変更 モーダル */}
+                            {showPasswordDialog && (
+                                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                                    <div className="bg-card p-8 rounded-xl shadow-xl w-full max-w-md border border-border flex flex-col gap-6">
+                                        <div className="space-y-2">
+                                            <h4 className="text-lg font-bold mb-1">パスワード変更</h4>
+                                            <p className="text-sm text-muted-foreground mb-3">アカウントのセキュリティを高めるため定期的に変更してください。</p>
+                                            <form className="space-y-4" onSubmit={handleUpdatePassword}>
+                                                <Input
+                                                    name="currentPassword"
+                                                    type="password"
+                                                    value={passwordForm.currentPassword}
+                                                    onChange={handlePasswordChange}
+                                                    label="現在のパスワード"
+                                                    required
+                                                    error={passwordErrors.currentPassword}
+                                                />
+                                                <Input
+                                                    name="newPassword"
+                                                    type="password"
+                                                    value={passwordForm.newPassword}
+                                                    onChange={handlePasswordChange}
+                                                    label="新しいパスワード"
+                                                    required
+                                                    error={passwordErrors.newPassword}
+                                                    description="6文字以上で設定してください"
+                                                />
+                                                <Input
+                                                    name="confirmPassword"
+                                                    type="password"
+                                                    value={passwordForm.confirmPassword}
+                                                    onChange={handlePasswordChange}
+                                                    label="新しいパスワード（確認）"
+                                                    required
+                                                    error={passwordErrors.confirmPassword}
+                                                />
+                                                <div className="flex justify-center gap-8 mt-4">
+                                                    <Button
+                                                        type="button"
+                                                        variant="secondary"
+                                                        size="xl"
+                                                        className="w-40 h-10"
+                                                        onClick={() => setShowPasswordDialog(false)}
+                                                        disabled={isUpdatingPassword}
+                                                    >
+                                                        閉じる
+                                                    </Button>
+                                                    <Button
+                                                        type="submit"
+                                                        variant="primary"
+                                                        size="xl"
+                                                        className="w-40 h-10"
+                                                        loading={isUpdatingPassword}
+                                                        disabled={isUpdatingPassword}
+                                                    >
+                                                        パスワードを変更
+                                                    </Button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
