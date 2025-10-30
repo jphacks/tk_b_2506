@@ -171,7 +171,7 @@ const VenueMap = ({
             <div>
                 <h2 className="text-lg font-semibold text-foreground">会場マップ</h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                    QRコードと紐づいた領域をタップして、会場内の場所と参加者を確認できます。
+                    机をタップすると，その机にいる参加者を確認できます。
                 </p>
                 {(mapError || locationError) && (
                     <div className="mt-3 text-sm text-error flex flex-col gap-2">
@@ -193,7 +193,7 @@ const VenueMap = ({
                 {mapData ? (
                     mapLocation ? (
                         <div>
-                            <span className="font-semibold">表示中の場所：</span>
+                            <span className="font-semibold">表示中の会場：</span>
                             {mapLocation.name}
                         </div>
                     ) : (
@@ -304,16 +304,6 @@ const VenueMap = ({
                             <h3 className="text-lg font-semibold">
                                 {selectedLocation.name}
                             </h3>
-                            {selectedLocation.mapLabel && (
-                                <p className="text-xs text-muted-foreground">
-                                    ラベル: {selectedLocation.mapLabel}
-                                </p>
-                            )}
-                            {selectedLocation.qrCode && (
-                                <p className="text-xs text-muted-foreground">
-                                    QRコード: {selectedLocation.qrCode}
-                                </p>
-                            )}
                         </div>
                         <div className="max-h-[60vh] overflow-y-auto mb-4">
                             <ParticipantList

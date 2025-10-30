@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import useConferences from '../../hooks/useConferences';
 import { db, supabase } from '../../lib/supabase';
 import VisibilityToggle from '../../pages/self-introduction-form/components/VisibilityToggle';
 import { cn } from '../../utils/cn';
@@ -67,6 +68,16 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
         message: '',
         type: 'success'
     });
+
+    const { data: conferences = [] } = useConferences({ includeInactive: true });
+
+    // conferenceId から conferenceName を取得
+    const derivedConferenceName = useMemo(() => {
+        if (conferenceName) return conferenceName;
+        if (!conferenceId) return '';
+        const conf = conferences.find(c => String(c.id) === String(conferenceId));
+        return conf?.name || '';
+    }, [conferenceName, conferenceId, conferences]);
 
     // Prevent background scroll when modal is open
     useEffect(() => {
@@ -468,8 +479,7 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                 >
                     <header className="flex items-center justify-between px-6 py-4 border-b border-border">
                         <div>
-                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">設定</p>
-                            <h2 className="text-lg font-heading font-semibold text-foreground">アカウントとプロフィール</h2>
+                            <h2 className="text-lg font-heading font-semibold text-foreground">設定</h2>
                         </div>
                         <button
                             onClick={onClose}
@@ -489,7 +499,6 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                         <section className="px-6 py-5 space-y-5 border-b border-border">
                             <div>
                                 <h3 className="text-sm font-semibold text-foreground">自己紹介の編集</h3>
-                                <p className="text-sm text-muted-foreground">参加者に表示される情報を更新します。</p>
                             </div>
 
                             {isIntroLoading ? (
@@ -507,7 +516,7 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                                         name="name"
                                         value={introForm.name}
                                         onChange={handleIntroChange}
-                                        label="お名前"
+                                        label="名前"
                                         required
                                         error={introErrors.name}
                                     />
@@ -639,8 +648,8 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                                     <div className="bg-card p-8 rounded-xl shadow-xl w-full max-w-md border border-border flex flex-col gap-6">
                                         <div className="space-y-2">
                                             <h4 className="text-lg font-bold">現在選択中の学会</h4>
-                                            <div className="p-2 bg-primary/10 text-primary font-semibold text-center rounded">
-                                                {conferenceName || '学会名未取得'}
+                                            <div className="p-3 bg-primary/12 font-bold text-center rounded text-foreground">
+                                                {derivedConferenceName || '学会名未取得'}
                                             </div>
                                         </div>
                                         <div className="flex justify-center gap-8 mt-4">

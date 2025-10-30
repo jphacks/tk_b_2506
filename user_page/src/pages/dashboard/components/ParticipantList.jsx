@@ -191,7 +191,7 @@ const ParticipantList = ({
                 <div>
                     <h2 className="text-lg font-semibold text-foreground">参加者</h2>
                     <p className="text-sm text-muted-foreground">
-                        {filtered.length} 名が表示されています。
+                        {filtered.length} 名
                     </p>
                 </div>
 

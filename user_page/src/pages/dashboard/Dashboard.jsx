@@ -216,10 +216,10 @@ const Dashboard = () => {
         const unreadCount = notifications.filter(n => !n.is_read).length;
 
         return [
-            { id: 'home', label: 'ホーム', icon: '🏠' },
-            { id: 'recommended', label: 'おすすめ', icon: '⭐' },
-            { id: 'location', label: '位置情報', icon: '📍' },
-            { id: 'messages', label: 'メッセージ', icon: '💬' }
+            { id: 'home', label: 'ホーム' },
+            { id: 'recommended', label: 'おすすめ' },
+            { id: 'location', label: '位置情報' },
+            { id: 'messages', label: 'メッセージ' }
         ];
     }, [notifications]);
 
@@ -500,45 +500,25 @@ const Dashboard = () => {
                 onConferenceSwitch={handleConferenceSwitch}
             />
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-                <div className="flex flex-col gap-2">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex flex-wrap items-center gap-3">
-                            <h1 className="text-2xl font-semibold text-foreground">参加者ダッシュボード</h1>
-                            <span className="inline-flex items-center rounded-full bg-primary/10 text-primary px-3 py-1 text-xs font-medium border border-primary/20">
-                                {conferenceMeta?.name
-                                    ? conferenceMeta.name
-                                    : conferencesLoading
-                                        ? '学会情報を読み込み中…'
-                                        : `学会情報未取得${conferenceId ? ` (ID: ${conferenceId})` : ''}`}
-                            </span>
-                        </div>
-                        {/* ここに現在地バッジを追加 */}
-                        <div className="flex items-center gap-2">
-                            <span className="flex items-center bg-primary text-white font-bold px-3 py-1 rounded-full text-sm shadow border border-primary">
-                                <span>現在地：</span>
-                                {currentLocation ? (
-                                    <>
-                                        {currentLocation.name || ''}
-                                        {mapRegionLabel && `   ・ ${mapRegionLabel}`}
-                                    </>
-                                ) : ''}
-                            </span>
-                            {/* 学会切り替えボタン削除（元は515-523行 Button）*/}
-                        </div>
-                    </div>
-                    {!conferenceMeta && !conferencesLoading && (
-                        <div>
-                            <Button
-                                variant="secondary"
-                                size="sm"
-                                onClick={handleConferenceReselect}
-                            >
-                                学会を再選択する
-                            </Button>
-                        </div>
+                <div className="flex items-center justify-end gap-3 w-full">
+                    {currentLocation && (
+                        <span className="flex items-center text-base text-muted-foreground">
+                            <svg className="w-5 h-5 mr-1 text-red-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 21c4.418 0 8-7.29 8-11A8 8 0 0 0 4 10c0 3.71 3.582 11 8 11Zm0-9a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z" fill="currentColor" /></svg>
+                            現在地：{currentLocation.name}{mapRegionLabel && `・${mapRegionLabel}`}
+                        </span>
                     )}
                 </div>
-
+                {!conferenceMeta && !conferencesLoading && (
+                    <div>
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={handleConferenceReselect}
+                        >
+                            学会を再選択する
+                        </Button>
+                    </div>
+                )}
                 {(conferencesError || locationsError || participantsError) && (
                     <div className="bg-error/10 text-error border border-error/30 rounded-lg px-4 py-3 text-sm">
                         データの取得中にエラーが発生しました。必要に応じてリロードしてください。
@@ -549,14 +529,12 @@ const Dashboard = () => {
                         )}
                     </div>
                 )}
-
                 {/* タブUI */}
                 <Tabs
                     tabs={tabs}
                     activeTab={activeTab}
                     onTabChange={handleTabChange}
                 />
-
                 {/* タブコンテンツ */}
                 <div className="mt-6">
                     {activeTab === 'home' && (
@@ -568,7 +546,6 @@ const Dashboard = () => {
                             onOccupationFilterChange={setOccupationFilter}
                             isLoading={participantsLoading}
                             error={participantsError}
-                            // 会場マップ関連
                             maps={maps}
                             selectedMap={selectedMap}
                             selectedMapId={selectedMapId}
@@ -588,7 +565,6 @@ const Dashboard = () => {
                             user={user}
                         />
                     )}
-
                     {activeTab === 'recommended' && (
                         <RecommendedTab
                             recommendedPresentations={recommendedPresentations}
@@ -599,7 +575,6 @@ const Dashboard = () => {
                             onRefetch={refetchPresentations}
                         />
                     )}
-
                     {activeTab === 'location' && (
                         <LocationTab
                             currentParticipant={currentParticipant}
@@ -620,7 +595,6 @@ const Dashboard = () => {
                             mapError={mapsError}
                         />
                     )}
-
                     {activeTab === 'messages' && (
                         <MessagesTab
                             currentParticipant={currentParticipant}
@@ -629,7 +603,6 @@ const Dashboard = () => {
                     )}
                 </div>
             </main>
-
             <Toast
                 isVisible={toast.isVisible}
                 message={toast.message}
@@ -637,7 +610,6 @@ const Dashboard = () => {
                 position="bottom"
                 onClose={() => setToast(prev => ({ ...prev, isVisible: false }))}
             />
-
             <MessageModal
                 isOpen={isMessageModalOpen}
                 message={selectedMessage}
@@ -646,7 +618,7 @@ const Dashboard = () => {
                     setSelectedMessage(null);
                 }}
             />
-        </div>
+        </div >
     );
 };
 

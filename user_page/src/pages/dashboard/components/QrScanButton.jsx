@@ -64,9 +64,9 @@ const QrScanButton = ({
     return (
         <div className="bg-card border border-border rounded-xl p-6 shadow-soft flex flex-col gap-4 w-full">
             <div>
-                <h2 className="text-lg font-semibold text-foreground">現在地を更新</h2>
+                <h2 className="text-lg font-semibold text-foreground">位置情報を更新</h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                    机に設置されたQRコードをスキャンして、現在地を更新しましょう。
+                    机に設置されたQRコードをスキャンして，位置情報を更新しましょう。
                 </p>
             </div>
             <Button
@@ -85,7 +85,7 @@ const QrScanButton = ({
             </Button>
             {disabled && (
                 <p className="text-xs text-muted-foreground">
-                    ログインすると現在地を更新できます。
+                    ログインすると位置情報を更新できます。
                 </p>
             )}
 
