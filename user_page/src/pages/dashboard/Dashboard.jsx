@@ -1,3 +1,4 @@
+import liff from '@line/liff'; // 追加
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import Button from '../../components/ui/Button';
@@ -16,6 +17,11 @@ import HomeTab from './components/HomeTab';
 import LocationTab from './components/LocationTab';
 import MessagesTab from './components/MessagesTab';
 import RecommendedTab from './components/RecommendedTab';
+
+function isLineInClient() {
+    // LINEアプリ内検出: UA・LIFF環境どちらでもOK
+    return /line/i.test(navigator.userAgent) || (window.liff && liff.isInClient && liff.isInClient());
+}
 
 const Dashboard = () => {
     const { conferenceId: routeConferenceId } = useParams();
@@ -218,7 +224,7 @@ const Dashboard = () => {
         return [
             { id: 'home', label: 'ホーム' },
             { id: 'recommended', label: 'おすすめ' },
-            { id: 'location', label: '位置情報' },
+            { id: 'location', label: '会場マップ' },
             { id: 'messages', label: 'メッセージ' }
         ];
     }, [notifications]);
@@ -474,6 +480,63 @@ const Dashboard = () => {
         const region = map.regions.find(r => String(r.id) === String(currentParticipant.current_map_region_id));
         return region?.label || '';
     }, [currentParticipant, currentLocation, mapsByLocationId]);
+
+    // LIFF 自動ログインの強化版
+    useEffect(() => {
+        // すでにログイン済みなら何もしない（メール/既存フローを尊重）
+        if (supabase?.auth?.getUser) {
+            // getUser はPromiseを返すため、非同期で確認する
+            supabase.auth.getUser().then(({ data }) => {
+                if (data?.user) return; // ログイン済み
+                bootstrapLiff();
+            }).catch(() => bootstrapLiff());
+        } else {
+            bootstrapLiff();
+        }
+
+        async function bootstrapLiff() {
+            const liffId = import.meta.env.VITE_LIFF_ID;
+            if (!liffId) return;
+
+            try {
+                await liff.init({ liffId });
+
+                // LINEアプリ内ならそのまま、外部ブラウザでもLIFFログインを試行（Allow External Browser が有効前提）
+                if (!liff.isLoggedIn()) {
+                    liff.login({ redirectUri: window.location.href });
+                    return;
+                }
+
+                const idToken = liff.getIDToken();
+                if (!idToken) {
+                    // まれにトークンが取れない場合は再ログイン
+                    liff.login({ redirectUri: window.location.href });
+                    return;
+                }
+
+                let profile;
+                try {
+                    profile = await liff.getProfile();
+                } catch (e) {
+                    // プロフィール取得失敗時は最低限トークンだけ送る
+                    profile = null;
+                }
+
+                await fetch('/api/line-login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idToken, lineUserId: profile?.userId || null })
+                });
+
+                // 認証セッションを確実に反映
+                window.location.reload();
+            } catch (e) {
+                // LIFFが初期化できない（エンドポイント不一致/外部ブラウザ許可なしなど）場合は既存フローにフォールバック
+                console.warn('LIFF bootstrap failed:', e);
+                setToast({ isVisible: true, type: 'warning', message: 'LINE連携に失敗しました。通常ログインをご利用ください。' });
+            }
+        }
+    }, []);
 
     if (!conferenceId) {
         return (
