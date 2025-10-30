@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import LineUserBinding from '../../components/LineUserBinding';
 import Button from '../../components/ui/Button';
 import Header from '../../components/ui/Header';
 import MessageModal from '../../components/ui/MessageModal';
@@ -45,7 +44,6 @@ const Dashboard = () => {
     const [notifications, setNotifications] = useState([]);
     const [selectedMessage, setSelectedMessage] = useState(null);
     const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
-    const [isLineBindingOpen, setIsLineBindingOpen] = useState(false);
     const notificationsLoadedRef = useRef(false);
 
     const [occupationFilter, setOccupationFilter] = useState('all');
@@ -516,25 +514,7 @@ const Dashboard = () => {
                                 学会を切り替え
                             </Button>
                         )}
-                        {/* LINE通知設定ボタン */}
-                        {currentParticipant && (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setIsLineBindingOpen(true)}
-                                iconName="MessageCircle"
-                            >
-                                LINE通知設定
-                            </Button>
-                        )}
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                        {conferenceMeta?.name
-                            ? `${conferenceMeta.name} のカンファレンス情報をリアルタイムに確認できます。`
-                            : conferencesLoading
-                                ? '学会情報を読み込み中です…'
-                                : 'カンファレンス情報をリアルタイムに確認できます。'}
-                    </p>
                     {!conferenceMeta && !conferencesLoading && (
                         <div>
                             <Button
@@ -655,34 +635,6 @@ const Dashboard = () => {
                     setSelectedMessage(null);
                 }}
             />
-
-            {/* LINEユーザーID登録モーダル */}
-            {isLineBindingOpen && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-background rounded-lg p-6 w-full max-w-md">
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-lg font-semibold">LINE通知設定</h2>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setIsLineBindingOpen(false)}
-                                iconName="X"
-                            />
-                        </div>
-                        <LineUserBinding
-                            participantId={currentParticipant?.id}
-                            onSuccess={() => {
-                                setIsLineBindingOpen(false);
-                                setToast({
-                                    isVisible: true,
-                                    message: 'LINEユーザーIDが登録されました！',
-                                    type: 'success'
-                                });
-                            }}
-                        />
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

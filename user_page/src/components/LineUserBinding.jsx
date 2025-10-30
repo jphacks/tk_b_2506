@@ -83,9 +83,6 @@ const LineUserBinding = ({ participantId, onSuccess }) => {
     return (
       <div className="space-y-4">
         <div>
-          <h3 className="text-lg font-medium text-foreground mb-2">
-            LINE通知設定
-          </h3>
           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
             <div className="flex items-center">
               <div className="flex-shrink-0">
