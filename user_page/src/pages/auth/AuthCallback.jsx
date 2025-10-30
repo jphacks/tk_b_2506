@@ -112,7 +112,17 @@ const AuthCallback = () => {
 
         // ダッシュボードにリダイレクト
         setTimeout(() => {
-          navigate('/dashboard');
+          if (storedConferenceId) {
+            navigate(`/dashboard/${storedConferenceId}`);
+          } else {
+            // 学会が選択されていない場合は学会選択ページへ
+            navigate('/select-conference', {
+              state: {
+                requiresSelection: true,
+                reason: '学会を選択してください'
+              }
+            });
+          }
         }, 1000);
 
       } catch (error) {
