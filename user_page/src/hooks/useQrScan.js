@@ -21,6 +21,7 @@ const useQrScan = ({ conferenceId, onSuccess, onError } = {}) => {
                 .select(`
                     id,
                     qr_code,
+                    label,
                     is_active,
                     map_id
                 `)
@@ -83,6 +84,7 @@ const useQrScan = ({ conferenceId, onSuccess, onError } = {}) => {
                 .insert({
                     participant_id: participant.id,
                     location_id: location.id,
+                    map_region_id: region.id,
                     scanned_at: new Date().toISOString()
                 });
 
@@ -92,7 +94,10 @@ const useQrScan = ({ conferenceId, onSuccess, onError } = {}) => {
 
             const { error: updateError } = await supabase
                 .from('participants')
-                .update({ current_location_id: location.id })
+                .update({
+                    current_location_id: location.id,
+                    current_map_region_id: region.id
+                })
                 .eq('id', participant.id);
 
             if (updateError) {
@@ -101,7 +106,8 @@ const useQrScan = ({ conferenceId, onSuccess, onError } = {}) => {
 
             return {
                 locationId: location.id,
-                locationName: location.name
+                locationName: location.name,
+                deskLabel: region.label
             };
         },
         onSuccess: (data, variables, context) => {

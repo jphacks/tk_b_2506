@@ -31,6 +31,7 @@ const ParticipantList = ({
     // データ供給系
     participants: participantsProp,
     locationId,
+    mapRegionId,
     conferenceId,
     currentParticipant = null,
 
@@ -61,7 +62,11 @@ const ParticipantList = ({
     const isLoading = Boolean(isLoadingProp) || locQuery.isLoading || confQuery.isLoading;
     const error = errorProp || locQuery.error || confQuery.error;
 
-    const list = Array.isArray(participantsRaw) ? participantsRaw : [];
+    // mapRegionIdでフィルタリング
+    let list = Array.isArray(participantsRaw) ? participantsRaw : [];
+    if (mapRegionId) {
+        list = list.filter(p => p.current_map_region_id === mapRegionId);
+    }
 
     // occupation 選択肢（必要な場合のみ表示）
     const occupationOptions = [

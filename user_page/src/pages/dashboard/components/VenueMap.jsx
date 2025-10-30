@@ -72,7 +72,8 @@ const VenueMap = ({
     isLoading = false,
     locationError = null,
     mapError = null,
-    onRetry = null
+    onRetry = null,
+    onLocationUpdate = null
 }) => {
     const [selectedLocation, setSelectedLocation] = useState(null);
     const [selectedRegionId, setSelectedRegionId] = useState(null);
@@ -117,7 +118,6 @@ const VenueMap = ({
             onSelectMap?.(mapForLocation.id);
         }
         setSelectedRegionId(null);
-        setSelectedLocation(location);
     };
 
     const handleOpenProfile = (participant) => {
@@ -192,18 +192,9 @@ const VenueMap = ({
             <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-foreground">
                 {mapData ? (
                     mapLocation ? (
-                        <div className="flex flex-col gap-1">
-                            <div>
-                                <span className="font-semibold">表示中の場所：</span>
-                                {mapLocation.name}
-                            </div>
-                            {(mapLocation.building || mapLocation.floor || mapLocation.location_type) && (
-                                <div className="text-xs text-muted-foreground">
-                                    {[mapLocation.building, mapLocation.floor ? `${mapLocation.floor}` : null, mapLocation.location_type]
-                                        .filter(Boolean)
-                                        .join(' / ')}
-                                </div>
-                            )}
+                        <div>
+                            <span className="font-semibold">表示中の場所：</span>
+                            {mapLocation.name}
                         </div>
                     ) : (
                         <span>このマップには紐づく場所が設定されていません。</span>
@@ -268,10 +259,6 @@ const VenueMap = ({
                         const isMapActive = mapData?.locationId === location.id;
 
                         const detailParts = [];
-                        if (location.building) detailParts.push(location.building);
-                        if (location.floor) detailParts.push(location.floor);
-                        if (location.location_type) detailParts.push(location.location_type);
-                        if (isMapLocation) detailParts.push('マップあり');
                         if (isMapActive && mapData?.location?.name) {
                             detailParts.push('現在表示中');
                         }
@@ -332,11 +319,30 @@ const VenueMap = ({
                             <ParticipantList
                                 conferenceId={conferenceId}
                                 locationId={selectedLocation.id}
+                                mapRegionId={selectedLocation.mapRegionId}
                                 currentParticipant={currentParticipant}
                                 onOpenProfile={handleOpenProfile}
                             />
                         </div>
-                        <div>
+                        <div className="flex gap-2">
+                            {onLocationUpdate && (
+                                selectedLocation.id !== currentLocation?.id ||
+                                selectedLocation.mapRegionId !== currentParticipant?.current_map_region_id
+                            ) && (
+                                    <Button
+                                        variant="primary"
+                                        onClick={() => {
+                                            onLocationUpdate(selectedLocation.id, {
+                                                mapRegionId: selectedLocation.mapRegionId,
+                                                deskLabel: selectedLocation.mapLabel
+                                            });
+                                            handleCloseLocationModal();
+                                        }}
+                                        fullWidth
+                                    >
+                                        📍 この机に移動する
+                                    </Button>
+                                )}
                             <Button
                                 variant="secondary"
                                 onClick={handleCloseLocationModal}

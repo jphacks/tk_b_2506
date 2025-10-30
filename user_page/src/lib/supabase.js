@@ -13,6 +13,7 @@ const debugLog = (message, ...args) => {
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+
 // Supabaseクライアントを作成（Realtimeを有効化）
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     realtime: {
@@ -115,6 +116,12 @@ export const db = {
         }
 
         const existing = await db.getParticipantByUser(userId);
+        // auth メタから line_user_id を取得
+        let lineUserId = null;
+        try {
+            const { data: authData } = await supabase.auth.getUser();
+            lineUserId = authData?.user?.user_metadata?.line_user_id ?? null;
+        } catch { }
         const updatePayload = {
             conference_id: conferenceId,
             updated_at: new Date().toISOString()
@@ -122,7 +129,8 @@ export const db = {
         const insertPayload = {
             user_id: userId,
             conference_id: conferenceId,
-            registered_at: new Date().toISOString()
+            registered_at: new Date().toISOString(),
+            ...(lineUserId ? { line_user_id: lineUserId } : {})
         };
 
         if (introductionId !== undefined) {
@@ -131,6 +139,10 @@ export const db = {
         }
 
         if (existing?.id) {
+            // 既存行に line_user_id が未設定で、auth メタにある場合は合わせて更新
+            if (!existing.line_user_id && lineUserId) {
+                updatePayload.line_user_id = lineUserId;
+            }
             const { data, error } = await supabase
                 .from('participants')
                 .update(updatePayload)
@@ -181,6 +193,12 @@ export const db = {
 
         // 既に参加済みかチェック
         const existing = await db.getParticipantByUser(userId);
+        // auth メタから line_user_id を取得
+        let lineUserId = null;
+        try {
+            const { data: authData } = await supabase.auth.getUser();
+            lineUserId = authData?.user?.user_metadata?.line_user_id ?? null;
+        } catch { }
 
         let resolvedIntroductionId = introductionId;
         let shouldUpdateIntroduction = introductionId !== undefined;
@@ -207,7 +225,8 @@ export const db = {
         const insertPayload = {
             user_id: userId,
             conference_id: conferenceId,
-            registered_at: new Date().toISOString()
+            registered_at: new Date().toISOString(),
+            ...(lineUserId ? { line_user_id: lineUserId } : {})
         };
 
         if (shouldUpdateIntroduction) {
@@ -216,6 +235,10 @@ export const db = {
 
         // 参加登録または更新
         if (existing?.id) {
+            // 既存行に line_user_id が未設定で、auth メタにある場合は合わせて更新
+            if (!existing.line_user_id && lineUserId) {
+                updatePayload.line_user_id = lineUserId;
+            }
             const { data, error } = await supabase
                 .from('participants')
                 .update(updatePayload)
@@ -415,28 +438,156 @@ export const db = {
             to_participant_id: toParticipantId,
             status: 'pending',
             message: message?.trim() ? message.trim() : null,
-            created_at: new Date().toISOString()
+            is_read: false
+            // created_atは自動生成されるため削除
         };
 
         debugLog('[db.createMeetRequest] 送信するペイロード:', payload);
 
-        // より確実な方法：upsertを使用してINSERTイベントを確実に発火
+        // 複数の通知を許可するため、insertを使用
         const { data, error } = await supabase
             .from('participant_meet_requests')
-            .upsert(payload, {
-                onConflict: 'conference_id,from_participant_id,to_participant_id',
-                ignoreDuplicates: false
-            })
+            .insert(payload)
             .select()
-            .maybeSingle();
+            .single();
 
         if (error) {
-            console.error('[db.createMeetRequest] エラー:', error);
+            console.error('[db.createMeetRequest] エラー詳細:', {
+                message: error.message,
+                details: error.details,
+                hint: error.hint,
+                code: error.code
+            });
             throw error;
         }
 
         debugLog('[db.createMeetRequest] 作成成功:', data);
+
+        // LINE通知を送信（受信者がLINE認証している場合のみ）
+        try {
+            // 受信者のLINE認証状況を確認
+            const { data: recipient, error: recipientError } = await supabase
+                .from('participants')
+                .select('line_user_id')
+                .eq('id', toParticipantId)
+                .single();
+
+            debugLog('[db.createMeetRequest] 受信者データ取得結果:', {
+                recipient,
+                recipientError,
+                toParticipantId
+            });
+
+            // 受信者の詳細情報も取得してデバッグ
+            const { data: recipientDetail, error: detailError } = await supabase
+                .from('participants')
+                .select('user_id, line_user_id, conference_id')
+                .eq('id', toParticipantId)
+                .single();
+
+            debugLog('[db.createMeetRequest] 受信者詳細情報:', {
+                recipientDetail,
+                detailError
+            });
+
+            if (!recipientError && recipient?.line_user_id) {
+                debugLog('[db.createMeetRequest] 受信者がLINE認証済み、通知を送信します');
+                await sendLineNotification({
+                    participantId: toParticipantId,
+                    message: `新しいミートリクエストが届きました！\n\n${message || 'メッセージなし'}`,
+                    type: 'meet_request'
+                });
+                debugLog('[db.createMeetRequest] LINE通知送信成功');
+            } else {
+                debugLog('[db.createMeetRequest] 受信者がLINE認証していないため、LINE通知をスキップ', {
+                    hasRecipient: !!recipient,
+                    hasLineUserId: !!recipient?.line_user_id,
+                    recipientError
+                });
+            }
+        } catch (notificationError) {
+            console.error('[db.createMeetRequest] LINE通知送信エラー:', notificationError);
+            // 通知エラーはミートリクエスト作成を妨げない
+        }
+
         return data;
+    },
+
+    // ミートリクエストを既読にする
+    async markMeetRequestAsRead(requestId) {
+        if (!requestId) {
+            throw new Error('requestId は必須です。');
+        }
+
+        debugLog('[db.markMeetRequestAsRead] 既読処理開始:', { requestId });
+
+        const { data, error } = await supabase
+            .from('participant_meet_requests')
+            .update({ is_read: true, updated_at: new Date().toISOString() })
+            .eq('id', requestId)
+            .select()
+            .maybeSingle();
+
+        if (error) {
+            console.error('[db.markMeetRequestAsRead] エラー:', error);
+            throw error;
+        }
+
+        debugLog('[db.markMeetRequestAsRead] 既読処理成功:', data);
+        return data;
+    },
+
+    // ユーザーの未読ミートリクエストを取得
+    async getUnreadMeetRequests(participantId) {
+        if (!participantId) {
+            throw new Error('participantId は必須です。');
+        }
+
+        debugLog('[db.getUnreadMeetRequests] 未読リクエスト取得開始:', { participantId });
+
+        const { data, error } = await supabase
+            .from('participant_meet_requests')
+            .select('*')
+            .eq('to_participant_id', participantId)
+            .eq('is_read', false)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('[db.getUnreadMeetRequests] エラー:', error);
+            throw error;
+        }
+
+        debugLog('[db.getUnreadMeetRequests] 未読リクエスト取得成功:', data);
+        return data || [];
+    }
+};
+
+// LINE通知送信関数
+export const sendLineNotification = async ({ participantId, message, type = 'meet_request' }) => {
+    try {
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-line-notification`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify({
+                participantId,
+                message,
+                type
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.text();
+            throw new Error(`LINE通知送信に失敗しました: ${errorData}`);
+        }
+
+        const result = await response.json();
+        return result;
+    } catch (error) {
+        console.error('LINE通知送信エラー:', error);
+        throw error;
     }
 };
 
@@ -600,6 +751,50 @@ export const auth = {
         });
         return { data, error };
     },
+
+    // LINE認証（LIFF + Edge Function）
+    async loginWithLine() {
+        try {
+            const liff = await import('@line/liff');
+
+            await liff.default.init({ liffId: import.meta.env.VITE_LIFF_ID });
+            if (!liff.default.isLoggedIn()) await liff.default.login();
+
+            const idToken = liff.default.getIDToken();
+            const p = await liff.default.getProfile();
+
+            const resp = await fetch(
+                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/line-login`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+                    },
+                    body: JSON.stringify({
+                        id_token: idToken,
+                        line_user_id: p.userId,
+                        name: p.displayName,
+                        picture: p.pictureUrl,
+                        redirect_to: `${window.location.origin}/auth/callback`,
+                    }),
+                }
+            );
+
+            if (!resp.ok) {
+                console.error('line-login failed:', await resp.text());
+                alert('LINEログインに失敗しました');
+                return;
+            }
+
+            const { url } = await resp.json();
+            window.location.href = url;
+        } catch (e) {
+            console.error(e);
+            alert('LINEログイン処理でエラーが発生しました');
+        }
+    },
+
 
     // サインアウト
     async signOut() {

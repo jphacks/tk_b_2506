@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import LineUserBinding from '../../components/LineUserBinding';
 import Button from '../../components/ui/Button';
 import Header from '../../components/ui/Header';
 import MessageModal from '../../components/ui/MessageModal';
+import Tabs from '../../components/ui/Tabs';
 import Toast from '../../components/ui/Toast';
 import { useAuth } from '../../contexts/AuthContext';
 import useConferenceMap from '../../hooks/useConferenceMap';
@@ -10,17 +12,29 @@ import useConferences from '../../hooks/useConferences';
 import useLocations from '../../hooks/useLocations';
 import useParticipants from '../../hooks/useParticipants';
 import useRecommendedPresentations from '../../hooks/useRecommendedPresentations';
-import { realtime } from '../../lib/supabase';
-import ParticipantList from './components/ParticipantList';
-import QrScanButton from './components/QrScanButton';
-import RecommendedPresentations from './components/RecommendedPresentations';
-import VenueMap from './components/VenueMap';
+import { db, realtime, supabase } from '../../lib/supabase';
+import HomeTab from './components/HomeTab';
+import LocationTab from './components/LocationTab';
+import MessagesTab from './components/MessagesTab';
+import RecommendedTab from './components/RecommendedTab';
 
 const Dashboard = () => {
     const { conferenceId: routeConferenceId } = useParams();
     const conferenceId = routeConferenceId;
     const { user } = useAuth();
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    // URLパラメータからタブを取得、デフォルトは'home'
+    const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'home');
+
+    // URLパラメータが変更されたときにタブを更新
+    useEffect(() => {
+        const tabFromUrl = searchParams.get('tab');
+        if (tabFromUrl && tabFromUrl !== activeTab) {
+            setActiveTab(tabFromUrl);
+        }
+    }, [searchParams]);
 
     const [toast, setToast] = useState({
         isVisible: false,
@@ -31,6 +45,8 @@ const Dashboard = () => {
     const [notifications, setNotifications] = useState([]);
     const [selectedMessage, setSelectedMessage] = useState(null);
     const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
+    const [isLineBindingOpen, setIsLineBindingOpen] = useState(false);
+    const notificationsLoadedRef = useRef(false);
 
     const [occupationFilter, setOccupationFilter] = useState('all');
 
@@ -175,6 +191,40 @@ const Dashboard = () => {
         setSelectedMapId(mapForLocation.id);
     }, [currentLocation, mapsByLocationId, selectedMapId, hasUserSelectedMap]);
 
+    // URLパラメータからタブとビューを読み取る
+    useEffect(() => {
+        const tab = searchParams.get('tab');
+        const view = searchParams.get('view');
+
+        if (tab && tab !== activeTab) {
+            setActiveTab(tab);
+        }
+
+        if (view === 'notifications') {
+            setIsMessageModalOpen(true);
+        } else if (view === 'settings') {
+            // 設定モーダルを開く処理（既存のものがあれば）
+        }
+    }, [searchParams]);
+
+    // タブ変更ハンドラー
+    const handleTabChange = (tabId) => {
+        setActiveTab(tabId);
+        setSearchParams({ tab: tabId });
+    };
+
+    // タブ定義
+    const tabs = useMemo(() => {
+        const unreadCount = notifications.filter(n => !n.is_read).length;
+
+        return [
+            { id: 'home', label: 'ホーム', icon: '🏠' },
+            { id: 'recommended', label: 'おすすめ', icon: '⭐' },
+            { id: 'location', label: '位置情報', icon: '📍' },
+            { id: 'messages', label: 'メッセージ', icon: '💬' }
+        ];
+    }, [notifications]);
+
     const handleSelectMap = (mapId) => {
         if (!mapId || mapId === selectedMapId) {
             return;
@@ -221,89 +271,138 @@ const Dashboard = () => {
         });
     };
 
-    const handleNotificationClick = (notification) => {
+    const handleLocationUpdate = async (locationId, deskInfo = {}) => {
+        if (!currentParticipant?.id || !locationId) return;
+
+        try {
+            // Update current location in participants table
+            const updateData = {
+                current_location_id: locationId,
+                current_map_region_id: deskInfo.mapRegionId || null
+            };
+
+            const { error } = await supabase
+                .from('participants')
+                .update(updateData)
+                .eq('id', currentParticipant.id);
+
+            if (error) throw error;
+
+            // Also record in participant_locations history
+            const { error: historyError } = await supabase
+                .from('participant_locations')
+                .insert({
+                    participant_id: currentParticipant.id,
+                    location_id: locationId,
+                    map_region_id: deskInfo.mapRegionId || null,
+                    scanned_at: new Date().toISOString()
+                });
+
+            if (historyError) {
+                console.error('Failed to record location history:', historyError);
+                // Don't throw - the main update succeeded
+            }
+
+            await refetchParticipants();
+            await refetchLocations();
+
+            const message = deskInfo.deskLabel
+                ? `${deskInfo.deskLabel}に移動しました！`
+                : '位置情報を更新しました！';
+
+            setToast({
+                isVisible: true,
+                message,
+                type: 'success'
+            });
+        } catch (error) {
+            console.error('Failed to update location:', error);
+            setToast({
+                isVisible: true,
+                message: '位置情報の更新に失敗しました。',
+                type: 'error'
+            });
+        }
+    };
+
+    const handleNotificationClick = async (notification) => {
         setSelectedMessage(notification);
         setIsMessageModalOpen(true);
 
-        // 通知を既読にする
-        setNotifications(prev =>
-            prev.map(n =>
-                n.id === notification.id ? { ...n, read: true } : n
-            )
-        );
+        // データベースで既読にする
+        try {
+            await db.markMeetRequestAsRead(notification.id);
+
+            // ローカル状態も更新
+            setNotifications(prev =>
+                prev.map(n =>
+                    n.id === notification.id ? { ...n, is_read: true } : n
+                )
+            );
+        } catch (error) {
+            console.error('Failed to mark notification as read:', error);
+        }
     };
 
     useEffect(() => {
-        console.log('[Dashboard] useEffect for realtime subscription triggered:', {
-            conferenceId,
-            currentParticipantId: currentParticipant?.id,
-            participantsCount: participants.length
-        });
-
         if (!conferenceId || !currentParticipant?.id) {
-            console.log('[Dashboard] Skipping realtime subscription - missing required data');
             return;
         }
-
-        console.log('[Dashboard] Setting up realtime subscription for participant:', currentParticipant.id);
 
         // 非同期安全なパターン：useEffect内で直接非同期処理を実行
         let unsubscribe;
 
         const setupRealtime = async () => {
             try {
-                console.log('[Dashboard] Starting realtime subscription setup...');
                 unsubscribe = await realtime.subscribeMeetRequests(
                     currentParticipant.id,
                     (newRequest) => {
-                        console.log('[Dashboard] Received new meet request:', newRequest);
-
-                        const sender = participants.find(
-                            (p) => p.id === newRequest.from_participant_id
-                        );
-
-                        console.log('[Dashboard] Found sender:', sender);
-
-                        const senderName =
-                            sender?.introduction?.name ||
-                            sender?.introduction?.affiliation ||
-                            '他の参加者';
-
-                        const messagePreview = newRequest.message?.trim()
-                            ? newRequest.message.trim()
-                            : 'メッセージをご確認ください。';
-
-                        // 通知を追加
-                        const newNotification = {
-                            id: newRequest.id,
-                            title: '新しいミートリクエスト',
-                            message: messagePreview,
-                            senderName,
-                            content: newRequest.message,
-                            timestamp: newRequest.created_at,
-                            read: false,
-                            requestData: newRequest
-                        };
-
-                        console.log('[Dashboard] Adding notification:', newNotification);
-
+                        // 既存の通知を更新するか、新しい通知を追加するかを判定
                         setNotifications(prev => {
-                            const updated = [newNotification, ...prev];
-                            console.log('[Dashboard] Updated notifications:', updated);
-                            return updated;
-                        });
+                            const existingIndex = prev.findIndex(n => n.id === newRequest.id);
 
-                        // Toast通知も表示（短時間）
-                        setToast({
-                            isVisible: true,
-                            message: `新しいミートリクエストを受信しました`,
-                            type: 'success'
+                            if (existingIndex !== -1) {
+                                // 既存の通知を更新（UPDATEイベントの場合）
+                                const updated = [...prev];
+                                updated[existingIndex] = {
+                                    ...updated[existingIndex],
+                                    is_read: newRequest.is_read || false,
+                                    requestData: newRequest
+                                };
+                                return updated;
+                            } else {
+                                // 新しい通知を追加（INSERTイベントの場合）
+                                const sender = participants.find(
+                                    (p) => p.id === newRequest.from_participant_id
+                                );
+
+                                const senderName =
+                                    sender?.introduction?.name ||
+                                    sender?.introduction?.affiliation ||
+                                    '他の参加者';
+
+                                const messagePreview = newRequest.message?.trim()
+                                    ? newRequest.message.trim()
+                                    : 'メッセージをご確認ください。';
+
+                                const newNotification = {
+                                    id: newRequest.id,
+                                    title: '新しいミートリクエスト',
+                                    message: messagePreview,
+                                    senderName,
+                                    content: newRequest.message,
+                                    timestamp: newRequest.created_at,
+                                    is_read: newRequest.is_read || false,
+                                    requestData: newRequest
+                                };
+
+                                return [newNotification, ...prev];
+                            }
                         });
                     }
                 );
-                console.log('[Dashboard] Realtime subscription setup completed');
             } catch (error) {
-                console.error('[Dashboard] Failed to setup realtime subscription:', error);
+                console.error('Failed to setup realtime subscription:', error);
             }
         };
 
@@ -317,10 +416,62 @@ const Dashboard = () => {
         };
     }, [conferenceId, currentParticipant?.id]);
 
+    // 既存の通知を読み込む（既読・未読問わず）
+    useEffect(() => {
+        const loadExistingNotifications = async () => {
+            if (!currentParticipant?.id || participants.length === 0 || notificationsLoadedRef.current) return;
+
+            try {
+                // すべての通知を取得（既読・未読問わず）
+                const { data: allRequests, error } = await supabase
+                    .from('participant_meet_requests')
+                    .select('*')
+                    .eq('to_participant_id', currentParticipant.id)
+                    .order('created_at', { ascending: false });
+
+                if (error) {
+                    console.error('Failed to load existing notifications:', error);
+                    return;
+                }
+
+                const existingNotifications = allRequests.map(request => {
+                    // 参加者情報をリアルタイムで取得
+                    const sender = participants.find(p => p.id === request.from_participant_id);
+                    const senderName = sender?.introduction?.name ||
+                        sender?.introduction?.affiliation ||
+                        '他の参加者';
+
+                    const messagePreview = request.message?.trim()
+                        ? request.message.trim()
+                        : 'メッセージをご確認ください。';
+
+                    return {
+                        id: request.id,
+                        title: 'ミートリクエスト',
+                        message: messagePreview,
+                        senderName,
+                        content: request.message,
+                        timestamp: request.created_at,
+                        is_read: request.is_read || false,
+                        requestData: request
+                    };
+                });
+
+                // 既存の通知を完全に置き換える（重複を避けるため）
+                setNotifications(existingNotifications);
+                notificationsLoadedRef.current = true;
+            } catch (error) {
+                console.error('Failed to load existing notifications:', error);
+            }
+        };
+
+        loadExistingNotifications();
+    }, [currentParticipant?.id, participants]); // participantsを依存配列に戻す
+
     if (!conferenceId) {
         return (
             <div className="min-h-screen bg-background">
-                <Header />
+                <Header notifications={[]} onNotificationClick={() => { }} showSettings={false} />
                 <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
                     <div className="bg-card border border-border rounded-xl shadow-soft p-8 text-center">
                         <h1 className="text-2xl font-semibold text-foreground mb-4">ダッシュボードを表示できません</h1>
@@ -338,6 +489,7 @@ const Dashboard = () => {
             <Header
                 notifications={notifications}
                 onNotificationClick={handleNotificationClick}
+                showSettings={true}
             />
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
                 <div className="flex flex-col gap-2">
@@ -362,6 +514,17 @@ const Dashboard = () => {
                                 iconPosition="left"
                             >
                                 学会を切り替え
+                            </Button>
+                        )}
+                        {/* LINE通知設定ボタン */}
+                        {currentParticipant && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setIsLineBindingOpen(true)}
+                                iconName="MessageCircle"
+                            >
+                                LINE通知設定
                             </Button>
                         )}
                     </div>
@@ -396,56 +559,83 @@ const Dashboard = () => {
                     </div>
                 )}
 
-                <div className="grid grid-cols-1 gap-6 xl:grid-cols-[320px_minmax(0,1fr)_360px]">
-                    <div className="order-1">
-                        <QrScanButton
-                            conferenceId={conferenceId}
-                            onScanSuccess={handleScanSuccess}
-                            onScanError={handleScanError}
-                            disabled={!user}
-                        />
-                    </div>
-                    <div className="order-3 xl:order-2">
-                        <VenueMap
-                            conferenceId={conferenceId}
-                            mapData={selectedMap}
-                            maps={maps}
-                            mapsByLocationId={mapsByLocationId}
-                            currentParticipant={currentParticipant}
-                            onSelectMap={handleSelectMap}
-                            locations={locations}
-                            currentLocation={currentLocation}
-                            isLoading={locationsLoading || mapsLoading}
-                            locationError={locationsError}
-                            mapError={mapsError}
-                            onRetry={() => {
-                                refetchLocations();
-                                refetchMaps();
-                            }}
-                        />
-                    </div>
-                    <div className="order-2 xl:order-3">
-                        <ParticipantList
+                {/* タブUI */}
+                <Tabs
+                    tabs={tabs}
+                    activeTab={activeTab}
+                    onTabChange={handleTabChange}
+                />
+
+                {/* タブコンテンツ */}
+                <div className="mt-6">
+                    {activeTab === 'home' && (
+                        <HomeTab
                             participants={visibleParticipants}
-                            conferenceId={conferenceId}
                             currentParticipant={currentParticipant}
-                            isLoading={participantsLoading}
-                            error={participantsError}
-                            onRetry={refetchParticipants}
+                            conferenceId={conferenceId}
                             occupationFilter={occupationFilter}
                             onOccupationFilterChange={setOccupationFilter}
+                            isLoading={participantsLoading}
+                            error={participantsError}
+                            // 会場マップ関連
+                            maps={maps}
+                            selectedMap={selectedMap}
+                            selectedMapId={selectedMapId}
+                            mapsByLocationId={mapsByLocationId}
+                            locations={locations}
+                            currentLocation={currentLocation}
+                            onMapSelect={handleSelectMap}
+                            onLocationUpdate={handleLocationUpdate}
+                            onQrScanSuccess={handleScanSuccess}
+                            onQrScanError={handleScanError}
+                            onRefetchLocations={refetchLocations}
+                            onRefetchMaps={refetchMaps}
+                            locationsLoading={locationsLoading}
+                            mapsLoading={mapsLoading}
+                            locationError={locationsError}
+                            mapError={mapsError}
+                            user={user}
                         />
-                    </div>
-                </div>
+                    )}
 
-                {/* 興味のある発表セクション */}
-                <div className="mt-6">
-                    <RecommendedPresentations
-                        presentations={recommendedPresentations}
-                        isLoading={presentationsLoading}
-                        error={presentationsError}
-                        onRetry={refetchPresentations}
-                    />
+                    {activeTab === 'recommended' && (
+                        <RecommendedTab
+                            recommendedPresentations={recommendedPresentations}
+                            currentParticipant={currentParticipant}
+                            conferenceId={conferenceId}
+                            isLoading={presentationsLoading}
+                            error={presentationsError}
+                            onRefetch={refetchPresentations}
+                        />
+                    )}
+
+                    {activeTab === 'location' && (
+                        <LocationTab
+                            currentParticipant={currentParticipant}
+                            currentLocation={currentLocation}
+                            locations={locations}
+                            maps={maps}
+                            selectedMap={selectedMap}
+                            selectedMapId={selectedMapId}
+                            onMapSelect={handleSelectMap}
+                            onLocationUpdate={handleLocationUpdate}
+                            onRefetchLocations={refetchLocations}
+                            onRefetchMaps={refetchMaps}
+                            conferenceId={conferenceId}
+                            mapsByLocationId={mapsByLocationId}
+                            locationsLoading={locationsLoading}
+                            mapsLoading={mapsLoading}
+                            locationError={locationsError}
+                            mapError={mapsError}
+                        />
+                    )}
+
+                    {activeTab === 'messages' && (
+                        <MessagesTab
+                            currentParticipant={currentParticipant}
+                            conferenceId={conferenceId}
+                        />
+                    )}
                 </div>
             </main>
 
@@ -465,6 +655,34 @@ const Dashboard = () => {
                     setSelectedMessage(null);
                 }}
             />
+
+            {/* LINEユーザーID登録モーダル */}
+            {isLineBindingOpen && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-background rounded-lg p-6 w-full max-w-md">
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-lg font-semibold">LINE通知設定</h2>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setIsLineBindingOpen(false)}
+                                iconName="X"
+                            />
+                        </div>
+                        <LineUserBinding
+                            participantId={currentParticipant?.id}
+                            onSuccess={() => {
+                                setIsLineBindingOpen(false);
+                                setToast({
+                                    isVisible: true,
+                                    message: 'LINEユーザーIDが登録されました！',
+                                    type: 'success'
+                                });
+                            }}
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

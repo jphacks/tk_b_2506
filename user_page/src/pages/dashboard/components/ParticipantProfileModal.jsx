@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 
 import Button from '../../../components/ui/Button';
 import Textarea from '../../../components/ui/Textarea';
-import { db } from '../../../lib/supabase';
+import { db, supabase } from '../../../lib/supabase';
 
 const MAX_MESSAGE_LENGTH = 300;
 
@@ -40,18 +40,15 @@ const ParticipantProfileModal = ({ participant, currentParticipant = null, confe
 
     const introduction = participant.introduction || {};
     const location = participant.location || null;
+    const mapRegion = participant.current_map_region || null;
 
     const occupation =
         introduction.occupation === 'その他'
             ? introduction.occupation_other || 'その他（詳細未設定）'
             : introduction.occupation || null;
 
-    const locationMeta = location
-        ? [location.building, location.floor].filter(Boolean).join(' / ') || null
-        : null;
-
     const locationDisplay = location
-        ? [location.name, locationMeta].filter(Boolean).join(' - ')
+        ? [location.name, mapRegion?.label].filter(Boolean).join(' - ')
         : null;
 
     const registeredAt = formatDateTime(participant.registered_at);
@@ -119,13 +116,6 @@ const ParticipantProfileModal = ({ participant, currentParticipant = null, confe
         setFeedback({ type: null, text: '' });
 
         try {
-            console.log('[ParticipantProfileModal] ミートリクエストを送信中:', {
-                conferenceId: effectiveConferenceId,
-                fromParticipantId,
-                toParticipantId,
-                message: trimmed
-            });
-
             const result = await db.createMeetRequest({
                 conferenceId: effectiveConferenceId,
                 fromParticipantId,
@@ -133,7 +123,36 @@ const ParticipantProfileModal = ({ participant, currentParticipant = null, confe
                 message: trimmed
             });
 
-            console.log('[ParticipantProfileModal] ミートリクエスト送信成功:', result);
+            // LINE通知を送信（受信者のLINEユーザーIDがある場合のみ）
+            try {
+                if (participant?.line_user_id) {
+                    const senderName = currentParticipant?.introduction?.name ||
+                        currentParticipant?.introduction?.affiliation ||
+                        '他の参加者';
+
+                    const messageText = `送信者: ${senderName}\nメッセージ: ${trimmed || 'メッセージをご確認ください。'}`;
+
+                    // Supabaseセッションを取得して認証ヘッダーに使用
+                    const { data: { session } } = await supabase.auth.getSession();
+                    const authToken = session?.access_token;
+
+                    await fetch('https://cqudhplophskbgzepoti.supabase.co/functions/v1/send-line-notification', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${authToken}`
+                        },
+                        body: JSON.stringify({
+                            userId: participant.line_user_id,
+                            message: messageText,
+                            type: 'meet_request'
+                        })
+                    });
+                }
+            } catch (lineError) {
+                console.error('Failed to send LINE notification:', lineError);
+                // LINE通知の失敗はユーザーに表示しない
+            }
 
             setHasSent(true);
             setFeedback({

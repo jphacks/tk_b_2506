@@ -12,8 +12,10 @@ const fetchParticipantsByLocation = async (locationId) => {
             conference_id,
             introduction_id,
             current_location_id,
+            current_map_region_id,
             registered_at,
             updated_at,
+            line_user_id,
             introduction:introductions(
                 id,
                 name,
@@ -30,6 +32,10 @@ const fetchParticipantsByLocation = async (locationId) => {
                 floor,
                 building,
                 location_type
+            ),
+            current_map_region:map_regions!current_map_region_id(
+                id,
+                label
             )
         `)
         .eq('current_location_id', locationId)

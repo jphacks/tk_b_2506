@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 
 const fetchParticipants = async (conferenceId, options = {}) => {
     const { occupation } = options;
-    
+
     let query = supabase
         .from('participants')
         .select(`
@@ -12,8 +12,10 @@ const fetchParticipants = async (conferenceId, options = {}) => {
             conference_id,
             introduction_id,
             current_location_id,
+            current_map_region_id,
             registered_at,
             updated_at,
+            line_user_id,
             introduction:introductions(
                 id,
                 name,
@@ -30,6 +32,10 @@ const fetchParticipants = async (conferenceId, options = {}) => {
                 floor,
                 building,
                 location_type
+            ),
+            current_map_region:map_regions!current_map_region_id(
+                id,
+                label
             )
         `)
         .eq('conference_id', conferenceId);

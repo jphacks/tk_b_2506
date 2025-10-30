@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Header from '../../components/ui/Header';
-import Select from '../../components/ui/Select';
-import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
+import Header from '../../components/ui/Header';
+import Input from '../../components/ui/Input';
+import Select from '../../components/ui/Select';
 import Toast from '../../components/ui/Toast';
-import { useAuth } from '../../contexts/AuthContext';
-import { db } from '../../lib/supabase';
 import { clearStoredConferenceId, setStoredConferenceId } from '../../constants/conference';
+import { useAuth } from '../../contexts/AuthContext';
 import useConferences from '../../hooks/useConferences';
 import useParticipantProfile from '../../hooks/useParticipantProfile';
+import { db } from '../../lib/supabase';
 
 const SelectConferencePage = () => {
     const navigate = useNavigate();
@@ -185,7 +185,7 @@ const SelectConferencePage = () => {
 
     return (
         <div className="min-h-screen bg-background">
-            <Header />
+            <Header notifications={[]} onNotificationClick={() => { }} showSettings={false} />
             <main className="max-w-xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-6">
                 <div className="bg-card border border-border rounded-xl shadow-soft p-6 space-y-6">
                     <div className="space-y-2">

@@ -2,15 +2,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Header from '../../components/ui/Header';
 import Input from '../../components/ui/Input';
-import Select from '../../components/ui/Select';
 import MultiSelect from '../../components/ui/MultiSelect';
+import Select from '../../components/ui/Select';
 import Toast from '../../components/ui/Toast';
-import { useAuth } from '../../contexts/AuthContext';
-import { db } from '../../lib/supabase';
 import { getStoredConferenceId, setStoredConferenceId } from '../../constants/conference';
+import { useAuth } from '../../contexts/AuthContext';
 import useConferences from '../../hooks/useConferences';
 import useParticipantProfile from '../../hooks/useParticipantProfile';
 import useTags from '../../hooks/useTags';
+import { db } from '../../lib/supabase';
 import FormActions from './components/FormActions';
 import FormField from './components/FormField';
 import FormHeader from './components/FormHeader';
@@ -372,7 +372,7 @@ const SelfIntroductionForm = () => {
 
     return (
         <div className="min-h-screen bg-background">
-            <Header />
+            <Header notifications={[]} onNotificationClick={() => { }} showSettings={false} />
             <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
                 <div className="max-w-2xl mx-auto">
                     {/* Form Header */}
