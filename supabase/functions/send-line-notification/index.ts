@@ -1,9 +1,20 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
+
+const supabaseUrl = Deno.env.get("SUPABASE_URL")!
+const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+
+const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+  },
+})
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -12,17 +23,38 @@ serve(async (req) => {
   }
 
   try {
-    const { userId, message, type = 'meet_request' } = await req.json()
+    const { participantId, message, type = 'meet_request' } = await req.json()
 
-    if (!userId || !message) {
+    if (!participantId || !message) {
       return new Response(
-        JSON.stringify({ error: 'userId and message are required' }),
+        JSON.stringify({ error: 'participantId and message are required' }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
+
+    // 参加者IDからLINE User IDを取得
+    const { data: participant, error: participantError } = await supabaseAdmin
+      .from('participants')
+      .select('line_user_id')
+      .eq('id', participantId)
+      .single()
+
+    if (participantError || !participant?.line_user_id) {
+      console.error('Participant not found or no LINE user ID:', participantError)
+      return new Response(
+        JSON.stringify({ error: 'Participant not found or no LINE user ID' }),
+        {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
+    const lineUserId = participant.line_user_id
+    console.log('Found LINE user ID:', lineUserId)
 
     // LINE Messaging API に送信するメッセージを構築
     let lineMessage = {
@@ -59,7 +91,7 @@ ${message}
         'Authorization': `Bearer ${Deno.env.get('LINE_CHANNEL_ACCESS_TOKEN')}`
       },
       body: JSON.stringify({
-        to: userId,
+        to: lineUserId,
         messages: [lineMessage]
       })
     })

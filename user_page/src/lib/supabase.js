@@ -440,6 +440,54 @@ export const db = {
         }
 
         debugLog('[db.createMeetRequest] 作成成功:', data);
+
+        // LINE通知を送信（受信者がLINE認証している場合のみ）
+        try {
+            // 受信者のLINE認証状況を確認
+            const { data: recipient, error: recipientError } = await supabase
+                .from('participants')
+                .select('line_user_id')
+                .eq('id', toParticipantId)
+                .single();
+
+            debugLog('[db.createMeetRequest] 受信者データ取得結果:', {
+                recipient,
+                recipientError,
+                toParticipantId
+            });
+
+            // 受信者の詳細情報も取得してデバッグ
+            const { data: recipientDetail, error: detailError } = await supabase
+                .from('participants')
+                .select('user_id, line_user_id, conference_id')
+                .eq('id', toParticipantId)
+                .single();
+
+            debugLog('[db.createMeetRequest] 受信者詳細情報:', {
+                recipientDetail,
+                detailError
+            });
+
+            if (!recipientError && recipient?.line_user_id) {
+                debugLog('[db.createMeetRequest] 受信者がLINE認証済み、通知を送信します');
+                await sendLineNotification({
+                    participantId: toParticipantId,
+                    message: `新しいミートリクエストが届きました！\n\n${message || 'メッセージなし'}`,
+                    type: 'meet_request'
+                });
+                debugLog('[db.createMeetRequest] LINE通知送信成功');
+            } else {
+                debugLog('[db.createMeetRequest] 受信者がLINE認証していないため、LINE通知をスキップ', {
+                    hasRecipient: !!recipient,
+                    hasLineUserId: !!recipient?.line_user_id,
+                    recipientError
+                });
+            }
+        } catch (notificationError) {
+            console.error('[db.createMeetRequest] LINE通知送信エラー:', notificationError);
+            // 通知エラーはミートリクエスト作成を妨げない
+        }
+
         return data;
     },
 
@@ -489,6 +537,35 @@ export const db = {
 
         debugLog('[db.getUnreadMeetRequests] 未読リクエスト取得成功:', data);
         return data || [];
+    }
+};
+
+// LINE通知送信関数
+export const sendLineNotification = async ({ participantId, message, type = 'meet_request' }) => {
+    try {
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-line-notification`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify({
+                participantId,
+                message,
+                type
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.text();
+            throw new Error(`LINE通知送信に失敗しました: ${errorData}`);
+        }
+
+        const result = await response.json();
+        return result;
+    } catch (error) {
+        console.error('LINE通知送信エラー:', error);
+        throw error;
     }
 };
 

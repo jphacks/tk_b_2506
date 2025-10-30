@@ -43,37 +43,8 @@ const json = (data: any, status = 200) =>
 
 
 
-async function upsertParticipant(lineUserId: string, userId: string) {
-  // デフォルトの学会IDを取得（最初のアクティブな学会）
-  const { data: conferences, error: confError } = await supabaseAdmin
-    .from('conferences')
-    .select('id')
-    .eq('is_active', true)
-    .order('start_date', { ascending: true })
-    .limit(1);
-
-  if (confError) {
-    console.error("Error fetching conferences:", confError);
-    throw confError;
-  }
-
-  const defaultConferenceId = conferences?.[0]?.id;
-  console.log("Default conference ID:", defaultConferenceId);
-
-  const { error } = await supabaseAdmin.from("participants").upsert({
-    user_id: userId,
-    line_user_id: lineUserId,
-    conference_id: defaultConferenceId, // デフォルトの学会IDを設定
-    registered_at: new Date().toISOString(),
-  }, { onConflict: "line_user_id" });
-
-  if (error) {
-    console.error("Error upserting participant:", error);
-    throw error;
-  }
-
-  console.log("Participant upserted successfully");
-}
+// 参加者レコードは作成しない（学会選択時に作成）。
+// LINEログイン時は auth.users の user_metadata のみ更新しておく。
 
 Deno.serve(async (req) => {
   try {
@@ -115,7 +86,8 @@ Deno.serve(async (req) => {
     });
 
     // 2) Determine email used in Supabase (stable mapping)
-    const email = `${lineUserId}@line.local`;
+    // Supabase はメールを小文字で保存するため小文字で統一
+    const email = `${lineUserId.toLowerCase()}@line.local`;
 
     // 3) Find or create user
     // まずparticipantsテーブルからline_user_idで検索
@@ -147,7 +119,29 @@ Deno.serve(async (req) => {
 
       if (createError) {
         console.error("Create user error:", createError);
-        throw createError;
+
+        // ユーザーが既に存在する場合、既存ユーザーを検索
+        if (createError.message?.includes("already been registered") || createError.code === "email_exists") {
+          console.log("User already exists, searching for existing user...");
+
+          // 既存ユーザーを検索
+          const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+
+          if (listError) {
+            console.error("Error listing users:", listError);
+            throw listError;
+          }
+
+          const existingUser = existingUsers.users.find(user => user.email === email);
+          if (existingUser) {
+            userId = existingUser.id;
+            console.log("Found existing user:", userId);
+          } else {
+            throw new Error("User exists but could not be found");
+          }
+        } else {
+          throw createError;
+        }
       } else {
         userId = userData.user?.id;
         console.log("Created new user:", userId);
@@ -156,8 +150,17 @@ Deno.serve(async (req) => {
 
     if (!userId) return json({ message: "Failed to resolve userId" }, 500);
 
-    // 4) Link participant mapping (idempotent)
-    await upsertParticipant(lineUserId, userId);
+    // 4) Ensure auth user's metadata has latest LINE info
+    const { error: updateMetaErr } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+      user_metadata: {
+        line_user_id: lineUserId,
+        name: name ?? null,
+        picture: picture ?? null,
+      },
+    });
+    if (updateMetaErr) {
+      console.error('Failed to update user metadata:', updateMetaErr);
+    }
 
     // 5) Generate magic link to establish session on client
     const redirectUrl = "https://unmilted-amirah-nonethnologic.ngrok-free.dev/auth/callback";
