@@ -6,6 +6,7 @@ import Input from '../../components/ui/Input';
 import MultiSelect from '../../components/ui/MultiSelect';
 import Select from '../../components/ui/Select';
 import Toast from '../../components/ui/Toast';
+import AffiliationCandidates from '../../components/researchmap/AffiliationCandidates';
 import { getStoredConferenceId, setStoredConferenceId } from '../../constants/conference';
 import { useAuth } from '../../contexts/AuthContext';
 import useConferences from '../../hooks/useConferences';
@@ -46,6 +47,8 @@ const SelfIntroductionForm = () => {
     const [researcherId, setResearcherId] = useState('');
     const [researcherAffiliationOptions, setResearcherAffiliationOptions] = useState([]);
     const [selectedResearcherAffiliationOption, setSelectedResearcherAffiliationOption] = useState('');
+    const [isAffiliationSelectionRequired, setIsAffiliationSelectionRequired] = useState(false);
+    const [primaryAffiliationCandidate, setPrimaryAffiliationCandidate] = useState(null);
 
     // UI state
     const [isPublic, setIsPublic] = useState(true);
@@ -212,6 +215,10 @@ const SelfIntroductionForm = () => {
             newErrors.conference = "参加する学会を選択してください";
         }
 
+        if (isAffiliationSelectionRequired && !formData?.affiliation?.trim()) {
+            newErrors.affiliation = "所属を選択してください";
+        }
+
         setErrors(newErrors);
         return Object.keys(newErrors)?.length === 0;
     };
@@ -258,34 +265,37 @@ const SelfIntroductionForm = () => {
         }
     };
 
-const handleResearcherAffiliationOptionSelect = (e) => {
-    const nextValue = e?.target?.value ?? '';
-    setSelectedResearcherAffiliationOption(nextValue);
+    const handleResearcherAffiliationOptionSelect = (valueOrEvent) => {
+        const nextValue = typeof valueOrEvent === 'string'
+            ? valueOrEvent
+            : valueOrEvent?.target?.value ?? '';
 
-    if (!nextValue) {
-        return;
-    }
+        setSelectedResearcherAffiliationOption(nextValue);
 
-    const selectedOption = researcherAffiliationOptions.find(
-        (option) => option?.value === nextValue
-    );
+        if (!nextValue) {
+            return;
+        }
 
-    if (!selectedOption) {
-        return;
-    }
+        const selectedOption = researcherAffiliationOptions.find(
+            (option) => option?.value === nextValue
+        );
 
-    setFormData((prev) => ({
-        ...prev,
-        affiliation: selectedOption.affiliation
-    }));
+        if (!selectedOption) {
+            return;
+        }
 
-    if (errors?.affiliation) {
-        setErrors((prev) => ({
+        setFormData((prev) => ({
             ...prev,
-            affiliation: ''
+            affiliation: selectedOption.affiliation
         }));
-    }
-};
+
+        if (errors?.affiliation) {
+            setErrors((prev) => ({
+                ...prev,
+                affiliation: ''
+            }));
+        }
+    };
 
     const handleResearcherFetch = async () => {
         const normalizedId = normalizeResearcherId(researcherId);
@@ -294,6 +304,8 @@ const handleResearcherAffiliationOptionSelect = (e) => {
             setResearcherFetchError('researcher_idを入力してください。');
             setResearcherAffiliationOptions([]);
             setSelectedResearcherAffiliationOption('');
+            setIsAffiliationSelectionRequired(false);
+            setPrimaryAffiliationCandidate(null);
             return;
         }
 
@@ -301,6 +313,8 @@ const handleResearcherAffiliationOptionSelect = (e) => {
         setResearcherFetchError('');
         setResearcherAffiliationOptions([]);
         setSelectedResearcherAffiliationOption('');
+        setIsAffiliationSelectionRequired(false);
+        setPrimaryAffiliationCandidate(null);
 
         try {
             const response = await fetch(`https://api.researchmap.jp/${encodeURIComponent(normalizedId)}?format=json`);
@@ -311,16 +325,46 @@ const handleResearcherAffiliationOptionSelect = (e) => {
 
             const profileData = await response.json();
 
+            const currentAffiliationValue = formData?.affiliation?.trim() || '';
             const derivedName = deriveResearcherName(profileData);
             const {
-                affiliation: affiliationFromResearchExperience,
-                options: affiliationOptions
+                affiliation: primaryAffiliation,
+                primaryCandidate,
+                otherAffiliations,
+                selectionRequired
             } = deriveAffiliationOptionsFromResearchExperience(profileData);
-            const derivedAffiliation = affiliationFromResearchExperience || deriveAffiliationFromProfile(profileData);
+            const derivedAffiliationFromProfile = deriveAffiliationFromProfile(profileData);
+            const fallbackAffiliation = primaryAffiliation || derivedAffiliationFromProfile || '';
+            const shouldApplyPrimaryCandidate = Boolean(primaryCandidate?.affiliation && !selectionRequired);
+            const shouldApplyFallbackAffiliation = Boolean(!shouldApplyPrimaryCandidate && fallbackAffiliation && !selectionRequired);
             const { occupationValue, occupationOtherValue } = deriveOccupation(profileData);
+            const affiliationCandidatesForSelection = selectionRequired
+                ? [primaryCandidate, ...otherAffiliations].filter(Boolean)
+                : [];
+            const formattedSelectionOptions = affiliationCandidatesForSelection.map((candidate, index) => ({
+                value: candidate?.value || `candidate-${index}`,
+                label: candidate?.isPrimary ? `${candidate.label}（推奨）` : candidate?.label || '',
+                rawLabel: candidate?.label || '',
+                affiliation: candidate?.affiliation || '',
+                jobTitle: candidate?.jobTitle || '',
+                period: candidate?.period || '',
+                reason: candidate?.reason || '',
+                isPrimary: Boolean(candidate?.isPrimary)
+            }));
+            const matchedSelection = affiliationCandidatesForSelection.find(
+                (candidate) => candidate && candidate.affiliation === currentAffiliationValue
+            );
+
+            setIsAffiliationSelectionRequired(selectionRequired);
+            setPrimaryAffiliationCandidate(primaryCandidate ? { ...primaryCandidate } : null);
+            setResearcherAffiliationOptions(selectionRequired ? formattedSelectionOptions : []);
+            setSelectedResearcherAffiliationOption(selectionRequired && matchedSelection ? (matchedSelection.value || '') : '');
+
             const hasDerivedValue = Boolean(
                 derivedName ||
-                derivedAffiliation ||
+                shouldApplyPrimaryCandidate ||
+                shouldApplyFallbackAffiliation ||
+                (selectionRequired && affiliationCandidatesForSelection.length > 0) ||
                 occupationValue ||
                 occupationOtherValue
             );
@@ -332,8 +376,10 @@ const handleResearcherAffiliationOptionSelect = (e) => {
                     next.name = derivedName;
                 }
 
-                if (derivedAffiliation) {
-                    next.affiliation = derivedAffiliation;
+                if (shouldApplyPrimaryCandidate) {
+                    next.affiliation = primaryCandidate.affiliation;
+                } else if (shouldApplyFallbackAffiliation) {
+                    next.affiliation = fallbackAffiliation;
                 }
 
                 if (occupationValue) {
@@ -356,16 +402,19 @@ const handleResearcherAffiliationOptionSelect = (e) => {
                 }));
             }
 
-            setResearcherAffiliationOptions(affiliationOptions);
-            const defaultAffiliationOption = affiliationOptions.find(
-                (option) => option?.affiliation === affiliationFromResearchExperience
-            );
-            setSelectedResearcherAffiliationOption(defaultAffiliationOption?.value || '');
+            if ((shouldApplyPrimaryCandidate || shouldApplyFallbackAffiliation) && errors?.affiliation) {
+                setErrors(prev => ({
+                    ...prev,
+                    affiliation: ''
+                }));
+            }
 
             if (hasDerivedValue) {
                 setToast({
                     isVisible: true,
-                    message: 'researchmapから情報を読み込みました。',
+                    message: selectionRequired
+                        ? '所属候補が複数見つかりました。プルダウンから選択してください。'
+                        : 'researchmapから情報を読み込みました。',
                     type: 'success'
                 });
             } else {
@@ -381,6 +430,8 @@ const handleResearcherAffiliationOptionSelect = (e) => {
             setResearcherFetchError(message);
             setResearcherAffiliationOptions([]);
             setSelectedResearcherAffiliationOption('');
+            setIsAffiliationSelectionRequired(false);
+            setPrimaryAffiliationCandidate(null);
             setToast({
                 isVisible: true,
                 message,
@@ -521,6 +572,12 @@ const handleResearcherAffiliationOptionSelect = (e) => {
         setSelectedTags([]);
         setIsPublic(true);
         setErrors({});
+        setResearcherId('');
+        setResearcherAffiliationOptions([]);
+        setSelectedResearcherAffiliationOption('');
+        setIsAffiliationSelectionRequired(false);
+        setPrimaryAffiliationCandidate(null);
+        setResearcherFetchError('');
     };
 
     // Check if form is valid
@@ -528,6 +585,17 @@ const handleResearcherAffiliationOptionSelect = (e) => {
         formData?.name?.trim()?.length > 0 &&
         formData?.oneLiner?.length <= 120 &&
         Boolean(selectedConferenceId);
+
+    const affiliationSelectionRequiredMessage = '複数の所属候補が見つかりました。候補から選ぶか、下の所属欄に直接入力してください。';
+    const affiliationSelectionOptionalMessage = '候補から所属を選択すると、選んだ内容が所属欄に反映されます。';
+    const affiliationSelectionError = isAffiliationSelectionRequired && !formData?.affiliation?.trim()
+        ? affiliationSelectionRequiredMessage
+        : '';
+    const affiliationSelectionHelperText = affiliationSelectionError
+        ? ''
+        : (isAffiliationSelectionRequired
+            ? affiliationSelectionRequiredMessage
+            : affiliationSelectionOptionalMessage);
 
     return (
         <div className="min-h-screen bg-background">
@@ -620,27 +688,16 @@ const handleResearcherAffiliationOptionSelect = (e) => {
                                 description="学会での表示名として使用されます"
                             />
 
-                            {researcherAffiliationOptions.length > 1 && (
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-medium text-gray-700">
-                                        現所属候補（researchmap）
-                                    </label>
-                                    <select
-                                        value={selectedResearcherAffiliationOption}
-                                        onChange={handleResearcherAffiliationOptionSelect}
-                                        className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary"
-                                    >
-                                        <option value="">候補を選択</option>
-                                        {researcherAffiliationOptions.map((option) => (
-                                            <option key={option.value} value={option.value}>
-                                                {option.label}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <p className="mt-1 text-[10px] text-gray-500">
-                                        選んだ候補が所属欄に反映されます。必要に応じて直接編集してください。
-                                    </p>
-                                </div>
+                            {researcherAffiliationOptions.length > 0 && (
+                                <AffiliationCandidates
+                                    options={researcherAffiliationOptions}
+                                    selectedValue={selectedResearcherAffiliationOption}
+                                    onSelect={handleResearcherAffiliationOptionSelect}
+                                    recommendedLabel={primaryAffiliationCandidate?.label}
+                                    helperText={affiliationSelectionHelperText}
+                                    error={affiliationSelectionError}
+                                    isSelectionRequired={isAffiliationSelectionRequired}
+                                />
                             )}
 
                             {/* Affiliation Field - Optional */}

@@ -639,7 +639,6 @@ export const deriveAffiliationOptionsFromResearchExperience = (data) => {
         entry?.is_current_job ??
         entry?.in_current_position
     );
-    const hasExplicitNullEndDate = (entry) => endDateKeys.some((key) => entry?.[key] === null);
     const hasMeaningfulEndDate = (entry) => endDateKeys.some((key) => {
         const value = entry?.[key];
         if (value === undefined || value === null) {
@@ -651,22 +650,13 @@ export const deriveAffiliationOptionsFromResearchExperience = (data) => {
         return true;
     });
 
-    const nullEndDateEntries = sortedEntries.filter((entry) => hasExplicitNullEndDate(entry));
-    const flaggedCurrentEntries = sortedEntries.filter((entry) => {
-        if (!entry || typeof entry !== 'object') {
-            return false;
-        }
-        if (hasCurrentFlag(entry)) {
-            return true;
-        }
-        return !hasMeaningfulEndDate(entry);
-    });
-
-    const prioritizedCurrentEntries = nullEndDateEntries.length
-        ? nullEndDateEntries
+    const entriesWithoutEndDate = sortedEntries.filter((entry) => !hasMeaningfulEndDate(entry));
+    const flaggedCurrentEntries = sortedEntries.filter((entry) => hasCurrentFlag(entry));
+    const prioritizedEntries = entriesWithoutEndDate.length
+        ? entriesWithoutEndDate
         : flaggedCurrentEntries;
 
-    const prioritizedAffiliations = normalizeList(prioritizedCurrentEntries.map(formatAffiliation));
+    const prioritizedAffiliations = normalizeList(prioritizedEntries.map(formatAffiliation));
     const fallbackAffiliations = prioritizedAffiliations.length
         ? prioritizedAffiliations
         : normalizeList(sortedEntries.map(formatAffiliation));
@@ -675,7 +665,7 @@ export const deriveAffiliationOptionsFromResearchExperience = (data) => {
     const uniqueOptionCandidates = [];
     const seenOptionKeys = new Set();
 
-    const addOptionCandidate = (entry) => {
+    const addOptionCandidate = (entry, reason = '') => {
         const affiliation = formatAffiliation(entry);
         if (!affiliation) {
             return;
@@ -697,11 +687,17 @@ export const deriveAffiliationOptionsFromResearchExperience = (data) => {
         uniqueOptionCandidates.push({
             affiliation,
             jobTitle,
-            period
+            period,
+            reason
         });
     };
 
-    prioritizedCurrentEntries.forEach(addOptionCandidate);
+    entriesWithoutEndDate.forEach((entry) => addOptionCandidate(entry, 'no_end_date'));
+    flaggedCurrentEntries.forEach((entry) => addOptionCandidate(entry, 'current_flag'));
+
+    if (!uniqueOptionCandidates.length) {
+        sortedEntries.slice(0, 3).forEach((entry) => addOptionCandidate(entry, 'recent_history'));
+    }
 
     const formattedOptions = uniqueOptionCandidates.map((candidate, index) => {
         const labelParts = [candidate.affiliation];
@@ -712,18 +708,30 @@ export const deriveAffiliationOptionsFromResearchExperience = (data) => {
             labelParts.push(candidate.period);
         }
 
+        const value = `${candidate.reason || 'candidate'}-${index}`;
+
         return {
-            value: `current-${index}`,
+            value,
             label: labelParts.join(' / '),
-            affiliation: candidate.affiliation
+            affiliation: candidate.affiliation,
+            jobTitle: candidate.jobTitle,
+            period: candidate.period,
+            reason: candidate.reason,
+            isPrimary: index === 0
         };
     });
 
-    const options = formattedOptions.length > 1 ? formattedOptions : [];
+    const options = formattedOptions;
+    const primaryCandidate = options.length > 0 ? { ...options[0], isPrimary: true } : null;
+    const otherAffiliations = options.slice(1).map((option) => ({ ...option, isPrimary: false }));
+    const selectionRequired = options.length > 1;
 
     return {
         affiliation: primaryAffiliation,
-        options
+        options,
+        primaryCandidate,
+        otherAffiliations,
+        selectionRequired
     };
 };
 

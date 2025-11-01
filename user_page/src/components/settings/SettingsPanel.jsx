@@ -18,6 +18,7 @@ import MultiSelect from '../ui/MultiSelect';
 import Select from '../ui/Select';
 import Textarea from '../ui/Textarea';
 import Toast from '../ui/Toast';
+import AffiliationCandidates from '../researchmap/AffiliationCandidates';
 
 const initialIntroForm = {
     name: '',
@@ -257,8 +258,10 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
         }
     };
 
-    const handleResearcherAffiliationOptionSelect = (event) => {
-        const nextValue = event?.target?.value ?? '';
+    const handleResearcherAffiliationOptionSelect = (valueOrEvent) => {
+        const nextValue = typeof valueOrEvent === 'string'
+            ? valueOrEvent
+            : valueOrEvent?.target?.value ?? '';
         setSelectedResearcherAffiliationOption(nextValue);
 
         if (!nextValue) {
@@ -319,10 +322,16 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                 options: affiliationOptions
             } = deriveAffiliationOptionsFromResearchExperience(profileData);
             const derivedAffiliation = affiliationFromResearchExperience || deriveAffiliationFromProfile(profileData);
+            const hasMultipleAffiliationCandidates = affiliationOptions.length > 1;
+            const singleAffiliationCandidate = affiliationOptions.length === 1 ? affiliationOptions[0] : null;
+            const shouldApplyDerivedAffiliation = Boolean(derivedAffiliation && !hasMultipleAffiliationCandidates);
+            const shouldApplySingleCandidateAffiliation = Boolean(!hasMultipleAffiliationCandidates && singleAffiliationCandidate?.affiliation);
             const { occupationValue, occupationOtherValue } = deriveOccupation(profileData);
             const hasDerivedValue = Boolean(
                 derivedName ||
-                derivedAffiliation ||
+                shouldApplyDerivedAffiliation ||
+                shouldApplySingleCandidateAffiliation ||
+                hasMultipleAffiliationCandidates ||
                 occupationValue ||
                 occupationOtherValue
             );
@@ -334,8 +343,10 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                     next.name = derivedName;
                 }
 
-                if (derivedAffiliation) {
+                if (shouldApplyDerivedAffiliation) {
                     next.affiliation = derivedAffiliation;
+                } else if (shouldApplySingleCandidateAffiliation) {
+                    next.affiliation = singleAffiliationCandidate.affiliation;
                 }
 
                 if (occupationValue) {
@@ -363,7 +374,7 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                     hasChanges = true;
                 }
 
-                if (derivedAffiliation && next.affiliation) {
+                if ((shouldApplyDerivedAffiliation || shouldApplySingleCandidateAffiliation) && next.affiliation) {
                     next.affiliation = '';
                     hasChanges = true;
                 }
@@ -384,13 +395,25 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                 return hasChanges ? next : prev;
             });
 
-            setResearcherAffiliationOptions(affiliationOptions);
-            const defaultAffiliationOption = affiliationOptions.find(
-                (option) => option?.affiliation === affiliationFromResearchExperience
-            );
-            setSelectedResearcherAffiliationOption(defaultAffiliationOption?.value || '');
+            const formattedAffiliationOptions = hasMultipleAffiliationCandidates
+                ? affiliationOptions.map((option, index) => ({
+                    ...option,
+                    rawLabel: option.rawLabel || option.label || option.affiliation,
+                    value: option.value || `candidate-${index}`
+                }))
+                : [];
 
-            if (hasDerivedValue) {
+            const currentAffiliationValue = introForm?.affiliation?.trim() || '';
+            const matchedOption = formattedAffiliationOptions.find(
+                (option) => option.affiliation === currentAffiliationValue
+            );
+
+            setResearcherAffiliationOptions(formattedAffiliationOptions);
+            setSelectedResearcherAffiliationOption(matchedOption?.value || '');
+
+            if (hasMultipleAffiliationCandidates) {
+                showToast('所属候補が複数見つかりました。候補一覧から選択してください。', 'success');
+            } else if (hasDerivedValue) {
                 showToast('researchmapから情報を読み込みました。', 'success');
             } else {
                 setResearcherFetchError('researchmapに該当情報が見つかりませんでした。');
@@ -639,6 +662,20 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
         return window.innerWidth < 640 ? 'bottom' : 'top';
     }, []);
 
+    const hasAffiliationCandidates = researcherAffiliationOptions.length > 0;
+    const recommendedAffiliationLabel = hasAffiliationCandidates
+        ? (researcherAffiliationOptions[0]?.rawLabel || researcherAffiliationOptions[0]?.label || '')
+        : '';
+    const affiliationSelectionRequiredMessage = '複数の所属候補が見つかりました。候補から選ぶか、下の所属欄に直接入力してください。';
+    const affiliationSelectionError = hasAffiliationCandidates && !introForm?.affiliation?.trim()
+        ? affiliationSelectionRequiredMessage
+        : '';
+    const affiliationSelectionHelperText = affiliationSelectionError
+        ? ''
+        : (hasAffiliationCandidates
+            ? '選んだ候補が所属欄に反映されます。必要に応じて直接編集してください。'
+            : '');
+
     if (!isOpen || typeof document === 'undefined') {
         return null;
     }
@@ -727,27 +764,16 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                                         </div>
                                     </div>
 
-                                    {researcherAffiliationOptions.length > 1 && (
-                                        <div className="space-y-2">
-                                            <label className="block text-sm font-medium text-foreground">
-                                                現所属候補（researchmap）
-                                            </label>
-                                            <select
-                                                value={selectedResearcherAffiliationOption}
-                                                onChange={handleResearcherAffiliationOptionSelect}
-                                                className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                                            >
-                                                <option value="">候補を選択</option>
-                                                {researcherAffiliationOptions.map((option) => (
-                                                    <option key={option.value} value={option.value}>
-                                                        {option.label}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            <p className="text-[11px] text-muted-foreground">
-                                                選んだ候補が所属欄に反映されます。必要に応じて直接編集してください。
-                                            </p>
-                                        </div>
+                                    {hasAffiliationCandidates && (
+                                        <AffiliationCandidates
+                                            options={researcherAffiliationOptions}
+                                            selectedValue={selectedResearcherAffiliationOption}
+                                            onSelect={handleResearcherAffiliationOptionSelect}
+                                            recommendedLabel={recommendedAffiliationLabel}
+                                            helperText={affiliationSelectionHelperText}
+                                            error={affiliationSelectionError}
+                                            isSelectionRequired={hasAffiliationCandidates}
+                                        />
                                     )}
 
                                     <Input
