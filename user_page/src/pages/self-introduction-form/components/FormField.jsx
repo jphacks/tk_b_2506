@@ -36,6 +36,10 @@ const FormField = ({
                 />
             )}
 
+            {children && error && (
+                <p className="text-xs text-destructive">{error}</p>
+            )}
+
             {showCharacterCounter && maxLength && (
                 <CharacterCounter
                     current={value?.length || 0}
