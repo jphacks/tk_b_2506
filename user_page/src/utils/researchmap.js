@@ -556,6 +556,32 @@ const extractYearMonthFromValue = (value) => {
     return `${parsed.getUTCFullYear()}-${String(parsed.getUTCMonth() + 1).padStart(2, '0')}`;
 };
 
+const isOngoingEndValue = (value) => {
+    if (value === null || value === undefined) {
+        return false;
+    }
+
+    if (typeof value === 'number') {
+        return value >= 9999;
+    }
+
+    if (typeof value !== 'string') {
+        return false;
+    }
+
+    const trimmed = value.trim();
+    if (!trimmed) {
+        return false;
+    }
+
+    const digitsOnly = trimmed.replace(/\D/g, '');
+    if (digitsOnly.length >= 4 && digitsOnly.startsWith('9999')) {
+        return true;
+    }
+
+    return trimmed === '9999';
+};
+
 const formatCareerEntryPeriod = (entry) => {
     if (!entry || typeof entry !== 'object') {
         return '';
@@ -565,6 +591,11 @@ const formatCareerEntryPeriod = (entry) => {
     const endRaw = entry?.end ?? entry?.end_date ?? entry?.to_date ?? entry?.to ?? entry?.term_end ?? null;
     const start = extractYearMonthFromValue(startRaw);
     const end = extractYearMonthFromValue(endRaw);
+    const isOngoing = isOngoingEndValue(endRaw);
+
+    if (isOngoing) {
+        return start ? `${start}〜現在` : '〜現在';
+    }
 
     if (start && end) {
         if (start === end) {
@@ -645,6 +676,9 @@ export const deriveAffiliationOptionsFromResearchExperience = (data) => {
             return false;
         }
         if (typeof value === 'string' && !value.trim()) {
+            return false;
+        }
+        if (isOngoingEndValue(value)) {
             return false;
         }
         return true;
