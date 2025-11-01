@@ -17,6 +17,40 @@ import FormField from './components/FormField';
 import FormHeader from './components/FormHeader';
 import VisibilityToggle from './components/VisibilityToggle';
 
+const decodeHtmlEntities = (value) => {
+    if (typeof value !== 'string' || !value) {
+        return '';
+    }
+
+    return value
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&#x27;/g, "'")
+        .replace(/&#x2F;/g, '/');
+};
+
+const sanitizeResearchmapString = (value) => {
+    if (typeof value !== 'string') {
+        return '';
+    }
+
+    const trimmed = value.trim();
+    if (!trimmed) {
+        return '';
+    }
+
+    const withoutTags = trimmed.includes('<')
+        ? trimmed.replace(/<[^>]*>/g, ' ')
+        : trimmed;
+
+    const decoded = decodeHtmlEntities(withoutTags);
+    return decoded.replace(/\s+/g, ' ').trim();
+};
+
 const pickFirstNonEmptyString = (values = []) => {
     if (!Array.isArray(values)) {
         return '';
@@ -24,9 +58,9 @@ const pickFirstNonEmptyString = (values = []) => {
 
     for (const value of values) {
         if (typeof value === 'string') {
-            const trimmed = value.trim();
-            if (trimmed) {
-                return trimmed;
+            const sanitized = sanitizeResearchmapString(value);
+            if (sanitized) {
+                return sanitized;
             }
         } else if (value && typeof value === 'object') {
             const localized = pickLocalizedValue(value);
@@ -50,23 +84,71 @@ const pickLocalizedValue = (value) => {
         return '';
     }
 
+    if (Array.isArray(value)) {
+        for (const item of value) {
+            const candidate = pickLocalizedValue(item);
+            if (candidate) {
+                return candidate;
+            }
+        }
+        return '';
+    }
+
     if (typeof value === 'string') {
-        return value.trim();
+        return sanitizeResearchmapString(value);
     }
 
     if (typeof value === 'object') {
+        const directKeys = ['value', '@value', 'text', 'content', 'label', 'title', 'name'];
+        for (const key of directKeys) {
+            const candidate = value?.[key];
+            if (!candidate) {
+                continue;
+            }
+            if (typeof candidate === 'string' && candidate.trim()) {
+                const sanitized = sanitizeResearchmapString(candidate);
+                if (sanitized) {
+                    return sanitized;
+                }
+            }
+            const nested = pickLocalizedValue(candidate);
+            if (nested) {
+                return nested;
+            }
+        }
+
         const preferredKeys = ['ja', 'ja-JP', 'ja-kana', 'ja-Kana', 'ja-hira', 'ja-Hira', 'en'];
 
         for (const key of preferredKeys) {
             const candidate = value?.[key];
             if (typeof candidate === 'string' && candidate.trim()) {
-                return candidate.trim();
+                const sanitized = sanitizeResearchmapString(candidate);
+                if (sanitized) {
+                    return sanitized;
+                }
+            }
+            if (!candidate) {
+                continue;
+            }
+            const nested = pickLocalizedValue(candidate);
+            if (nested) {
+                return nested;
             }
         }
 
         for (const candidate of Object.values(value)) {
+            if (!candidate) {
+                continue;
+            }
             if (typeof candidate === 'string' && candidate.trim()) {
-                return candidate.trim();
+                const sanitized = sanitizeResearchmapString(candidate);
+                if (sanitized) {
+                    return sanitized;
+                }
+            }
+            const nested = pickLocalizedValue(candidate);
+            if (nested) {
+                return nested;
             }
         }
     }
@@ -95,6 +177,60 @@ const getProfileGraphEntry = (data) => {
     }) || null;
 };
 
+const collectAffiliationsFromItems = (items) => {
+    if (!Array.isArray(items)) {
+        return [];
+    }
+
+    const results = [];
+    const visit = (item) => {
+        if (!item || typeof item !== 'object') {
+            return;
+        }
+
+        const nestedCollections = [
+            item?.items,
+            item?.entries,
+            item?.sections
+        ];
+        for (const collection of nestedCollections) {
+            if (Array.isArray(collection)) {
+                collection.forEach(visit);
+            }
+        }
+
+        const label = pickLocalizedValue(item?.label || item?.title || item?.name);
+        if (!label) {
+            return;
+        }
+
+        const normalizedLabel = label.toLowerCase();
+        const isAffiliationLabel = label.includes('所属') || normalizedLabel.includes('affiliation');
+        if (!isAffiliationLabel) {
+            return;
+        }
+
+        const value = pickFirstNonEmptyString([
+            item?.value,
+            item?.values,
+            item?.text,
+            item?.content,
+            item?.description,
+            item?.body,
+            item?.value_text,
+            item?.value_html
+        ]);
+
+        if (value) {
+            results.push(value);
+        }
+    };
+
+    items.forEach(visit);
+
+    return results;
+};
+
 const getAffiliationsFromProfileGraph = (profileEntry) => {
     if (!profileEntry || typeof profileEntry !== 'object') {
         return [];
@@ -104,6 +240,7 @@ const getAffiliationsFromProfileGraph = (profileEntry) => {
 
     const directValues = [
         pickLocalizedValue(profileEntry?.affiliation),
+        pickLocalizedValue(profileEntry?.affiliations),
         pickLocalizedValue(profileEntry?.affiliation_organization),
         pickLocalizedValue(profileEntry?.affiliation_faculty),
         pickLocalizedValue(profileEntry?.organization),
@@ -116,36 +253,30 @@ const getAffiliationsFromProfileGraph = (profileEntry) => {
         }
     }
 
-    const items = Array.isArray(profileEntry?.items) ? profileEntry.items : [];
+    const itemAffiliations = collectAffiliationsFromItems(
+        Array.isArray(profileEntry?.items)
+            ? profileEntry.items
+            : Array.isArray(profileEntry?.entries)
+                ? profileEntry.entries
+                : Array.isArray(profileEntry?.sections)
+                    ? profileEntry.sections
+                    : []
+    );
 
-    for (const item of items) {
-        if (!item || typeof item !== 'object') {
-            continue;
-        }
-
-        const label = pickLocalizedValue(item?.label || item?.title || item?.name);
-        if (!label) {
-            continue;
-        }
-
-        const normalizedLabel = label.toLowerCase();
-        const isAffiliationLabel = label.includes('所属') || normalizedLabel.includes('affiliation');
-
-        if (!isAffiliationLabel) {
-            continue;
-        }
-
-        const itemValue = pickFirstNonEmptyString([
-            item?.value,
-            item?.text,
-            item?.content,
-            item?.description
-        ]);
-
-        if (itemValue) {
-            candidates.push(itemValue);
+    if (Array.isArray(profileEntry?.affiliations)) {
+        for (const affiliation of profileEntry.affiliations) {
+            const organization = pickLocalizedValue(
+                affiliation?.organization ||
+                affiliation?.name ||
+                affiliation?.title
+            );
+            if (organization) {
+                candidates.push(organization);
+            }
         }
     }
+
+    candidates.push(...itemAffiliations);
 
     const seen = new Set();
     return candidates.filter((value) => {
@@ -398,7 +529,70 @@ const deriveResearcherName = (data) => {
     ]);
 };
 
-const deriveAffiliation = (data) => {
+const deriveAffiliationOptionsFromResearchExperience = (data) => {
+    if (!data || typeof data !== 'object') {
+        return { affiliation: '', options: [] };
+    }
+
+    const entries = mapResearchExperienceToCareerEntries(data);
+    if (!entries.length) {
+        return { affiliation: '', options: [] };
+    }
+
+    const normalizeList = (values = []) => {
+        const seen = new Set();
+        const results = [];
+        values.forEach((value) => {
+            if (!value || typeof value !== 'string') {
+                return;
+            }
+            const normalized = value.trim();
+            if (!normalized || seen.has(normalized)) {
+                return;
+            }
+            seen.add(normalized);
+            results.push(normalized);
+        });
+        return results;
+    };
+
+    const formatAffiliation = (entry) => {
+        if (!entry || typeof entry !== 'object') {
+            return '';
+        }
+
+        return pickFirstNonEmptyString([
+            combineNameParts(entry.organization, entry.department),
+            entry.organization,
+            entry.department
+        ]);
+    };
+
+    const sortedEntries = entries
+        .slice()
+        .sort((a, b) => getComparableDate(b) - getComparableDate(a));
+
+    const currentEntries = sortedEntries.filter((entry) => parseBooleanFlag(
+        entry?.is_current ??
+        entry?.current ??
+        entry?.is_current_job ??
+        entry?.in_current_position
+    ));
+
+    const currentAffiliations = normalizeList(currentEntries.map(formatAffiliation));
+    const prioritizedAffiliations = currentEntries.length
+        ? currentAffiliations
+        : normalizeList(sortedEntries.map(formatAffiliation));
+
+    const primaryAffiliation = prioritizedAffiliations[0] || '';
+
+    return {
+        affiliation: primaryAffiliation,
+        options: currentAffiliations.length > 1 ? currentAffiliations : []
+    };
+};
+
+const deriveAffiliationFromProfile = (data) => {
     if (!data || typeof data !== 'object') {
         return '';
     }
@@ -407,6 +601,16 @@ const deriveAffiliation = (data) => {
     const profile = data?.profile || profileGraphEntry || {};
     const basicInfo = profile?.basic_information || profile?.basic || {};
     const profileGraphAffiliations = getAffiliationsFromProfileGraph(profileGraphEntry);
+    const basicInfoItems = Array.isArray(basicInfo?.items)
+        ? basicInfo.items
+        : Array.isArray(basicInfo)
+            ? basicInfo
+            : Array.isArray(basicInfo?.entries)
+                ? basicInfo.entries
+                : Array.isArray(basicInfo?.sections)
+                    ? basicInfo.sections
+                    : [];
+    const basicInfoAffiliations = collectAffiliationsFromItems(basicInfoItems);
 
     const affiliationOrganization = pickLocalizedValue(profile?.affiliation_organization);
     const affiliationFaculty = pickLocalizedValue(profile?.affiliation_faculty);
@@ -414,15 +618,16 @@ const deriveAffiliation = (data) => {
     const organization = pickLocalizedValue(profile?.organization);
     const currentAffiliation = pickLocalizedValue(profile?.current_affiliation);
     const department = pickLocalizedValue(profile?.department);
-    const basicAffiliation = pickLocalizedValue(
-        basicInfo?.affiliation ||
+    const basicAffiliation = pickLocalizedValue(basicInfo?.affiliation);
+    const basicAffiliationOrganization = pickLocalizedValue(
         basicInfo?.affiliation_organization ||
         basicInfo?.organization
     );
-
-    const careerEntry = getPrimaryCareerEntry(data?.career) || getPrimaryCareerEntryFromGraph(data);
-    const careerOrganization = pickLocalizedValue(careerEntry?.organization);
-    const careerDepartment = pickLocalizedValue(careerEntry?.department);
+    const basicAffiliationDepartment = pickLocalizedValue(
+        basicInfo?.affiliation_faculty ||
+        basicInfo?.affiliation_department ||
+        basicInfo?.department
+    );
 
     return pickFirstNonEmptyString([
         ...profileGraphAffiliations,
@@ -430,13 +635,23 @@ const deriveAffiliation = (data) => {
         affiliationOrganization,
         affiliation,
         organization,
+        ...basicInfoAffiliations,
+        combineNameParts(basicAffiliationOrganization, basicAffiliationDepartment),
+        basicAffiliationOrganization,
+        basicAffiliationDepartment,
         basicAffiliation,
         currentAffiliation,
-        department,
-        combineNameParts(careerOrganization, careerDepartment),
-        careerOrganization,
-        careerDepartment
+        department
     ]);
+};
+
+const deriveAffiliation = (data) => {
+    const { affiliation } = deriveAffiliationOptionsFromResearchExperience(data);
+    if (affiliation) {
+        return affiliation;
+    }
+
+    return deriveAffiliationFromProfile(data);
 };
 
 const mapJobTitleToOccupation = (jobTitle) => {
@@ -523,6 +738,8 @@ const SelfIntroductionForm = () => {
     // 興味タグの選択状態（tag IDの配列）
     const [selectedTags, setSelectedTags] = useState([]);
     const [researcherId, setResearcherId] = useState('');
+    const [researcherAffiliationOptions, setResearcherAffiliationOptions] = useState([]);
+    const [selectedResearcherAffiliationOption, setSelectedResearcherAffiliationOption] = useState('');
 
     // UI state
     const [isPublic, setIsPublic] = useState(true);
@@ -701,6 +918,10 @@ const SelfIntroductionForm = () => {
             [name]: value
         }));
 
+        if (name === 'affiliation') {
+            setSelectedResearcherAffiliationOption('');
+        }
+
         // Clear error when user starts typing
         if (errors?.[name]) {
             setErrors(prev => ({
@@ -731,16 +952,41 @@ const SelfIntroductionForm = () => {
         }
     };
 
+    const handleResearcherAffiliationOptionSelect = (e) => {
+        const nextValue = e?.target?.value ?? '';
+        setSelectedResearcherAffiliationOption(nextValue);
+
+        if (!nextValue) {
+            return;
+        }
+
+        setFormData((prev) => ({
+            ...prev,
+            affiliation: nextValue
+        }));
+
+        if (errors?.affiliation) {
+            setErrors((prev) => ({
+                ...prev,
+                affiliation: ''
+            }));
+        }
+    };
+
     const handleResearcherFetch = async () => {
         const normalizedId = normalizeResearcherId(researcherId);
 
         if (!normalizedId) {
             setResearcherFetchError('researcher_idを入力してください。');
+            setResearcherAffiliationOptions([]);
+            setSelectedResearcherAffiliationOption('');
             return;
         }
 
         setIsFetchingResearcher(true);
         setResearcherFetchError('');
+        setResearcherAffiliationOptions([]);
+        setSelectedResearcherAffiliationOption('');
 
         try {
             const response = await fetch(`https://api.researchmap.jp/${encodeURIComponent(normalizedId)}?format=json`);
@@ -752,7 +998,11 @@ const SelfIntroductionForm = () => {
             const profileData = await response.json();
 
             const derivedName = deriveResearcherName(profileData);
-            const derivedAffiliation = deriveAffiliation(profileData);
+            const {
+                affiliation: affiliationFromResearchExperience,
+                options: affiliationOptions
+            } = deriveAffiliationOptionsFromResearchExperience(profileData);
+            const derivedAffiliation = affiliationFromResearchExperience || deriveAffiliationFromProfile(profileData);
             const { occupationValue, occupationOtherValue } = deriveOccupation(profileData);
             const hasDerivedValue = Boolean(
                 derivedName ||
@@ -792,6 +1042,11 @@ const SelfIntroductionForm = () => {
                 }));
             }
 
+            setResearcherAffiliationOptions(affiliationOptions);
+            setSelectedResearcherAffiliationOption(
+                affiliationOptions.length > 0 ? affiliationFromResearchExperience : ''
+            );
+
             if (hasDerivedValue) {
                 setToast({
                     isVisible: true,
@@ -809,6 +1064,8 @@ const SelfIntroductionForm = () => {
         } catch (error) {
             const message = error?.message || 'researchmap情報の取得に失敗しました。';
             setResearcherFetchError(message);
+            setResearcherAffiliationOptions([]);
+            setSelectedResearcherAffiliationOption('');
             setToast({
                 isVisible: true,
                 message,
@@ -1047,6 +1304,29 @@ const SelfIntroductionForm = () => {
                                 error={errors?.name}
                                 description="学会での表示名として使用されます"
                             />
+
+                            {researcherAffiliationOptions.length > 1 && (
+                                <div className="space-y-2">
+                                    <label className="block text-sm font-medium text-gray-700">
+                                        現所属候補（researchmap）
+                                    </label>
+                                    <select
+                                        value={selectedResearcherAffiliationOption}
+                                        onChange={handleResearcherAffiliationOptionSelect}
+                                        className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary"
+                                    >
+                                        <option value="">候補を選択</option>
+                                        {researcherAffiliationOptions.map((option) => (
+                                            <option key={option} value={option}>
+                                                {option}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="mt-1 text-[10px] text-gray-500">
+                                        選んだ候補が所属欄に反映されます。必要に応じて直接編集してください。
+                                    </p>
+                                </div>
+                            )}
 
                             {/* Affiliation Field - Optional */}
                             <FormField
