@@ -1,16 +1,26 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import Button from '../../components/ui/Button';
 import Header from '../../components/ui/Header';
 import Input from '../../components/ui/Input';
 import MultiSelect from '../../components/ui/MultiSelect';
 import Select from '../../components/ui/Select';
 import Toast from '../../components/ui/Toast';
+import AffiliationCandidates from '../../components/researchmap/AffiliationCandidates';
 import { getStoredConferenceId, setStoredConferenceId } from '../../constants/conference';
 import { useAuth } from '../../contexts/AuthContext';
 import useConferences from '../../hooks/useConferences';
 import useParticipantProfile from '../../hooks/useParticipantProfile';
 import useTags from '../../hooks/useTags';
 import { db } from '../../lib/supabase';
+import {
+    deriveAffiliationFromProfile,
+    deriveAffiliationOptionsFromResearchExperience,
+    deriveOccupation,
+    deriveOccupationFromCareerEntry,
+    deriveResearcherName,
+    normalizeResearcherId
+} from '../../utils/researchmap';
 import FormActions from './components/FormActions';
 import FormField from './components/FormField';
 import FormHeader from './components/FormHeader';
@@ -35,6 +45,11 @@ const SelfIntroductionForm = () => {
 
     // 興味タグの選択状態（tag IDの配列）
     const [selectedTags, setSelectedTags] = useState([]);
+    const [researcherId, setResearcherId] = useState('');
+    const [researcherAffiliationOptions, setResearcherAffiliationOptions] = useState([]);
+    const [selectedResearcherAffiliationOption, setSelectedResearcherAffiliationOption] = useState('');
+    const [isAffiliationSelectionRequired, setIsAffiliationSelectionRequired] = useState(false);
+    const [primaryAffiliationCandidate, setPrimaryAffiliationCandidate] = useState(null);
 
     // UI state
     const [isPublic, setIsPublic] = useState(true);
@@ -48,6 +63,8 @@ const SelfIntroductionForm = () => {
     });
     const [selectedConferenceId, setSelectedConferenceId] = useState(preferredConferenceId || '');
     const [existingIntroductionId, setExistingIntroductionId] = useState(null);
+    const [isFetchingResearcher, setIsFetchingResearcher] = useState(false);
+    const [researcherFetchError, setResearcherFetchError] = useState('');
 
     const {
         data: conferences = [],
@@ -199,6 +216,10 @@ const SelfIntroductionForm = () => {
             newErrors.conference = "参加する学会を選択してください";
         }
 
+        if (isAffiliationSelectionRequired && !formData?.affiliation?.trim()) {
+            newErrors.affiliation = "所属を選択してください";
+        }
+
         setErrors(newErrors);
         return Object.keys(newErrors)?.length === 0;
     };
@@ -210,6 +231,10 @@ const SelfIntroductionForm = () => {
             ...prev,
             [name]: value
         }));
+
+        if (name === 'affiliation') {
+            setSelectedResearcherAffiliationOption('');
+        }
 
         // Clear error when user starts typing
         if (errors?.[name]) {
@@ -229,6 +254,244 @@ const SelfIntroductionForm = () => {
                 ...prev,
                 conference: ''
             }));
+        }
+    };
+
+    const handleResearcherIdChange = (e) => {
+        const nextValue = e?.target?.value ?? '';
+        setResearcherId(nextValue);
+
+        if (researcherFetchError) {
+            setResearcherFetchError('');
+        }
+    };
+
+    const handleResearcherAffiliationOptionSelect = (valueOrEvent) => {
+        const nextValue = typeof valueOrEvent === 'string'
+            ? valueOrEvent
+            : valueOrEvent?.target?.value ?? '';
+
+        setSelectedResearcherAffiliationOption(nextValue);
+
+        if (!nextValue) {
+            return;
+        }
+
+        const selectedOption = researcherAffiliationOptions.find(
+            (option) => option?.value === nextValue
+        );
+
+        if (!selectedOption) {
+            return;
+        }
+
+        const fallbackOccupation = deriveOccupationFromCareerEntry(
+            selectedOption.careerEntry,
+            selectedOption.jobTitle
+        );
+        const occupationValueToApply = selectedOption.occupationValue || fallbackOccupation.occupationValue || '';
+        const occupationOtherToApply = selectedOption.occupationOtherValue || fallbackOccupation.occupationOtherValue || '';
+        const hasOccupationData = Boolean(
+            occupationValueToApply ||
+            occupationOtherToApply
+        );
+
+        setFormData((prev) => {
+            const next = {
+                ...prev,
+                affiliation: selectedOption.affiliation
+            };
+
+            if (hasOccupationData) {
+                const occupationValue = occupationValueToApply || (occupationOtherToApply ? 'その他' : '');
+
+                if (occupationValue) {
+                    next.occupation = occupationValue;
+                    next.occupationOther = occupationValue === 'その他'
+                        ? (occupationOtherToApply || selectedOption.jobTitle || prev.occupationOther || '')
+                        : '';
+                } else if (occupationOtherToApply) {
+                    next.occupationOther = occupationOtherToApply;
+                }
+            }
+
+            return next;
+        });
+
+        setErrors((prev) => {
+            if (!prev) {
+                return prev;
+            }
+
+            let hasChanges = false;
+            const next = { ...prev };
+
+            if (next.affiliation) {
+                next.affiliation = '';
+                hasChanges = true;
+            }
+
+            if (hasOccupationData) {
+                if (next.occupation) {
+                    next.occupation = '';
+                    hasChanges = true;
+                }
+
+                if (next.occupationOther) {
+                    next.occupationOther = '';
+                    hasChanges = true;
+                }
+            }
+
+            return hasChanges ? next : prev;
+        });
+    };
+
+    const handleResearcherFetch = async () => {
+        const normalizedId = normalizeResearcherId(researcherId);
+
+        if (!normalizedId) {
+            setResearcherFetchError('researcher_idを入力してください。');
+            setResearcherAffiliationOptions([]);
+            setSelectedResearcherAffiliationOption('');
+            setIsAffiliationSelectionRequired(false);
+            setPrimaryAffiliationCandidate(null);
+            return;
+        }
+
+        setIsFetchingResearcher(true);
+        setResearcherFetchError('');
+        setResearcherAffiliationOptions([]);
+        setSelectedResearcherAffiliationOption('');
+        setIsAffiliationSelectionRequired(false);
+        setPrimaryAffiliationCandidate(null);
+
+        try {
+            const response = await fetch(`https://api.researchmap.jp/${encodeURIComponent(normalizedId)}?format=json`);
+
+            if (!response.ok) {
+                throw new Error('researchmapから情報を取得できませんでした。IDをご確認ください。');
+            }
+
+            const profileData = await response.json();
+
+            const currentAffiliationValue = formData?.affiliation?.trim() || '';
+            const derivedName = deriveResearcherName(profileData);
+            const {
+                affiliation: primaryAffiliation,
+                primaryCandidate,
+                otherAffiliations,
+                selectionRequired
+            } = deriveAffiliationOptionsFromResearchExperience(profileData);
+            const derivedAffiliationFromProfile = deriveAffiliationFromProfile(profileData);
+            const fallbackAffiliation = primaryAffiliation || derivedAffiliationFromProfile || '';
+            const shouldApplyPrimaryCandidate = Boolean(primaryCandidate?.affiliation && !selectionRequired);
+            const shouldApplyFallbackAffiliation = Boolean(!shouldApplyPrimaryCandidate && fallbackAffiliation && !selectionRequired);
+            const { occupationValue, occupationOtherValue } = deriveOccupation(profileData);
+            const affiliationCandidatesForSelection = selectionRequired
+                ? [primaryCandidate, ...otherAffiliations].filter(Boolean)
+                : [];
+            const formattedSelectionOptions = affiliationCandidatesForSelection.map((candidate, index) => ({
+                value: candidate?.value || `candidate-${index}`,
+                label: candidate?.isPrimary ? `${candidate.label}（推奨）` : candidate?.label || '',
+                rawLabel: candidate?.label || '',
+                affiliation: candidate?.affiliation || '',
+                jobTitle: candidate?.jobTitle || '',
+                period: candidate?.period || '',
+                reason: candidate?.reason || '',
+                isPrimary: Boolean(candidate?.isPrimary),
+                occupationValue: candidate?.occupationValue || '',
+                occupationOtherValue: candidate?.occupationOtherValue || '',
+                careerEntry: candidate?.careerEntry || null
+            }));
+            const matchedSelection = affiliationCandidatesForSelection.find(
+                (candidate) => candidate && candidate.affiliation === currentAffiliationValue
+            );
+
+            setIsAffiliationSelectionRequired(selectionRequired);
+            setPrimaryAffiliationCandidate(primaryCandidate ? { ...primaryCandidate } : null);
+            setResearcherAffiliationOptions(selectionRequired ? formattedSelectionOptions : []);
+            setSelectedResearcherAffiliationOption(selectionRequired && matchedSelection ? (matchedSelection.value || '') : '');
+
+            const hasDerivedValue = Boolean(
+                derivedName ||
+                shouldApplyPrimaryCandidate ||
+                shouldApplyFallbackAffiliation ||
+                (selectionRequired && affiliationCandidatesForSelection.length > 0) ||
+                occupationValue ||
+                occupationOtherValue
+            );
+
+            setFormData((prev) => {
+                const next = { ...prev };
+
+                if (derivedName) {
+                    next.name = derivedName;
+                }
+
+                if (shouldApplyPrimaryCandidate) {
+                    next.affiliation = primaryCandidate.affiliation;
+                } else if (shouldApplyFallbackAffiliation) {
+                    next.affiliation = fallbackAffiliation;
+                }
+
+                if (occupationValue) {
+                    next.occupation = occupationValue;
+                    next.occupationOther = occupationValue === 'その他'
+                        ? (occupationOtherValue || prev.occupationOther || '')
+                        : '';
+                } else if (occupationOtherValue) {
+                    next.occupationOther = occupationOtherValue;
+                }
+
+                return next;
+            });
+
+            if (derivedName || occupationValue) {
+                setErrors(prev => ({
+                    ...prev,
+                    ...(derivedName ? { name: '' } : {}),
+                    ...(occupationValue ? { occupation: '' } : {})
+                }));
+            }
+
+            if ((shouldApplyPrimaryCandidate || shouldApplyFallbackAffiliation) && errors?.affiliation) {
+                setErrors(prev => ({
+                    ...prev,
+                    affiliation: ''
+                }));
+            }
+
+            if (hasDerivedValue) {
+                setToast({
+                    isVisible: true,
+                    message: selectionRequired
+                        ? '所属候補が複数見つかりました。プルダウンから選択してください。'
+                        : 'researchmapから情報を読み込みました。',
+                    type: 'success'
+                });
+            } else {
+                setResearcherFetchError('researchmapに該当情報が見つかりませんでした。');
+                setToast({
+                    isVisible: true,
+                    message: 'researchmapに該当情報が見つかりませんでした。',
+                    type: 'warning'
+                });
+            }
+        } catch (error) {
+            const message = error?.message || 'researchmap情報の取得に失敗しました。';
+            setResearcherFetchError(message);
+            setResearcherAffiliationOptions([]);
+            setSelectedResearcherAffiliationOption('');
+            setIsAffiliationSelectionRequired(false);
+            setPrimaryAffiliationCandidate(null);
+            setToast({
+                isVisible: true,
+                message,
+                type: 'error'
+            });
+        } finally {
+            setIsFetchingResearcher(false);
         }
     };
 
@@ -362,6 +625,12 @@ const SelfIntroductionForm = () => {
         setSelectedTags([]);
         setIsPublic(true);
         setErrors({});
+        setResearcherId('');
+        setResearcherAffiliationOptions([]);
+        setSelectedResearcherAffiliationOption('');
+        setIsAffiliationSelectionRequired(false);
+        setPrimaryAffiliationCandidate(null);
+        setResearcherFetchError('');
     };
 
     // Check if form is valid
@@ -369,6 +638,17 @@ const SelfIntroductionForm = () => {
         formData?.name?.trim()?.length > 0 &&
         formData?.oneLiner?.length <= 120 &&
         Boolean(selectedConferenceId);
+
+    const affiliationSelectionRequiredMessage = '複数の所属候補が見つかりました。候補から選ぶか、下の所属欄に直接入力してください。';
+    const affiliationSelectionOptionalMessage = '候補から所属を選択すると、選んだ内容が所属欄に反映されます。';
+    const affiliationSelectionError = isAffiliationSelectionRequired && !formData?.affiliation?.trim()
+        ? affiliationSelectionRequiredMessage
+        : '';
+    const affiliationSelectionHelperText = affiliationSelectionError
+        ? ''
+        : (isAffiliationSelectionRequired
+            ? affiliationSelectionRequiredMessage
+            : affiliationSelectionOptionalMessage);
 
     return (
         <div className="min-h-screen bg-background">
@@ -415,6 +695,39 @@ const SelfIntroductionForm = () => {
                                 }
                             />
 
+                            <FormField
+                                label="researchmap研究者ID"
+                                name="researcherId"
+                                description="researchmapの公開プロフィールURL末尾のresearcher_idを入力すると、氏名・所属・職業を自動入力します"
+                                error={researcherFetchError}
+                            >
+                                <div className="flex flex-col gap-2 sm:flex-row">
+                                    <Input
+                                        name="researcherId"
+                                        value={researcherId}
+                                        onChange={handleResearcherIdChange}
+                                        placeholder="例: example_researcher"
+                                        className={`sm:flex-1 ${researcherFetchError ? 'border-destructive focus-visible:ring-destructive' : ''}`}
+                                        autoComplete="off"
+                                        onKeyDown={(event) => {
+                                            if (event.key === 'Enter') {
+                                                event.preventDefault();
+                                                handleResearcherFetch();
+                                            }
+                                        }}
+                                    />
+                                    <Button
+                                        type="button"
+                                        onClick={handleResearcherFetch}
+                                        loading={isFetchingResearcher}
+                                        disabled={isFetchingResearcher}
+                                        className="sm:w-auto w-full"
+                                    >
+                                        自動入力
+                                    </Button>
+                                </div>
+                            </FormField>
+
                             {/* Name Field - Required */}
                             <FormField
                                 type="text"
@@ -427,6 +740,18 @@ const SelfIntroductionForm = () => {
                                 error={errors?.name}
                                 description="学会での表示名として使用されます"
                             />
+
+                            {researcherAffiliationOptions.length > 0 && (
+                                <AffiliationCandidates
+                                    options={researcherAffiliationOptions}
+                                    selectedValue={selectedResearcherAffiliationOption}
+                                    onSelect={handleResearcherAffiliationOptionSelect}
+                                    recommendedLabel={primaryAffiliationCandidate?.label}
+                                    helperText={affiliationSelectionHelperText}
+                                    error={affiliationSelectionError}
+                                    isSelectionRequired={isAffiliationSelectionRequired}
+                                />
+                            )}
 
                             {/* Affiliation Field - Optional */}
                             <FormField

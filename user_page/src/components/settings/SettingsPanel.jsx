@@ -4,6 +4,14 @@ import useConferences from '../../hooks/useConferences';
 import { db, supabase } from '../../lib/supabase';
 import VisibilityToggle from '../../pages/self-introduction-form/components/VisibilityToggle';
 import { cn } from '../../utils/cn';
+import {
+    deriveAffiliationFromProfile,
+    deriveAffiliationOptionsFromResearchExperience,
+    deriveOccupation,
+    deriveOccupationFromCareerEntry,
+    deriveResearcherName,
+    normalizeResearcherId
+} from '../../utils/researchmap';
 import Icon from '../AppIcon';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
@@ -11,6 +19,7 @@ import MultiSelect from '../ui/MultiSelect';
 import Select from '../ui/Select';
 import Textarea from '../ui/Textarea';
 import Toast from '../ui/Toast';
+import AffiliationCandidates from '../researchmap/AffiliationCandidates';
 
 const initialIntroForm = {
     name: '',
@@ -53,6 +62,11 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
     const [selectedTagIds, setSelectedTagIds] = useState([]);
     const [isTagsLoading, setIsTagsLoading] = useState(false);
     const [tagLoadError, setTagLoadError] = useState(null);
+    const [researcherId, setResearcherId] = useState('');
+    const [researcherFetchError, setResearcherFetchError] = useState('');
+    const [isFetchingResearcher, setIsFetchingResearcher] = useState(false);
+    const [researcherAffiliationOptions, setResearcherAffiliationOptions] = useState([]);
+    const [selectedResearcherAffiliationOption, setSelectedResearcherAffiliationOption] = useState('');
 
     const [passwordForm, setPasswordForm] = useState(initialPasswordForm);
     const [passwordErrors, setPasswordErrors] = useState({});
@@ -208,6 +222,18 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
         };
     }, [isOpen, user?.id]);
 
+    useEffect(() => {
+        if (!isOpen) {
+            return;
+        }
+
+        setResearcherId('');
+        setResearcherFetchError('');
+        setIsFetchingResearcher(false);
+        setResearcherAffiliationOptions([]);
+        setSelectedResearcherAffiliationOption('');
+    }, [isOpen]);
+
     const tagOptions = useMemo(() => {
         return tags.map((tag) => ({
             value: tag.id,
@@ -222,6 +248,233 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
             message,
             type
         });
+    };
+
+    const handleResearcherIdChange = (event) => {
+        const value = event?.target?.value ?? '';
+        setResearcherId(value);
+
+        if (researcherFetchError) {
+            setResearcherFetchError('');
+        }
+    };
+
+    const handleResearcherAffiliationOptionSelect = (valueOrEvent) => {
+        const nextValue = typeof valueOrEvent === 'string'
+            ? valueOrEvent
+            : valueOrEvent?.target?.value ?? '';
+        setSelectedResearcherAffiliationOption(nextValue);
+
+        if (!nextValue) {
+            return;
+        }
+
+        const selectedOption = researcherAffiliationOptions.find(
+            (option) => option?.value === nextValue
+        );
+
+        if (!selectedOption) {
+            return;
+        }
+
+        const fallbackOccupation = deriveOccupationFromCareerEntry(
+            selectedOption.careerEntry,
+            selectedOption.jobTitle
+        );
+        const occupationValueToApply = selectedOption.occupationValue || fallbackOccupation.occupationValue || '';
+        const occupationOtherToApply = selectedOption.occupationOtherValue || fallbackOccupation.occupationOtherValue || '';
+        const hasOccupationData = Boolean(
+            occupationValueToApply ||
+            occupationOtherToApply
+        );
+
+        setIntroForm((prev) => {
+            const next = {
+                ...prev,
+                affiliation: selectedOption.affiliation
+            };
+
+            if (hasOccupationData) {
+                const occupationValue = occupationValueToApply || (occupationOtherToApply ? 'その他' : '');
+
+                if (occupationValue) {
+                    next.occupation = occupationValue;
+                    next.occupationOther = occupationValue === 'その他'
+                        ? (occupationOtherToApply || selectedOption.jobTitle || prev.occupationOther || '')
+                        : '';
+                } else if (occupationOtherToApply) {
+                    next.occupationOther = occupationOtherToApply;
+                }
+            }
+
+            return next;
+        });
+
+        setIntroErrors((prev) => {
+            if (!prev) {
+                return prev;
+            }
+
+            let hasChanges = false;
+            const next = { ...prev };
+
+            if (next.affiliation) {
+                next.affiliation = '';
+                hasChanges = true;
+            }
+
+            if (hasOccupationData) {
+                if (next.occupation) {
+                    next.occupation = '';
+                    hasChanges = true;
+                }
+
+                if (next.occupationOther) {
+                    next.occupationOther = '';
+                    hasChanges = true;
+                }
+            }
+
+            return hasChanges ? next : prev;
+        });
+    };
+
+    const handleResearcherFetch = async () => {
+        const normalizedId = normalizeResearcherId(researcherId);
+
+        if (!normalizedId) {
+            setResearcherFetchError('researcher_idを入力してください。');
+            setResearcherAffiliationOptions([]);
+            setSelectedResearcherAffiliationOption('');
+            return;
+        }
+
+        setIsFetchingResearcher(true);
+        setResearcherFetchError('');
+        setResearcherAffiliationOptions([]);
+        setSelectedResearcherAffiliationOption('');
+
+        try {
+            const response = await fetch(`https://api.researchmap.jp/${encodeURIComponent(normalizedId)}?format=json`);
+
+            if (!response.ok) {
+                throw new Error('researchmapから情報を取得できませんでした。IDをご確認ください。');
+            }
+
+            const profileData = await response.json();
+
+            const derivedName = deriveResearcherName(profileData);
+            const {
+                affiliation: affiliationFromResearchExperience,
+                options: affiliationOptions
+            } = deriveAffiliationOptionsFromResearchExperience(profileData);
+            const derivedAffiliation = affiliationFromResearchExperience || deriveAffiliationFromProfile(profileData);
+            const hasMultipleAffiliationCandidates = affiliationOptions.length > 1;
+            const singleAffiliationCandidate = affiliationOptions.length === 1 ? affiliationOptions[0] : null;
+            const shouldApplyDerivedAffiliation = Boolean(derivedAffiliation && !hasMultipleAffiliationCandidates);
+            const shouldApplySingleCandidateAffiliation = Boolean(!hasMultipleAffiliationCandidates && singleAffiliationCandidate?.affiliation);
+            const { occupationValue, occupationOtherValue } = deriveOccupation(profileData);
+            const hasDerivedValue = Boolean(
+                derivedName ||
+                shouldApplyDerivedAffiliation ||
+                shouldApplySingleCandidateAffiliation ||
+                hasMultipleAffiliationCandidates ||
+                occupationValue ||
+                occupationOtherValue
+            );
+
+            setIntroForm((prev) => {
+                const next = { ...prev };
+
+                if (derivedName) {
+                    next.name = derivedName;
+                }
+
+                if (shouldApplyDerivedAffiliation) {
+                    next.affiliation = derivedAffiliation;
+                } else if (shouldApplySingleCandidateAffiliation) {
+                    next.affiliation = singleAffiliationCandidate.affiliation;
+                }
+
+                if (occupationValue) {
+                    next.occupation = occupationValue;
+                    next.occupationOther = occupationValue === 'その他'
+                        ? (occupationOtherValue || prev.occupationOther || '')
+                        : '';
+                } else if (occupationOtherValue) {
+                    next.occupationOther = occupationOtherValue;
+                }
+
+                return next;
+            });
+
+            setIntroErrors((prev) => {
+                if (!prev) {
+                    return prev;
+                }
+
+                let hasChanges = false;
+                const next = { ...prev };
+
+                if (derivedName && next.name) {
+                    next.name = '';
+                    hasChanges = true;
+                }
+
+                if ((shouldApplyDerivedAffiliation || shouldApplySingleCandidateAffiliation) && next.affiliation) {
+                    next.affiliation = '';
+                    hasChanges = true;
+                }
+
+                if (occupationValue && next.occupation) {
+                    next.occupation = '';
+                    hasChanges = true;
+                }
+
+                if (next.occupationOther && (
+                    (occupationValue && occupationValue !== 'その他') ||
+                    (occupationValue === 'その他' && occupationOtherValue)
+                )) {
+                    next.occupationOther = '';
+                    hasChanges = true;
+                }
+
+                return hasChanges ? next : prev;
+            });
+
+            const formattedAffiliationOptions = hasMultipleAffiliationCandidates
+                ? affiliationOptions.map((option, index) => ({
+                    ...option,
+                    rawLabel: option.rawLabel || option.label || option.affiliation,
+                    value: option.value || `candidate-${index}`
+                }))
+                : [];
+
+            const currentAffiliationValue = introForm?.affiliation?.trim() || '';
+            const matchedOption = formattedAffiliationOptions.find(
+                (option) => option.affiliation === currentAffiliationValue
+            );
+
+            setResearcherAffiliationOptions(formattedAffiliationOptions);
+            setSelectedResearcherAffiliationOption(matchedOption?.value || '');
+
+            if (hasMultipleAffiliationCandidates) {
+                showToast('所属候補が複数見つかりました。候補一覧から選択してください。', 'success');
+            } else if (hasDerivedValue) {
+                showToast('researchmapから情報を読み込みました。', 'success');
+            } else {
+                setResearcherFetchError('researchmapに該当情報が見つかりませんでした。');
+                showToast('researchmapに該当情報が見つかりませんでした。', 'warning');
+            }
+        } catch (error) {
+            const message = error?.message || 'researchmap情報の取得に失敗しました。';
+            setResearcherFetchError(message);
+            setResearcherAffiliationOptions([]);
+            setSelectedResearcherAffiliationOption('');
+            showToast(message, 'error');
+        } finally {
+            setIsFetchingResearcher(false);
+        }
     };
 
     const handleIntroChange = (eventOrName, valueArg) => {
@@ -456,6 +709,20 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
         return window.innerWidth < 640 ? 'bottom' : 'top';
     }, []);
 
+    const hasAffiliationCandidates = researcherAffiliationOptions.length > 0;
+    const recommendedAffiliationLabel = hasAffiliationCandidates
+        ? (researcherAffiliationOptions[0]?.rawLabel || researcherAffiliationOptions[0]?.label || '')
+        : '';
+    const affiliationSelectionRequiredMessage = '複数の所属候補が見つかりました。候補から選ぶか、下の所属欄に直接入力してください。';
+    const affiliationSelectionError = hasAffiliationCandidates && !introForm?.affiliation?.trim()
+        ? affiliationSelectionRequiredMessage
+        : '';
+    const affiliationSelectionHelperText = affiliationSelectionError
+        ? ''
+        : (hasAffiliationCandidates
+            ? '選んだ候補が所属欄に反映されます。必要に応じて直接編集してください。'
+            : '');
+
     if (!isOpen || typeof document === 'undefined') {
         return null;
     }
@@ -512,6 +779,50 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                                 </div>
                             ) : (
                                 <form className="space-y-4" onSubmit={handleSaveIntroduction}>
+                                    <div className="space-y-2">
+                                        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                                            <div className="sm:flex-1">
+                                                <Input
+                                                    name="researcherId"
+                                                    value={researcherId}
+                                                    onChange={handleResearcherIdChange}
+                                                    label="researchmap研究者ID"
+                                                    description="researchmapの公開プロフィールURL末尾のresearcher_idを入力すると、氏名・所属・職業を自動入力します"
+                                                    error={researcherFetchError}
+                                                    placeholder="例: example_researcher"
+                                                    autoComplete="off"
+                                                    onKeyDown={(event) => {
+                                                        if (event.key === 'Enter') {
+                                                            event.preventDefault();
+                                                            handleResearcherFetch();
+                                                        }
+                                                    }}
+                                                />
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                onClick={handleResearcherFetch}
+                                                loading={isFetchingResearcher}
+                                                disabled={isFetchingResearcher}
+                                                className="w-full sm:w-auto h-10"
+                                            >
+                                                自動入力
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    {hasAffiliationCandidates && (
+                                        <AffiliationCandidates
+                                            options={researcherAffiliationOptions}
+                                            selectedValue={selectedResearcherAffiliationOption}
+                                            onSelect={handleResearcherAffiliationOptionSelect}
+                                            recommendedLabel={recommendedAffiliationLabel}
+                                            helperText={affiliationSelectionHelperText}
+                                            error={affiliationSelectionError}
+                                            isSelectionRequired={hasAffiliationCandidates}
+                                        />
+                                    )}
+
                                     <Input
                                         name="name"
                                         value={introForm.name}
