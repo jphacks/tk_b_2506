@@ -21,6 +21,7 @@ const Select = React.forwardRef(({
     loading = false,
     id,
     name,
+    placeholder,
     onChange,
     onOpenChange,
     ...props
@@ -83,6 +84,20 @@ const Select = React.forwardRef(({
 
     const hasValue = multiple ? value?.length > 0 : value !== undefined && value !== '';
 
+    const getOptionLabel = (optionValue) => {
+        const option = options?.find(opt => opt?.value === optionValue);
+        return option?.label ?? optionValue ?? '';
+    };
+
+    const displayText = hasValue
+        ? (multiple && Array.isArray(value)
+            ? value
+                ?.map(val => getOptionLabel(val))
+                ?.filter(Boolean)
+                ?.join(', ')
+            : getOptionLabel(value))
+        : (placeholder || '');
+
     return (
         <div className={cn("relative", className)}>
             {label && (
@@ -113,7 +128,7 @@ const Select = React.forwardRef(({
                     aria-haspopup="listbox"
                     {...props}
                 >
-                    <span className="truncate">{value}</span>
+                    <span className="truncate">{displayText}</span>
 
                     <div className="flex items-center gap-1">
                         {loading && (
