@@ -289,6 +289,17 @@ const getGraphItems = (data, type) => {
     return items.filter((item) => item && typeof item === 'object');
 };
 
+const JOB_TITLE_KEYS = [
+    'job',
+    'job_title',
+    'jobtitle',
+    'position',
+    'title',
+    'role',
+    'occupation',
+    'duty'
+];
+
 const mapResearchExperienceToCareerEntries = (data) => {
     const items = getGraphItems(data, 'research_experience');
 
@@ -296,7 +307,7 @@ const mapResearchExperienceToCareerEntries = (data) => {
         .map((item) => {
             const organization = pickLocalizedValue(item?.affiliation);
             const department = pickLocalizedValue(item?.section);
-            const jobTitle = pickLocalizedValue(item?.job);
+            const jobTitle = pickFirstNonEmptyString(JOB_TITLE_KEYS.map((key) => item?.[key]));
             const start = item?.start_date || item?.from_date || item?.start || item?.from || null;
             const end = item?.end_date || item?.to_date || item?.end || item?.to || null;
 
@@ -308,7 +319,8 @@ const mapResearchExperienceToCareerEntries = (data) => {
                 start_date: start,
                 end,
                 end_date: end,
-                is_current: !(item?.to_date || item?.end_date)
+                is_current: !(item?.to_date || item?.end_date),
+                raw: item
             };
         })
         .filter((entry) => pickFirstNonEmptyString([
@@ -707,6 +719,8 @@ export const deriveAffiliationOptionsFromResearchExperience = (data) => {
 
         const jobTitle = entry?.job_title ? sanitizeResearchmapString(entry.job_title) : '';
         const period = formatCareerEntryPeriod(entry);
+        const occupationValue = jobTitle ? mapJobTitleToOccupation(jobTitle) : '';
+        const occupationOtherValue = occupationValue === 'その他' ? jobTitle : '';
         const optionKey = [
             affiliation,
             jobTitle,
@@ -722,7 +736,10 @@ export const deriveAffiliationOptionsFromResearchExperience = (data) => {
             affiliation,
             jobTitle,
             period,
-            reason
+            reason,
+            occupationValue,
+            occupationOtherValue,
+            careerEntry: entry?.raw || entry
         });
     };
 
@@ -751,7 +768,10 @@ export const deriveAffiliationOptionsFromResearchExperience = (data) => {
             jobTitle: candidate.jobTitle,
             period: candidate.period,
             reason: candidate.reason,
-            isPrimary: index === 0
+            isPrimary: index === 0,
+            occupationValue: candidate.occupationValue || '',
+            occupationOtherValue: candidate.occupationOtherValue || '',
+            careerEntry: candidate.careerEntry || null
         };
     });
 
@@ -822,41 +842,568 @@ export const deriveAffiliationFromProfile = (data) => {
     ]);
 };
 
+const COLLAPSE_PATTERN = /[\s\-‐−–—―・,，/／\\()（）［］\[\]{}｛｝<>\u3000「」『』【】〔〕]/g;
+
+const collapseForMatch = (value) => {
+    return value.replace(COLLAPSE_PATTERN, '');
+};
+
+const matchesToken = ({ normalized, lower, collapsed }, token) => {
+    if (!token) {
+        return false;
+    }
+
+    if (token instanceof RegExp) {
+        return token.test(normalized) || token.test(lower) || token.test(collapsed);
+    }
+
+    const normalizedToken = token.normalize('NFKC');
+    const lowerToken = normalizedToken.toLowerCase();
+    const collapsedToken = collapseForMatch(lowerToken);
+
+    return (
+        lower.includes(lowerToken) ||
+        collapsed.includes(collapsedToken) ||
+        normalized.includes(normalizedToken)
+    );
+};
+
+const OCCUPATION_KEYWORD_MAP = [
+    {
+        value: '学士課程',
+        keywords: [
+            '学士課程',
+            '学士学生',
+            '学部生',
+            '学部学生',
+            '本科生',
+            '学部4年生',
+            '学部3年生',
+            '学部2年生',
+            '学部1年生',
+            'undergraduate student',
+            'undergraduate researcher',
+            'undergraduate intern',
+            'undergrad student',
+            'undergrad researcher',
+            'bachelor student',
+            'bachelor course',
+            'college student'
+        ],
+        patterns: [
+            /\bundergrad\b/i,
+            /\bb[1-4]\b/i,
+            /学部[1-4１-４]年/
+        ]
+    },
+    {
+        value: '修士課程',
+        keywords: [
+            '修士課程',
+            '修士学生',
+            '修士院生',
+            '修士号',
+            '大学院修士課程',
+            '大学院前期課程',
+            '博士前期課程',
+            '大学院生',
+            '院生',
+            'graduate student',
+            'graduate school student',
+            'master student',
+            'masters student',
+            'master\'s student',
+            'master course',
+            'ms student',
+            'm.s. student',
+            'msc student'
+        ],
+        patterns: [
+            /\bm[1-2]\b/i,
+            /\bmaster'?s?\b/i,
+            /\bgrad(uate)? student\b/i
+        ],
+        exclude: [
+            /博士/,
+            /ph\.?d/i,
+            /\bd[1-5]\b/i,
+            /\bdc[12]\b/i,
+            /doctoral/i
+        ]
+    },
+    {
+        value: '博士課程',
+        keywords: [
+            '博士課程',
+            '博士後期課程',
+            '博士学生',
+            '博士院生',
+            '博士課程院生',
+            '博士後期課程大学院生',
+            'phd student',
+            'phd candidate',
+            'ph.d student',
+            'ph.d. candidate',
+            'doctoral student',
+            'doctoral researcher',
+            'doctor course student',
+            'doctoral candidate',
+            'doctor of philosophy student',
+            'jsps dc1',
+            'jsps dc2'
+        ],
+        patterns: [
+            /\bd[1-5]\b/i,
+            /\bdc[12]\b/i,
+            /doctoral/i,
+            /doctor(al)?\s*candidate/i,
+            /ph\.?d/i,
+            /phd/i,
+            /博士後期/
+        ],
+        exclude: [
+            /\bpost[-\s]?doc\b/i,
+            /\bpd\b/i
+        ]
+    },
+    {
+        value: 'ポスドク',
+        keywords: [
+            'ポスドク',
+            'postdoc',
+            'post-doc',
+            'post doctoral researcher',
+            'postdoctoral researcher',
+            'postdoctoral fellow',
+            '博士研究員',
+            '特別研究員（pd）',
+            '特別研究員(pd)',
+            'jsps research fellow (pd)',
+            '研究員（pd）',
+            'research fellow (pd)',
+            'プロジェクト研究員',
+            'project researcher'
+        ],
+        patterns: [
+            /\bpost[-\s]?doc\b/i,
+            /postdoctoral/i,
+            /\bpd\b/i,
+            /博士研究員/,
+            /特別研究員\s*\(?pd\)?/i
+        ],
+        exclude: [
+            /\bdc[12]\b/i
+        ]
+    },
+    {
+        value: '教員',
+        keywords: [
+            '教授',
+            '准教授',
+            '助教',
+            '講師',
+            '特任教授',
+            '特任准教授',
+            '特任講師',
+            '特任助教',
+            '客員教授',
+            '客員准教授',
+            '客員講師',
+            '客員助教',
+            '特命教授',
+            '特命准教授',
+            '特命講師',
+            '特命助教',
+            '特別教授',
+            '教授（兼任）',
+            '教授（特任）',
+            '教授（非常勤）',
+            '教授（客員）',
+            '准教授（特任）',
+            '准教授（非常勤）',
+            '専任講師',
+            '常勤講師',
+            '非常勤講師',
+            'visiting professor',
+            'visiting associate professor',
+            'visiting assistant professor',
+            'visiting lecturer',
+            'associate professor',
+            'assistant professor',
+            'project professor',
+            'project associate professor',
+            'project assistant professor',
+            'project lecturer',
+            'adjunct professor',
+            'full professor',
+            'emeritus professor',
+            'professor emeritus',
+            'professor',
+            'lecturer',
+            'instructor',
+            'faculty',
+            'teacher',
+            '専任教員',
+            '大学教員',
+            '助手'
+        ],
+        patterns: [
+            /professor/i,
+            /lecturer/i,
+            /instructor/i,
+            /faculty/i,
+            /teacher/i,
+            /助教/,
+            /講師/,
+            /教授/
+        ]
+    },
+    {
+        value: '研究者',
+        keywords: [
+            '研究者',
+            '研究員',
+            '主任研究員',
+            '上席研究員',
+            '特任研究員',
+            '特別研究員',
+            '専門研究員',
+            'senior researcher',
+            'senior research scientist',
+            'research scientist',
+            'researcher',
+            'research associate',
+            'research engineer',
+            'research staff',
+            'research specialist',
+            '研究専門職',
+            '研究職',
+            '研究科学者',
+            'scientist',
+            'principal investigator',
+            'principal scientist',
+            'chief scientist',
+            'lead researcher',
+            'senior scientist',
+            'senior research fellow'
+        ],
+        patterns: [
+            /research(er| scientist| fellow| associate| staff| engineer)/i,
+            /scientist/i,
+            /principal investigator/i,
+            /\bpi\b/i
+        ],
+        exclude: [
+            /\bpost[-\s]?doc\b/i,
+            /\bpd\b/i
+        ]
+    },
+    {
+        value: '企業',
+        keywords: [
+            '株式会社',
+            '有限会社',
+            '合同会社',
+            '企業',
+            '起業家',
+            '起業',
+            'スタートアップ',
+            'startup',
+            'company',
+            'corporation',
+            'corp',
+            'co., ltd',
+            'co ltd',
+            'ltd.',
+            'ltd',
+            'inc.',
+            'inc',
+            'llc',
+            '代表取締役',
+            '取締役',
+            '役員',
+            '社長',
+            'president',
+            'ceo',
+            'cto',
+            'cfo',
+            'coo',
+            'chief executive officer',
+            'chief technology officer',
+            'chief financial officer',
+            'chief operating officer',
+            'managing director',
+            'executive officer',
+            'founder',
+            'co-founder',
+            'entrepreneur',
+            'business development'
+        ],
+        patterns: [
+            /co\.\s*ltd/i,
+            /\binc\b/i,
+            /\bllc\b/i,
+            /\bceo\b/i,
+            /\bcto\b/i,
+            /\bcfo\b/i,
+            /\bcoo\b/i,
+            /corporation/i,
+            /startup/i,
+            /代表取締役/,
+            /取締役/
+        ]
+    },
+    {
+        value: 'スタッフ',
+        keywords: [
+            '職員',
+            'スタッフ',
+            '事務職員',
+            '事務スタッフ',
+            '事務補佐員',
+            '事務補佐',
+            '秘書',
+            '支援員',
+            '技術職員',
+            '技術スタッフ',
+            'technical staff',
+            'technical specialist',
+            'technician',
+            'lab technician',
+            'laboratory technician',
+            'laboratory staff',
+            'lab manager',
+            'research administrator',
+            'administrative staff',
+            'administrative assistant',
+            'administrative officer',
+            'office staff',
+            'office assistant',
+            'office administrator',
+            'support staff',
+            'supporter',
+            'coordinator',
+            'coordination staff',
+            'project coordinator',
+            'program coordinator'
+        ],
+        patterns: [
+            /staff/i,
+            /technician/i,
+            /administrator/i,
+            /coordinator/i,
+            /秘書/,
+            /職員/
+        ],
+        exclude: [
+            /professor/i,
+            /lecturer/i,
+            /instructor/i,
+            /faculty/i,
+            /teacher/i,
+            /研究員/,
+            /research/i,
+            /post[-\s]?doc/i
+        ]
+    }
+];
+
 const mapJobTitleToOccupation = (jobTitle) => {
     if (!jobTitle || typeof jobTitle !== 'string') {
         return '';
     }
 
-    const normalized = jobTitle.toLowerCase();
-    const checks = {
-        bachelor: ['学士', '学士課程', 'bachelor'],
-        master: ['修士', '修士課程', 'master'],
-        doctor: ['博士', 'phd', 'ph.d', 'doctoral', 'doctorate'],
-        postdoc: ['ポスドク', 'postdoc', 'post-doctoral', 'post doctoral'],
-        faculty: ['教授', '准教授', '講師', '助教', 'teacher', 'faculty', 'professor', 'lecturer', 'instructor'],
-        researcher: ['研究員', '研究者', 'researcher', 'scientist', 'research fellow'],
-        company: ['企業', 'company', 'corporation', 'inc', 'ltd', 'co.,', 'co.', '株式会社'],
-        staff: ['スタッフ', 'staff'],
-    };
+    const normalized = jobTitle.normalize('NFKC');
+    const lower = normalized.toLowerCase();
+    const collapsed = collapseForMatch(lower);
+    const normalizedForms = { normalized, lower, collapsed };
 
-    const includesAny = (keywords) => {
-        return keywords.some((keyword) => {
-            if (!keyword) return false;
-            if (jobTitle.includes(keyword)) return true;
-            return normalized.includes(keyword.toLowerCase());
-        });
-    };
+    for (const mapping of OCCUPATION_KEYWORD_MAP) {
+        if (mapping.exclude && mapping.exclude.some((token) => matchesToken(normalizedForms, token))) {
+            continue;
+        }
 
-    if (includesAny(checks.bachelor)) return '学士課程';
-    if (includesAny(checks.master)) return '修士課程';
-    if (includesAny(checks.doctor)) return '博士課程';
-    if (includesAny(checks.postdoc)) return 'ポスドク';
-    if (includesAny(checks.faculty)) return '教員';
-    if (includesAny(checks.researcher)) return '研究者';
-    if (includesAny(checks.company)) return '企業';
-    if (includesAny(checks.staff)) return 'スタッフ';
+        const hasKeyword = mapping.keywords?.some((token) => matchesToken(normalizedForms, token));
+        const hasPattern = mapping.patterns?.some((token) => matchesToken(normalizedForms, token));
+
+        if (hasKeyword || hasPattern) {
+            return mapping.value;
+        }
+    }
 
     return 'その他';
+};
+
+const extractJobTitleFromText = (value) => {
+    if (!value || typeof value !== 'string') {
+        return '';
+    }
+
+    const sanitized = sanitizeResearchmapString(value);
+    if (!sanitized) {
+        return '';
+    }
+
+    const delimiterSegments = sanitized.split(/[,，、;；／\/\\|\n]+/);
+    const segments = [];
+    const seenSegments = new Set();
+
+    const addSegment = (segment) => {
+        if (!segment) {
+            return;
+        }
+        const normalizedSegment = segment.trim();
+        if (!normalizedSegment || seenSegments.has(normalizedSegment)) {
+            return;
+        }
+        seenSegments.add(normalizedSegment);
+        segments.push(normalizedSegment);
+    };
+
+    delimiterSegments.forEach((fragment) => {
+        const trimmedFragment = fragment.trim();
+        if (!trimmedFragment) {
+            return;
+        }
+
+        const whitespaceParts = trimmedFragment.split(/\s+/).filter(Boolean);
+
+        if (whitespaceParts.length > 1) {
+            // Prioritize suffixes such as "准教授" extracted from "○○ 准教授".
+            for (let start = whitespaceParts.length - 1; start >= 0; start -= 1) {
+                addSegment(whitespaceParts.slice(start).join(' '));
+            }
+        }
+
+        addSegment(trimmedFragment);
+        whitespaceParts.forEach((part) => addSegment(part));
+
+        if (whitespaceParts.length > 1) {
+            for (let index = 0; index < whitespaceParts.length - 1; index += 1) {
+                addSegment(`${whitespaceParts[index]} ${whitespaceParts[index + 1]}`);
+            }
+        }
+    });
+
+    if (!segments.length) {
+        addSegment(sanitized);
+    }
+
+    for (const segment of segments) {
+        const occupation = mapJobTitleToOccupation(segment);
+        if (occupation && occupation !== 'その他') {
+            return segment;
+        }
+    }
+
+    const directOccupation = mapJobTitleToOccupation(sanitized);
+    if (directOccupation && directOccupation !== 'その他') {
+        return sanitized;
+    }
+
+    return '';
+};
+
+const extractJobTitleFromCareerEntry = (entry) => {
+    if (!entry) {
+        return '';
+    }
+
+    if (typeof entry === 'string') {
+        return extractJobTitleFromText(entry);
+    }
+
+    if (Array.isArray(entry)) {
+        for (const item of entry) {
+            const nested = extractJobTitleFromCareerEntry(item);
+            if (nested) {
+                return nested;
+            }
+        }
+        return '';
+    }
+
+    if (typeof entry !== 'object') {
+        return '';
+    }
+
+    const jobFieldCandidate = pickFirstNonEmptyString(JOB_TITLE_KEYS.map((key) => entry?.[key]));
+    if (jobFieldCandidate) {
+        return jobFieldCandidate;
+    }
+
+    const stringCandidates = [];
+
+    const addCandidate = (value) => {
+        if (!value) {
+            return;
+        }
+        if (typeof value === 'string') {
+            const sanitized = sanitizeResearchmapString(value);
+            if (sanitized) {
+                stringCandidates.push(sanitized);
+            }
+            return;
+        }
+        if (Array.isArray(value)) {
+            value.forEach(addCandidate);
+            return;
+        }
+        if (typeof value === 'object') {
+            Object.values(value).forEach(addCandidate);
+        }
+    };
+
+    const fallbackKeys = [
+        'organization',
+        'affiliation',
+        'department',
+        'value',
+        'values',
+        'text',
+        'content',
+        'description',
+        'body',
+        'note',
+        'remarks',
+        'summary',
+        'detail',
+        'label'
+    ];
+
+    fallbackKeys.forEach((key) => addCandidate(entry?.[key]));
+
+    for (const candidate of stringCandidates) {
+        const extracted = extractJobTitleFromText(candidate);
+        if (extracted) {
+            return extracted;
+        }
+    }
+
+    return '';
+};
+
+export const deriveOccupationFromCareerEntry = (entry, fallbackJobTitle = '') => {
+    const normalizedEntry = entry && typeof entry === 'object' ? entry : null;
+
+    let rawJobTitle = extractJobTitleFromCareerEntry(normalizedEntry);
+
+    if (!rawJobTitle && fallbackJobTitle) {
+        const sanitizedFallback = sanitizeResearchmapString(fallbackJobTitle);
+        if (sanitizedFallback) {
+            rawJobTitle = sanitizedFallback;
+        }
+    }
+
+    if (!rawJobTitle) {
+        return { occupationValue: '', occupationOtherValue: '' };
+    }
+
+    const occupationValue = mapJobTitleToOccupation(rawJobTitle);
+    return {
+        occupationValue,
+        occupationOtherValue: occupationValue === 'その他' ? rawJobTitle : ''
+    };
 };
 
 export const deriveOccupation = (data) => {
@@ -867,13 +1414,37 @@ export const deriveOccupation = (data) => {
     const profile = data?.profile || {};
     const careerEntry = getPrimaryCareerEntry(data?.career) || getPrimaryCareerEntryFromGraph(data);
 
-    const rawJobTitle = pickFirstNonEmptyString([
+    let rawJobTitle = pickFirstNonEmptyString([
         profile?.job_title,
         profile?.position,
         careerEntry?.job_title,
         careerEntry?.position,
         careerEntry?.title
     ]);
+
+    if (!rawJobTitle && careerEntry) {
+        rawJobTitle = extractJobTitleFromCareerEntry(careerEntry);
+    }
+
+    if (!rawJobTitle) {
+        const additionalCareerEntries = normalizeCareerList(data?.career);
+        for (const entry of additionalCareerEntries) {
+            const candidate = extractJobTitleFromCareerEntry(entry);
+            if (candidate) {
+                rawJobTitle = candidate;
+                break;
+            }
+        }
+    }
+
+    if (!rawJobTitle) {
+        const profileFallback = pickFirstNonEmptyString([
+            profile?.current_position,
+            profile?.career_summary,
+            profile?.biography
+        ]);
+        rawJobTitle = extractJobTitleFromText(profileFallback);
+    }
 
     if (!rawJobTitle) {
         return { occupationValue: '', occupationOtherValue: '' };
@@ -891,5 +1462,6 @@ export default {
     deriveResearcherName,
     deriveAffiliationOptionsFromResearchExperience,
     deriveAffiliationFromProfile,
-    deriveOccupation
+    deriveOccupation,
+    deriveOccupationFromCareerEntry
 };

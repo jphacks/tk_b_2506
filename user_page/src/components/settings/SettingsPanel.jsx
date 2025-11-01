@@ -8,6 +8,7 @@ import {
     deriveAffiliationFromProfile,
     deriveAffiliationOptionsFromResearchExperience,
     deriveOccupation,
+    deriveOccupationFromCareerEntry,
     deriveResearcherName,
     normalizeResearcherId
 } from '../../utils/researchmap';
@@ -276,19 +277,65 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
             return;
         }
 
-        setIntroForm((prev) => ({
-            ...prev,
-            affiliation: selectedOption.affiliation
-        }));
+        const fallbackOccupation = deriveOccupationFromCareerEntry(
+            selectedOption.careerEntry,
+            selectedOption.jobTitle
+        );
+        const occupationValueToApply = selectedOption.occupationValue || fallbackOccupation.occupationValue || '';
+        const occupationOtherToApply = selectedOption.occupationOtherValue || fallbackOccupation.occupationOtherValue || '';
+        const hasOccupationData = Boolean(
+            occupationValueToApply ||
+            occupationOtherToApply
+        );
+
+        setIntroForm((prev) => {
+            const next = {
+                ...prev,
+                affiliation: selectedOption.affiliation
+            };
+
+            if (hasOccupationData) {
+                const occupationValue = occupationValueToApply || (occupationOtherToApply ? 'その他' : '');
+
+                if (occupationValue) {
+                    next.occupation = occupationValue;
+                    next.occupationOther = occupationValue === 'その他'
+                        ? (occupationOtherToApply || selectedOption.jobTitle || prev.occupationOther || '')
+                        : '';
+                } else if (occupationOtherToApply) {
+                    next.occupationOther = occupationOtherToApply;
+                }
+            }
+
+            return next;
+        });
 
         setIntroErrors((prev) => {
-            if (!prev?.affiliation) {
+            if (!prev) {
                 return prev;
             }
-            return {
-                ...prev,
-                affiliation: ''
-            };
+
+            let hasChanges = false;
+            const next = { ...prev };
+
+            if (next.affiliation) {
+                next.affiliation = '';
+                hasChanges = true;
+            }
+
+            if (hasOccupationData) {
+                if (next.occupation) {
+                    next.occupation = '';
+                    hasChanges = true;
+                }
+
+                if (next.occupationOther) {
+                    next.occupationOther = '';
+                    hasChanges = true;
+                }
+            }
+
+            return hasChanges ? next : prev;
         });
     };
 

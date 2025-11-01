@@ -110,7 +110,10 @@ AffiliationCandidates.propTypes = {
         jobTitle: PropTypes.string,
         period: PropTypes.string,
         reason: PropTypes.string,
-        isPrimary: PropTypes.bool
+        isPrimary: PropTypes.bool,
+        occupationValue: PropTypes.string,
+        occupationOtherValue: PropTypes.string,
+        careerEntry: PropTypes.object
     })),
     selectedValue: PropTypes.string,
     onSelect: PropTypes.func,

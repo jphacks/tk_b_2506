@@ -17,6 +17,7 @@ import {
     deriveAffiliationFromProfile,
     deriveAffiliationOptionsFromResearchExperience,
     deriveOccupation,
+    deriveOccupationFromCareerEntry,
     deriveResearcherName,
     normalizeResearcherId
 } from '../../utils/researchmap';
@@ -284,17 +285,66 @@ const SelfIntroductionForm = () => {
             return;
         }
 
-        setFormData((prev) => ({
-            ...prev,
-            affiliation: selectedOption.affiliation
-        }));
+        const fallbackOccupation = deriveOccupationFromCareerEntry(
+            selectedOption.careerEntry,
+            selectedOption.jobTitle
+        );
+        const occupationValueToApply = selectedOption.occupationValue || fallbackOccupation.occupationValue || '';
+        const occupationOtherToApply = selectedOption.occupationOtherValue || fallbackOccupation.occupationOtherValue || '';
+        const hasOccupationData = Boolean(
+            occupationValueToApply ||
+            occupationOtherToApply
+        );
 
-        if (errors?.affiliation) {
-            setErrors((prev) => ({
+        setFormData((prev) => {
+            const next = {
                 ...prev,
-                affiliation: ''
-            }));
-        }
+                affiliation: selectedOption.affiliation
+            };
+
+            if (hasOccupationData) {
+                const occupationValue = occupationValueToApply || (occupationOtherToApply ? 'その他' : '');
+
+                if (occupationValue) {
+                    next.occupation = occupationValue;
+                    next.occupationOther = occupationValue === 'その他'
+                        ? (occupationOtherToApply || selectedOption.jobTitle || prev.occupationOther || '')
+                        : '';
+                } else if (occupationOtherToApply) {
+                    next.occupationOther = occupationOtherToApply;
+                }
+            }
+
+            return next;
+        });
+
+        setErrors((prev) => {
+            if (!prev) {
+                return prev;
+            }
+
+            let hasChanges = false;
+            const next = { ...prev };
+
+            if (next.affiliation) {
+                next.affiliation = '';
+                hasChanges = true;
+            }
+
+            if (hasOccupationData) {
+                if (next.occupation) {
+                    next.occupation = '';
+                    hasChanges = true;
+                }
+
+                if (next.occupationOther) {
+                    next.occupationOther = '';
+                    hasChanges = true;
+                }
+            }
+
+            return hasChanges ? next : prev;
+        });
     };
 
     const handleResearcherFetch = async () => {
@@ -349,7 +399,10 @@ const SelfIntroductionForm = () => {
                 jobTitle: candidate?.jobTitle || '',
                 period: candidate?.period || '',
                 reason: candidate?.reason || '',
-                isPrimary: Boolean(candidate?.isPrimary)
+                isPrimary: Boolean(candidate?.isPrimary),
+                occupationValue: candidate?.occupationValue || '',
+                occupationOtherValue: candidate?.occupationOtherValue || '',
+                careerEntry: candidate?.careerEntry || null
             }));
             const matchedSelection = affiliationCandidatesForSelection.find(
                 (candidate) => candidate && candidate.affiliation === currentAffiliationValue
