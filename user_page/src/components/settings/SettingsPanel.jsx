@@ -4,6 +4,13 @@ import useConferences from '../../hooks/useConferences';
 import { db, supabase } from '../../lib/supabase';
 import VisibilityToggle from '../../pages/self-introduction-form/components/VisibilityToggle';
 import { cn } from '../../utils/cn';
+import {
+    deriveAffiliationFromProfile,
+    deriveAffiliationOptionsFromResearchExperience,
+    deriveOccupation,
+    deriveResearcherName,
+    normalizeResearcherId
+} from '../../utils/researchmap';
 import Icon from '../AppIcon';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
@@ -53,6 +60,11 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
     const [selectedTagIds, setSelectedTagIds] = useState([]);
     const [isTagsLoading, setIsTagsLoading] = useState(false);
     const [tagLoadError, setTagLoadError] = useState(null);
+    const [researcherId, setResearcherId] = useState('');
+    const [researcherFetchError, setResearcherFetchError] = useState('');
+    const [isFetchingResearcher, setIsFetchingResearcher] = useState(false);
+    const [researcherAffiliationOptions, setResearcherAffiliationOptions] = useState([]);
+    const [selectedResearcherAffiliationOption, setSelectedResearcherAffiliationOption] = useState('');
 
     const [passwordForm, setPasswordForm] = useState(initialPasswordForm);
     const [passwordErrors, setPasswordErrors] = useState({});
@@ -208,6 +220,18 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
         };
     }, [isOpen, user?.id]);
 
+    useEffect(() => {
+        if (!isOpen) {
+            return;
+        }
+
+        setResearcherId('');
+        setResearcherFetchError('');
+        setIsFetchingResearcher(false);
+        setResearcherAffiliationOptions([]);
+        setSelectedResearcherAffiliationOption('');
+    }, [isOpen]);
+
     const tagOptions = useMemo(() => {
         return tags.map((tag) => ({
             value: tag.id,
@@ -222,6 +246,165 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
             message,
             type
         });
+    };
+
+    const handleResearcherIdChange = (event) => {
+        const value = event?.target?.value ?? '';
+        setResearcherId(value);
+
+        if (researcherFetchError) {
+            setResearcherFetchError('');
+        }
+    };
+
+    const handleResearcherAffiliationOptionSelect = (event) => {
+        const nextValue = event?.target?.value ?? '';
+        setSelectedResearcherAffiliationOption(nextValue);
+
+        if (!nextValue) {
+            return;
+        }
+
+        const selectedOption = researcherAffiliationOptions.find(
+            (option) => option?.value === nextValue
+        );
+
+        if (!selectedOption) {
+            return;
+        }
+
+        setIntroForm((prev) => ({
+            ...prev,
+            affiliation: selectedOption.affiliation
+        }));
+
+        setIntroErrors((prev) => {
+            if (!prev?.affiliation) {
+                return prev;
+            }
+            return {
+                ...prev,
+                affiliation: ''
+            };
+        });
+    };
+
+    const handleResearcherFetch = async () => {
+        const normalizedId = normalizeResearcherId(researcherId);
+
+        if (!normalizedId) {
+            setResearcherFetchError('researcher_idを入力してください。');
+            setResearcherAffiliationOptions([]);
+            setSelectedResearcherAffiliationOption('');
+            return;
+        }
+
+        setIsFetchingResearcher(true);
+        setResearcherFetchError('');
+        setResearcherAffiliationOptions([]);
+        setSelectedResearcherAffiliationOption('');
+
+        try {
+            const response = await fetch(`https://api.researchmap.jp/${encodeURIComponent(normalizedId)}?format=json`);
+
+            if (!response.ok) {
+                throw new Error('researchmapから情報を取得できませんでした。IDをご確認ください。');
+            }
+
+            const profileData = await response.json();
+
+            const derivedName = deriveResearcherName(profileData);
+            const {
+                affiliation: affiliationFromResearchExperience,
+                options: affiliationOptions
+            } = deriveAffiliationOptionsFromResearchExperience(profileData);
+            const derivedAffiliation = affiliationFromResearchExperience || deriveAffiliationFromProfile(profileData);
+            const { occupationValue, occupationOtherValue } = deriveOccupation(profileData);
+            const hasDerivedValue = Boolean(
+                derivedName ||
+                derivedAffiliation ||
+                occupationValue ||
+                occupationOtherValue
+            );
+
+            setIntroForm((prev) => {
+                const next = { ...prev };
+
+                if (derivedName) {
+                    next.name = derivedName;
+                }
+
+                if (derivedAffiliation) {
+                    next.affiliation = derivedAffiliation;
+                }
+
+                if (occupationValue) {
+                    next.occupation = occupationValue;
+                    next.occupationOther = occupationValue === 'その他'
+                        ? (occupationOtherValue || prev.occupationOther || '')
+                        : '';
+                } else if (occupationOtherValue) {
+                    next.occupationOther = occupationOtherValue;
+                }
+
+                return next;
+            });
+
+            setIntroErrors((prev) => {
+                if (!prev) {
+                    return prev;
+                }
+
+                let hasChanges = false;
+                const next = { ...prev };
+
+                if (derivedName && next.name) {
+                    next.name = '';
+                    hasChanges = true;
+                }
+
+                if (derivedAffiliation && next.affiliation) {
+                    next.affiliation = '';
+                    hasChanges = true;
+                }
+
+                if (occupationValue && next.occupation) {
+                    next.occupation = '';
+                    hasChanges = true;
+                }
+
+                if (next.occupationOther && (
+                    (occupationValue && occupationValue !== 'その他') ||
+                    (occupationValue === 'その他' && occupationOtherValue)
+                )) {
+                    next.occupationOther = '';
+                    hasChanges = true;
+                }
+
+                return hasChanges ? next : prev;
+            });
+
+            setResearcherAffiliationOptions(affiliationOptions);
+            const defaultAffiliationOption = affiliationOptions.find(
+                (option) => option?.affiliation === affiliationFromResearchExperience
+            );
+            setSelectedResearcherAffiliationOption(defaultAffiliationOption?.value || '');
+
+            if (hasDerivedValue) {
+                showToast('researchmapから情報を読み込みました。', 'success');
+            } else {
+                setResearcherFetchError('researchmapに該当情報が見つかりませんでした。');
+                showToast('researchmapに該当情報が見つかりませんでした。', 'warning');
+            }
+        } catch (error) {
+            const message = error?.message || 'researchmap情報の取得に失敗しました。';
+            setResearcherFetchError(message);
+            setResearcherAffiliationOptions([]);
+            setSelectedResearcherAffiliationOption('');
+            showToast(message, 'error');
+        } finally {
+            setIsFetchingResearcher(false);
+        }
     };
 
     const handleIntroChange = (eventOrName, valueArg) => {
@@ -512,6 +695,61 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                                 </div>
                             ) : (
                                 <form className="space-y-4" onSubmit={handleSaveIntroduction}>
+                                    <div className="space-y-2">
+                                        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                                            <div className="sm:flex-1">
+                                                <Input
+                                                    name="researcherId"
+                                                    value={researcherId}
+                                                    onChange={handleResearcherIdChange}
+                                                    label="researchmap研究者ID"
+                                                    description="researchmapの公開プロフィールURL末尾のresearcher_idを入力すると、氏名・所属・職業を自動入力します"
+                                                    error={researcherFetchError}
+                                                    placeholder="例: example_researcher"
+                                                    autoComplete="off"
+                                                    onKeyDown={(event) => {
+                                                        if (event.key === 'Enter') {
+                                                            event.preventDefault();
+                                                            handleResearcherFetch();
+                                                        }
+                                                    }}
+                                                />
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                onClick={handleResearcherFetch}
+                                                loading={isFetchingResearcher}
+                                                disabled={isFetchingResearcher}
+                                                className="w-full sm:w-auto h-10"
+                                            >
+                                                自動入力
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    {researcherAffiliationOptions.length > 1 && (
+                                        <div className="space-y-2">
+                                            <label className="block text-sm font-medium text-foreground">
+                                                現所属候補（researchmap）
+                                            </label>
+                                            <select
+                                                value={selectedResearcherAffiliationOption}
+                                                onChange={handleResearcherAffiliationOptionSelect}
+                                                className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                                            >
+                                                <option value="">候補を選択</option>
+                                                {researcherAffiliationOptions.map((option) => (
+                                                    <option key={option.value} value={option.value}>
+                                                        {option.label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <p className="text-[11px] text-muted-foreground">
+                                                選んだ候補が所属欄に反映されます。必要に応じて直接編集してください。
+                                            </p>
+                                        </div>
+                                    )}
+
                                     <Input
                                         name="name"
                                         value={introForm.name}
