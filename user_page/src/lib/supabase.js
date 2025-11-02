@@ -342,6 +342,101 @@ export const db = {
         if (error) throw error;
         return data ?? [];
     },
+    async ensureTags(tagDefinitions = []) {
+        if (!Array.isArray(tagDefinitions) || tagDefinitions.length === 0) {
+            return { created: [], skipped: [] };
+        }
+
+        const normalized = tagDefinitions
+            .map((definition) => {
+                if (!definition) {
+                    return null;
+                }
+
+                if (typeof definition === 'string') {
+                    const name = definition.trim();
+                    return name
+                        ? { name, description: null }
+                        : null;
+                }
+
+                const name = typeof definition.name === 'string'
+                    ? definition.name.trim()
+                    : '';
+
+                if (!name) {
+                    return null;
+                }
+
+                const description = typeof definition.description === 'string'
+                    ? definition.description.trim()
+                    : null;
+
+                return {
+                    name,
+                    description: description || null
+                };
+            })
+            .filter(Boolean);
+
+        if (!normalized.length) {
+            return { created: [], skipped: [] };
+        }
+
+        const uniqueEntries = Array.from(
+            normalized
+                .reduce((map, definition) => {
+                    if (!map.has(definition.name)) {
+                        map.set(definition.name, definition);
+                    }
+                    return map;
+                }, new Map())
+                .values()
+        );
+
+        if (!uniqueEntries.length) {
+            return { created: [], skipped: [] };
+        }
+
+        let existing = [];
+        try {
+            const { data, error } = await supabase
+                .from('tags')
+                .select('name')
+                .in('name', uniqueEntries.map((entry) => entry.name));
+
+            if (error) {
+                throw error;
+            }
+
+            existing = data ?? [];
+        } catch (error) {
+            console.warn('[db.ensureTags] failed to check existing tags:', error);
+            return { created: [], skipped: [] };
+        }
+
+        const existingNames = new Set(existing.map((entry) => entry.name));
+        const missing = uniqueEntries.filter((entry) => !existingNames.has(entry.name));
+
+        if (!missing.length) {
+            return { created: [], skipped: uniqueEntries.map((entry) => entry.name) };
+        }
+
+        try {
+            const { error } = await supabase
+                .from('tags')
+                .insert(missing);
+
+            if (error && error.code !== '23505') {
+                throw error;
+            }
+
+            return { created: missing.map((entry) => entry.name), skipped: uniqueEntries.filter((entry) => existingNames.has(entry.name)).map((entry) => entry.name) };
+        } catch (error) {
+            console.warn('[db.ensureTags] failed to insert default tags:', error);
+            return { created: [], skipped: uniqueEntries.map((entry) => entry.name) };
+        }
+    },
 
     // ユーザーの興味タグを取得
     async getUserInterests(userId) {

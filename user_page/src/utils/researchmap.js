@@ -1457,11 +1457,1087 @@ export const deriveOccupation = (data) => {
     };
 };
 
+
+const RESEARCH_FIELD_DELIMITER_PATTERN = /[\,，、;；／\/\\|\n・\u3000\t]+/;
+const RESEARCH_FIELD_KEY_PARTS = [
+    'research_field',
+    'research-fields',
+    'researchfield',
+    'research_fields',
+    'research_theme',
+    'research-themes',
+    'fields_of_study',
+    'field_of_study',
+    'field-of-study',
+    'fields-of-study',
+    'field',
+    'fields',
+    'keyword',
+    'keywords',
+    'topic',
+    'topics',
+    'subject',
+    'subjects',
+    'specialty',
+    'specialities',
+    'speciality',
+    'specialties',
+    'expertise',
+    'expertises',
+    'domain',
+    'domains',
+    'area',
+    'areas',
+    'focus',
+    'discipline'
+];
+const RESEARCH_FIELD_JA_KEY_PATTERN = /(研究(分野|領域|課題|テーマ)|専門(分野)?|分野|領域|テーマ|キーワード|興味|関心|技術)/;
+const MAX_FIELD_SEARCH_DEPTH = 6;
+
+const shouldInspectKeyForResearchField = (key) => {
+    if (!key && key !== 0) {
+        return false;
+    }
+
+    const normalizedKey = String(key).normalize('NFKC');
+    const lowerKey = normalizedKey.toLowerCase();
+
+    if (
+        lowerKey === '@id' ||
+        lowerKey === '@type' ||
+        lowerKey === 'id' ||
+        lowerKey === 'identifier' ||
+        lowerKey.endsWith('_id') ||
+        lowerKey.endsWith('-id') ||
+        lowerKey.includes('url') ||
+        lowerKey.includes('link')
+    ) {
+        return false;
+    }
+
+    if (RESEARCH_FIELD_KEY_PARTS.some((part) => lowerKey.includes(part))) {
+        return true;
+    }
+
+    return RESEARCH_FIELD_JA_KEY_PATTERN.test(normalizedKey);
+};
+
+const addResearchFieldCandidate = (value, results, visited, depth = 0) => {
+    if (value === null || value === undefined) {
+        return;
+    }
+
+    if (typeof value === 'string') {
+        const sanitized = sanitizeResearchmapString(value);
+
+        if (!sanitized) {
+            return;
+        }
+
+        const parts = sanitized
+            .split(RESEARCH_FIELD_DELIMITER_PATTERN)
+            .map((part) => part.trim())
+            .filter(Boolean);
+
+        if (!parts.length) {
+            if (sanitized.length <= 120) {
+                results.add(sanitized);
+            }
+            return;
+        }
+
+        for (const part of parts) {
+            if (!part || part.length > 120 || /^\d+$/.test(part)) {
+                continue;
+            }
+            results.add(part);
+        }
+        return;
+    }
+
+    if (Array.isArray(value)) {
+        for (const item of value) {
+            addResearchFieldCandidate(item, results, visited, depth + 1);
+        }
+        return;
+    }
+
+    if (typeof value !== 'object') {
+        return;
+    }
+
+    if (visited.has(value)) {
+        return;
+    }
+
+    visited.add(value);
+
+    const localized = pickLocalizedValue(value);
+    if (localized) {
+        addResearchFieldCandidate(localized, results, visited, depth + 1);
+    }
+
+    const candidateKeys = [
+        '@value',
+        'label',
+        'name',
+        'title',
+        'value',
+        'values',
+        'text',
+        'content',
+        'description',
+        'keyword',
+        'keywords',
+        'field',
+        'fields',
+        'research_field',
+        'research_fields',
+        'research_keyword',
+        'research_keywords',
+        'research_theme',
+        'research_topic',
+        'specialty',
+        'specialities',
+        'speciality',
+        'specialties',
+        'expertise',
+        'expertises',
+        'subject',
+        'subjects',
+        'area',
+        'areas',
+        'domain',
+        'domains',
+        'focus',
+        'foci',
+        'topic',
+        'topics',
+        'theme',
+        'themes'
+    ];
+
+    for (const key of candidateKeys) {
+        if (Object.prototype.hasOwnProperty.call(value, key)) {
+            addResearchFieldCandidate(value[key], results, visited, depth + 1);
+        }
+    }
+};
+
+const extractResearchFieldCandidates = (data) => {
+    if (!data || typeof data !== 'object') {
+        return [];
+    }
+
+    const results = new Set();
+    const visitedContainers = new WeakSet();
+    const visitedCandidates = new WeakSet();
+
+    const addCandidate = (value) => addResearchFieldCandidate(value, results, visitedCandidates);
+
+    const inspect = (node, depth = 0) => {
+        if (!node || typeof node !== 'object') {
+            return;
+        }
+
+        if (visitedContainers.has(node) || depth > MAX_FIELD_SEARCH_DEPTH) {
+            return;
+        }
+
+        visitedContainers.add(node);
+
+        for (const [key, value] of Object.entries(node)) {
+            if (shouldInspectKeyForResearchField(key)) {
+                addCandidate(value);
+            }
+
+            if (value && typeof value === 'object') {
+                inspect(value, depth + 1);
+            }
+        }
+    };
+
+    const profile = data?.profile || {};
+    const rootCandidates = [
+        data?.research_field,
+        data?.research_fields,
+        data?.research_keyword,
+        data?.research_keywords,
+        data?.research_topic,
+        data?.research_topics,
+        data?.specialized_field,
+        data?.specialized_fields,
+        profile?.research_field,
+        profile?.research_fields,
+        profile?.research_keyword,
+        profile?.research_keywords,
+        profile?.research_topic,
+        profile?.research_topics,
+        profile?.specialized_field,
+        profile?.specialized_fields,
+        profile?.fields_of_study,
+        profile?.field_of_study,
+        profile?.speciality,
+        profile?.specialities,
+        profile?.specialty,
+        profile?.specialties,
+        profile?.expertise,
+        profile?.expertises,
+        profile?.keywords,
+        profile?.keyword
+    ];
+
+    rootCandidates.forEach(addCandidate);
+
+    const graphTypes = [
+        'research_field',
+        'research_fields',
+        'research_keyword',
+        'research_keywords',
+        'research_theme',
+        'research_topic',
+        'research_subject',
+        'specialized_field',
+        'specialized_fields',
+        'field_of_study',
+        'fields_of_study',
+        'keyword',
+        'keywords',
+        'topic',
+        'topics',
+        'subject',
+        'subjects'
+    ];
+
+    graphTypes.forEach((type) => {
+        const items = getGraphItems(data, type);
+        if (!Array.isArray(items)) {
+            return;
+        }
+
+        items.forEach((item) => {
+            if (!item || typeof item !== 'object') {
+                return;
+            }
+
+            addCandidate([
+                item?.label,
+                item?.title,
+                item?.name,
+                item?.value,
+                item?.values,
+                item?.keyword,
+                item?.keywords,
+                item?.text,
+                item?.content,
+                item?.description
+            ]);
+        });
+    });
+
+    inspect(data);
+
+    return Array.from(results);
+};
+
+const INTEREST_TAG_KEYWORD_MAP = [
+    {
+        tags: ['機械学習'],
+        keywords: [
+            '機械学習',
+            '統計的学習',
+            '知能情報学',
+            '知能情報処理',
+            'インテリジェントシステム',
+            'パターン認識',
+            'データ駆動型',
+            'データ駆動学習',
+            'データ駆動モデリング',
+            '機械知能'
+        ],
+        patterns: [
+            /\bmachine learning\b/i,
+            /\bstatistical learning\b/i,
+            /\bintelligent system/i,
+            /data[-\s]?driven/i,
+            /\bml\b/i
+        ]
+    },
+    {
+        tags: ['機械学習', '深層学習'],
+        keywords: [
+            '深層学習',
+            'ディープラーニング',
+            'ニューラルネットワーク',
+            'ニューラルネット',
+            '深層ニューラルネットワーク',
+            '畳み込みニューラルネットワーク',
+            'リカレントニューラルネットワーク',
+            '生成モデル',
+            '自己教師あり学習',
+            '自己教師付き学習',
+            '深層生成モデル',
+            'グラフニューラルネットワーク'
+        ],
+        patterns: [
+            /\bdeep learning\b/i,
+            /\bneural network\b/i,
+            /\bcnn\b/i,
+            /\brnn\b/i,
+            /\bgnn\b/i,
+            /\btransformer/i,
+            /\bgenerative (ai|model)/i
+        ]
+    },
+    {
+        tags: ['自然言語処理'],
+        keywords: [
+            '自然言語処理',
+            '言語処理',
+            '計算言語学',
+            'コーパス言語学',
+            '言語理解',
+            '言語生成',
+            '機械翻訳',
+            '対話システム',
+            '会話システム',
+            '質問応答'
+        ],
+        patterns: [
+            /\bnatural language processing\b/i,
+            /\bcomputational linguistics\b/i,
+            /\bnlp\b/i,
+            /text mining/i,
+            /sentiment analysis/i,
+            /speech (processing|recognition)/i
+        ]
+    },
+    {
+        tags: ['自然言語処理', '深層学習'],
+        keywords: [
+            '大規模言語モデル',
+            '生成言語モデル',
+            '生成AI',
+            '言語モデル',
+            '対話型AI'
+        ],
+        patterns: [
+            /large language model/i,
+            /\bllm\b/i,
+            /language model/i,
+            /chatbot/i
+        ]
+    },
+    {
+        tags: ['コンピュータビジョン'],
+        keywords: [
+            'コンピュータビジョン',
+            'コンピュータビジュアル',
+            '画像認識',
+            '画像理解',
+            '画像解析',
+            '映像解析',
+            '映像理解',
+            '物体検出',
+            '物体追跡',
+            '三次元再構成',
+            '3次元再構成',
+            '姿勢推定',
+            '視覚情報処理'
+        ],
+        patterns: [
+            /computer vision/i,
+            /\bcv\b/i,
+            /image (processing|recognition|analysis)/i,
+            /object detection/i,
+            /instance segmentation/i,
+            /semantic segmentation/i,
+            /visual SLAM/i
+        ]
+    },
+    {
+        tags: ['強化学習', '機械学習'],
+        keywords: [
+            '強化学習',
+            '逆強化学習',
+            '模倣学習',
+            'マルチエージェント強化学習',
+            '探索と利用',
+            'バンディット問題',
+            '方策勾配'
+        ],
+        patterns: [
+            /reinforcement learning/i,
+            /\brl\b/i,
+            /multi[-\s]armed bandit/i,
+            /policy gradient/i,
+            /temporal difference/i
+        ]
+    },
+    {
+        tags: ['データベース'],
+        keywords: [
+            'データベース',
+            'データベースシステム',
+            'データマネジメント',
+            'データ管理',
+            'データモデル',
+            'トランザクション処理'
+        ],
+        patterns: [
+            /database system/i,
+            /\bdbms\b/i,
+            /relational database/i,
+            /transaction processing/i,
+            /data management/i
+        ]
+    },
+    {
+        tags: ['分散データベース', 'クラウドコンピューティング'],
+        keywords: [
+            '分散データベース',
+            '分散DB',
+            '並列データベース',
+            'レプリケーション',
+            '分散トランザクション',
+            '分散合意'
+        ],
+        patterns: [
+            /(distributed|parallel) database/i,
+            /replicated database/i,
+            /distributed transaction/i,
+            /consistency protocol/i
+        ]
+    },
+    {
+        tags: ['NoSQL'],
+        keywords: [
+            'NoSQL',
+            'ドキュメントデータベース',
+            'グラフデータベース',
+            'カラム指向データベース',
+            'カラムナーDB',
+            'キーバリューストア'
+        ],
+        patterns: [
+            /nosql/i,
+            /document (database|store)/i,
+            /graph database/i,
+            /key[-\s]?value store/i,
+            /wide column store/i
+        ]
+    },
+    {
+        tags: ['クエリ最適化', 'データベース'],
+        keywords: [
+            'クエリ最適化',
+            'クエリプラン',
+            'クエリ計画',
+            'クエリプランナ',
+            'SQL最適化'
+        ],
+        patterns: [
+            /query optimization/i,
+            /query planner/i,
+            /query plan/i,
+            /cost-based optimizer/i,
+            /sql tuning/i
+        ]
+    },
+    {
+        tags: ['データマイニング', '機械学習'],
+        keywords: [
+            'データマイニング',
+            'データサイエンス',
+            '知識発見',
+            'ビッグデータ解析',
+            '時系列解析',
+            'クラスタリング',
+            '分類',
+            '予測分析'
+        ],
+        patterns: [
+            /data mining/i,
+            /data analytics/i,
+            /knowledge discovery/i,
+            /big data/i,
+            /predictive analytics/i,
+            /\bkdd\b/i
+        ]
+    },
+    {
+        tags: ['サイバーセキュリティ'],
+        keywords: [
+            'サイバーセキュリティ',
+            '情報セキュリティ',
+            'セキュアシステム',
+            '侵入検知',
+            '脆弱性対策',
+            'マルウェア対策',
+            '脅威分析'
+        ],
+        patterns: [
+            /cyber ?security/i,
+            /information security/i,
+            /intrusion detection/i,
+            /malware/i,
+            /threat (analysis|intelligence)/i,
+            /security operation/i
+        ]
+    },
+    {
+        tags: ['暗号技術'],
+        keywords: [
+            '暗号技術',
+            '暗号化',
+            '暗号理論',
+            '公開鍵暗号',
+            '秘密分散',
+            'ゼロ知識証明',
+            '秘匿計算'
+        ],
+        patterns: [
+            /cryptography/i,
+            /encryption/i,
+            /cipher/i,
+            /public key/i,
+            /zero[-\s]?knowledge/i,
+            /homomorphic/i,
+            /secure multi[-\s]?party/i
+        ]
+    },
+    {
+        tags: ['プライバシー保護'],
+        keywords: [
+            'プライバシー保護',
+            'データ保護',
+            '匿名化',
+            '匿名化技術',
+            '個人情報保護',
+            '差分プライバシー',
+            '秘匿化'
+        ],
+        patterns: [
+            /privacy/i,
+            /data protection/i,
+            /anonymi[sz]ation/i,
+            /privacy[-\s]?preserving/i,
+            /differential privacy/i,
+            /gdpr/i
+        ]
+    },
+    {
+        tags: ['ネットワーク'],
+        keywords: [
+            'ネットワーク',
+            '通信ネットワーク',
+            'ネットワーク設計',
+            'ネットワークアーキテクチャ',
+            'ネットワーク制御',
+            'ネットワークプロトコル',
+            'モバイルネットワーク',
+            '無線通信'
+        ],
+        patterns: [
+            /network(ing)?/i,
+            /routing protocol/i,
+            /wireless network/i,
+            /mobile network/i,
+            /5g/i,
+            /software[-\s]?defined network/i,
+            /sdn/i
+        ]
+    },
+    {
+        tags: ['IoT', '組み込みシステム'],
+        keywords: [
+            'IoT',
+            'センサネットワーク',
+            'センサーネットワーク',
+            'スマートシティ',
+            'サイバーフィジカルシステム',
+            'CPS',
+            'エッジコンピューティング',
+            'エッジAI'
+        ],
+        patterns: [
+            /internet of things/i,
+            /sensor network/i,
+            /wireless sensor network/i,
+            /m2m/i,
+            /cyber-physical system/i,
+            /edge computing/i,
+            /edge ai/i
+        ]
+    },
+    {
+        tags: ['クラウドコンピューティング'],
+        keywords: [
+            'クラウドコンピューティング',
+            'クラウドインフラ',
+            '仮想化',
+            'コンテナオーケストレーション',
+            'マイクロサービス',
+            '分散システム'
+        ],
+        patterns: [
+            /cloud computing/i,
+            /cloud infrastructure/i,
+            /virtualization/i,
+            /kubernetes/i,
+            /container orchestration/i,
+            /microservice/i,
+            /distributed system/i,
+            /serverless/i
+        ]
+    },
+    {
+        tags: ['ソフトウェア工学'],
+        keywords: [
+            'ソフトウェア工学',
+            'ソフトウェア開発プロセス',
+            'ソフトウェア設計',
+            'ソフトウェアアーキテクチャ',
+            'ソフトウェア品質',
+            'ソフトウェア保守'
+        ],
+        patterns: [
+            /software engineering/i,
+            /software process/i,
+            /software architecture/i,
+            /software quality/i,
+            /software maintenance/i
+        ]
+    },
+    {
+        tags: ['アジャイル開発', 'ソフトウェア工学'],
+        keywords: [
+            'アジャイル開発',
+            'スクラム',
+            'カンバン',
+            'リーン開発',
+            'DevOps',
+            '継続的デリバリー',
+            '継続的インテグレーション'
+        ],
+        patterns: [
+            /agile development/i,
+            /scrum/i,
+            /kanban/i,
+            /lean development/i,
+            /devops/i,
+            /continuous (delivery|integration)/i,
+            /ci\/cd/i
+        ]
+    },
+    {
+        tags: ['テスト自動化', 'ソフトウェア工学'],
+        keywords: [
+            'テスト自動化',
+            '自動テスト',
+            'ソフトウェアテスト',
+            '品質保証',
+            'テスト駆動開発',
+            'テストエンジニアリング'
+        ],
+        patterns: [
+            /test automation/i,
+            /software testing/i,
+            /unit testing/i,
+            /integration testing/i,
+            /quality assurance/i,
+            /qa automation/i
+        ]
+    },
+    {
+        tags: ['ヒューマンコンピュータインタラクション', 'UI/UX'],
+        keywords: [
+            'ヒューマンコンピュータインタラクション',
+            'ヒューマンインタフェース',
+            'ヒューマンインタラクション',
+            'ユーザビリティ',
+            'ユーザーリサーチ',
+            'インタラクションデザイン'
+        ],
+        patterns: [
+            /human[-\s]?computer interaction/i,
+            /human[-\s]?machine interaction/i,
+            /usability/i,
+            /user study/i,
+            /interaction design/i
+        ]
+    },
+    {
+        tags: ['UI/UX'],
+        keywords: [
+            'UI/UX',
+            'UIデザイン',
+            'UXデザイン',
+            'ユーザーエクスペリエンス',
+            'ユーザーインタフェース',
+            'ユーザー中心設計'
+        ],
+        patterns: [
+            /user experience/i,
+            /user interface/i,
+            /ux design/i,
+            /ui design/i,
+            /visual design/i,
+            /user-centered design/i
+        ]
+    },
+    {
+        tags: ['アクセシビリティ'],
+        keywords: [
+            'アクセシビリティ',
+            'ユニバーサルデザイン',
+            'インクルーシブデザイン',
+            'バリアフリー',
+            '支援技術'
+        ],
+        patterns: [
+            /accessibility/i,
+            /inclusive design/i,
+            /universal design/i,
+            /assistive technology/i,
+            /wcag/i
+        ]
+    },
+    {
+        tags: ['Web技術', 'クラウドコンピューティング'],
+        keywords: [
+            'Web技術',
+            'Webアプリケーション',
+            'Webサービス',
+            'フロントエンド',
+            'バックエンド',
+            'フルスタック',
+            'SPA'
+        ],
+        patterns: [
+            /web technology/i,
+            /web development/i,
+            /web service/i,
+            /frontend/i,
+            /backend/i,
+            /full[-\s]?stack/i,
+            /single page application/i
+        ]
+    },
+    {
+        tags: ['モバイルアプリケーション'],
+        keywords: [
+            'モバイルアプリケーション',
+            'スマートフォンアプリ',
+            'スマホアプリ',
+            'モバイル開発',
+            'モバイルコンピューティング',
+            'モバイルUX'
+        ],
+        patterns: [
+            /mobile application/i,
+            /mobile app/i,
+            /smartphone/i,
+            /android/i,
+            /ios/i,
+            /wearable/i
+        ]
+    },
+    {
+        tags: ['量子コンピューティング'],
+        keywords: [
+            '量子コンピューティング',
+            '量子計算',
+            '量子情報',
+            '量子アルゴリズム',
+            '量子回路',
+            '量子ソフトウェア'
+        ],
+        patterns: [
+            /quantum computing/i,
+            /quantum information/i,
+            /quantum algorithm/i,
+            /quantum circuit/i,
+            /qubit/i
+        ]
+    },
+    {
+        tags: ['量子コンピューティング', '暗号技術'],
+        keywords: [
+            '量子暗号',
+            '量子鍵配送',
+            '量子耐性暗号'
+        ],
+        patterns: [
+            /quantum cryptography/i,
+            /post-quantum cryptography/i,
+            /quantum key distribution/i
+        ]
+    },
+    {
+        tags: ['ブロックチェーン'],
+        keywords: [
+            'ブロックチェーン',
+            '分散台帳',
+            'スマートコントラクト',
+            '暗号資産',
+            'Web3',
+            '分散型アプリケーション'
+        ],
+        patterns: [
+            /block ?chain/i,
+            /distributed ledger/i,
+            /smart contract/i,
+            /crypto( currency| asset|economy)/i,
+            /web3/i,
+            /defi/i
+        ]
+    },
+    {
+        tags: ['ライフサイエンス', '医工学'],
+        keywords: [
+            'ライフサイエンス',
+            '生命科学',
+            '生物医学',
+            '医工学',
+            '医療工学',
+            '医用工学',
+            'バイオサイエンス',
+            'バイオテクノロジー',
+            'バイオインフォマティクス',
+            'ゲノミクス',
+            'トランスレーショナルリサーチ',
+            '医療技術',
+            '医療機器',
+            '再生医療',
+            '細胞工学'
+        ],
+        patterns: [
+            /life science/i,
+            /biomedical engineering/i,
+            /biomedical science/i,
+            /bioscience/i,
+            /biotechnology/i,
+            /bioinformatics/i,
+            /computational biology/i,
+            /medical technology/i,
+            /medical device/i,
+            /regenerative medicine/i
+        ]
+    },
+    {
+        tags: ['医用画像処理', 'ライフサイエンス'],
+        keywords: [
+            '医用画像処理',
+            '医用画像解析',
+            '医療画像処理',
+            '医療画像解析',
+            '医用画像診断',
+            'メディカルイメージング',
+            '放射線画像',
+            '放射線診断',
+            '画像診断',
+            'MRI',
+            '磁気共鳴画像',
+            'CT',
+            'X線CT',
+            '超音波画像',
+            '超音波診断',
+            'PET',
+            '医用画像AI',
+            'CADシステム'
+        ],
+        patterns: [
+            /medical imaging/i,
+            /medical image (processing|analysis)/i,
+            /radiological imaging/i,
+            /diagnostic imaging/i,
+            /picture archiving/i,
+            /radiology/i,
+            /\bMRI\b/i,
+            /\bCT\b/i,
+            /\bPET\b/i,
+            /ultrasound imaging/i,
+            /computer[-\s]?aided diagnosis/i
+        ]
+    },
+    {
+        tags: ['AR/VR', 'コンピュータビジョン'],
+        keywords: [
+            'AR',
+            'VR',
+            'MR',
+            'XR',
+            '拡張現実',
+            '仮想現実',
+            '複合現実',
+            'メタバース',
+            '没入型体験'
+        ],
+        patterns: [
+            /augmented reality/i,
+            /virtual reality/i,
+            /mixed reality/i,
+            /extended reality/i,
+            /immersive/i,
+            /metaverse/i,
+            /head[-\s]?mounted display/i
+        ]
+    },
+    {
+        tags: ['ゲーム開発'],
+        keywords: [
+            'ゲーム開発',
+            'ゲームデザイン',
+            'ゲームプログラミング',
+            'ゲームAI',
+            'シリアスゲーム',
+            'ゲーミフィケーション',
+            'eスポーツ'
+        ],
+        patterns: [
+            /game development/i,
+            /game design/i,
+            /game programming/i,
+            /serious game/i,
+            /gamification/i,
+            /game engine/i,
+            /unreal engine/i,
+            /unity3d?/i
+        ]
+    },
+    {
+        tags: ['組み込みシステム'],
+        keywords: [
+            '組み込みシステム',
+            '組込みシステム',
+            '組み込みソフトウェア',
+            'ファームウェア',
+            'リアルタイムシステム',
+            '制御システム',
+            'ロボット工学',
+            'メカトロニクス',
+            'ハードウェア・ソフトウェア協調設計'
+        ],
+        patterns: [
+            /embedded system/i,
+            /embedded software/i,
+            /firmware/i,
+            /real[-\s]?time system/i,
+            /control system/i,
+            /robotics/i,
+            /mechatronics/i,
+            /hardware[-\s]?software co[-\s]?design/i,
+            /fpga/i
+        ]
+    }
+];
+
+export const deriveInterestTagRecommendations = (data, options = {}) => {
+    if (!data || typeof data !== 'object') {
+        return [];
+    }
+
+    const fieldCandidates = extractResearchFieldCandidates(data);
+
+    if (!fieldCandidates.length) {
+        return [];
+    }
+
+    const { availableTagNames = [] } = options;
+    const trimmedAvailable = Array.isArray(availableTagNames)
+        ? availableTagNames
+            .map((name) => (typeof name === 'string' ? name.trim() : ''))
+            .filter(Boolean)
+        : [];
+
+    const availableNameSet = new Set(trimmedAvailable);
+    const availableForms = trimmedAvailable.map((name) => {
+        const normalized = name.normalize('NFKC');
+        const lower = normalized.toLowerCase();
+        const collapsed = collapseForMatch(lower);
+        return {
+            name,
+            normalized,
+            lower,
+            collapsed
+        };
+    });
+
+    const restrictToAvailable = availableNameSet.size > 0;
+    const matchedNames = new Set();
+
+    const ensureTagName = (tagName) => {
+        if (!tagName || typeof tagName !== 'string') {
+            return;
+        }
+
+        const trimmed = tagName.trim();
+        if (!trimmed) {
+            return;
+        }
+
+        if (restrictToAvailable && !availableNameSet.has(trimmed)) {
+            return;
+        }
+
+        matchedNames.add(trimmed);
+    };
+
+    for (const field of fieldCandidates) {
+        const normalizedField = field.normalize('NFKC');
+        const lowerField = normalizedField.toLowerCase();
+        const collapsedField = collapseForMatch(lowerField);
+        const forms = {
+            normalized: normalizedField,
+            lower: lowerField,
+            collapsed: collapsedField
+        };
+
+        if (availableForms.length) {
+            for (const tagForm of availableForms) {
+                if (
+                    forms.normalized === tagForm.normalized ||
+                    forms.collapsed === tagForm.collapsed ||
+                    forms.lower.includes(tagForm.lower) ||
+                    tagForm.lower.includes(forms.lower)
+                ) {
+                    ensureTagName(tagForm.name);
+                }
+            }
+        }
+
+        for (const mapping of INTEREST_TAG_KEYWORD_MAP) {
+            if (!mapping?.tags?.length) {
+                continue;
+            }
+
+            if (mapping.exclude && mapping.exclude.some((token) => matchesToken(forms, token))) {
+                continue;
+            }
+
+            const hasKeyword = Array.isArray(mapping.keywords)
+                ? mapping.keywords.some((token) => matchesToken(forms, token))
+                : false;
+            const hasPattern = Array.isArray(mapping.patterns)
+                ? mapping.patterns.some((token) => matchesToken(forms, token))
+                : false;
+
+            if (hasKeyword || hasPattern) {
+                mapping.tags.forEach(ensureTagName);
+            }
+        }
+    }
+
+    return Array.from(matchedNames);
+};
+
 export default {
     normalizeResearcherId,
     deriveResearcherName,
     deriveAffiliationOptionsFromResearchExperience,
     deriveAffiliationFromProfile,
     deriveOccupation,
-    deriveOccupationFromCareerEntry
+    deriveOccupationFromCareerEntry,
+    deriveInterestTagRecommendations
 };

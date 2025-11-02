@@ -18,6 +18,7 @@ import {
     deriveAffiliationOptionsFromResearchExperience,
     deriveOccupation,
     deriveOccupationFromCareerEntry,
+    deriveInterestTagRecommendations,
     deriveResearcherName,
     normalizeResearcherId
 } from '../../utils/researchmap';
@@ -108,6 +109,16 @@ const SelfIntroductionForm = () => {
             label: tag.name,
             description: tag.description || undefined
         })) ?? [];
+    }, [tags]);
+
+    const tagIdByName = useMemo(() => {
+        const map = new Map();
+        (tags ?? []).forEach((tag) => {
+            if (tag?.name && tag?.id) {
+                map.set(tag.name, tag.id);
+            }
+        });
+        return map;
     }, [tags]);
 
     useEffect(() => {
@@ -391,6 +402,38 @@ const SelfIntroductionForm = () => {
             const affiliationCandidatesForSelection = selectionRequired
                 ? [primaryCandidate, ...otherAffiliations].filter(Boolean)
                 : [];
+
+            let newlyAddedInterestTagNames = [];
+            if (tagIdByName.size > 0) {
+                const availableTagNames = Array.from(tagIdByName.keys());
+                const recommendedTagNames = deriveInterestTagRecommendations(profileData, { availableTagNames });
+
+                if (recommendedTagNames.length) {
+                    setSelectedTags((prev) => {
+                        const nextSet = new Set(prev);
+                        const addedNames = [];
+
+                        for (const tagName of recommendedTagNames) {
+                            const tagId = tagIdByName.get(tagName);
+                            if (!tagId) {
+                                continue;
+                            }
+                            if (!nextSet.has(tagId)) {
+                                nextSet.add(tagId);
+                                addedNames.push(tagName);
+                            }
+                        }
+
+                        if (!addedNames.length) {
+                            return prev;
+                        }
+
+                        newlyAddedInterestTagNames = addedNames;
+                        return Array.from(nextSet);
+                    });
+                }
+            }
+
             const formattedSelectionOptions = affiliationCandidatesForSelection.map((candidate, index) => ({
                 value: candidate?.value || `candidate-${index}`,
                 label: candidate?.isPrimary ? `${candidate.label}（推奨）` : candidate?.label || '',
@@ -413,7 +456,7 @@ const SelfIntroductionForm = () => {
             setResearcherAffiliationOptions(selectionRequired ? formattedSelectionOptions : []);
             setSelectedResearcherAffiliationOption(selectionRequired && matchedSelection ? (matchedSelection.value || '') : '');
 
-            const hasDerivedValue = Boolean(
+            let hasDerivedValue = Boolean(
                 derivedName ||
                 shouldApplyPrimaryCandidate ||
                 shouldApplyFallbackAffiliation ||
@@ -421,6 +464,10 @@ const SelfIntroductionForm = () => {
                 occupationValue ||
                 occupationOtherValue
             );
+
+            if (newlyAddedInterestTagNames.length) {
+                hasDerivedValue = true;
+            }
 
             setFormData((prev) => {
                 const next = { ...prev };
@@ -463,11 +510,19 @@ const SelfIntroductionForm = () => {
             }
 
             if (hasDerivedValue) {
+                const tagToastSuffix = newlyAddedInterestTagNames.length
+                    ? `関連する興味タグ（${newlyAddedInterestTagNames.join('、')}）を自動で追加しました。`
+                    : '';
+                const successMessageBase = selectionRequired
+                    ? '所属候補が複数見つかりました。プルダウンから選択してください。'
+                    : 'researchmapから情報を読み込みました。';
+                const successMessage = tagToastSuffix
+                    ? `${successMessageBase}${successMessageBase.endsWith('。') ? '' : '。'}${tagToastSuffix}`
+                    : successMessageBase;
+
                 setToast({
                     isVisible: true,
-                    message: selectionRequired
-                        ? '所属候補が複数見つかりました。プルダウンから選択してください。'
-                        : 'researchmapから情報を読み込みました。',
+                    message: successMessage,
                     type: 'success'
                 });
             } else {
