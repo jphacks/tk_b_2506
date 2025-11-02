@@ -9,6 +9,7 @@ import {
     deriveAffiliationOptionsFromResearchExperience,
     deriveOccupation,
     deriveOccupationFromCareerEntry,
+    deriveInterestTagRecommendations,
     deriveResearcherName,
     normalizeResearcherId
 } from '../../utils/researchmap';
@@ -242,6 +243,16 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
         }));
     }, [tags]);
 
+    const tagIdByName = useMemo(() => {
+        const map = new Map();
+        tags.forEach((tag) => {
+            if (tag?.name && tag?.id) {
+                map.set(tag.name, tag.id);
+            }
+        });
+        return map;
+    }, [tags]);
+
     const showToast = (message, type = 'success') => {
         setToast({
             isVisible: true,
@@ -374,7 +385,39 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
             const shouldApplyDerivedAffiliation = Boolean(derivedAffiliation && !hasMultipleAffiliationCandidates);
             const shouldApplySingleCandidateAffiliation = Boolean(!hasMultipleAffiliationCandidates && singleAffiliationCandidate?.affiliation);
             const { occupationValue, occupationOtherValue } = deriveOccupation(profileData);
-            const hasDerivedValue = Boolean(
+
+            let newlyAddedInterestTagNames = [];
+            if (tagIdByName.size > 0) {
+                const availableTagNames = Array.from(tagIdByName.keys());
+                const recommendedTagNames = deriveInterestTagRecommendations(profileData, { availableTagNames });
+
+                if (recommendedTagNames.length) {
+                    setSelectedTagIds((prev) => {
+                        const nextSet = new Set(prev);
+                        const addedNames = [];
+
+                        for (const tagName of recommendedTagNames) {
+                            const tagId = tagIdByName.get(tagName);
+                            if (!tagId) {
+                                continue;
+                            }
+                            if (!nextSet.has(tagId)) {
+                                nextSet.add(tagId);
+                                addedNames.push(tagName);
+                            }
+                        }
+
+                        if (!addedNames.length) {
+                            return prev;
+                        }
+
+                        newlyAddedInterestTagNames = addedNames;
+                        return Array.from(nextSet);
+                    });
+                }
+            }
+
+            let hasDerivedValue = Boolean(
                 derivedName ||
                 shouldApplyDerivedAffiliation ||
                 shouldApplySingleCandidateAffiliation ||
@@ -382,6 +425,10 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                 occupationValue ||
                 occupationOtherValue
             );
+
+            if (newlyAddedInterestTagNames.length) {
+                hasDerivedValue = true;
+            }
 
             setIntroForm((prev) => {
                 const next = { ...prev };
@@ -458,10 +505,22 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
             setResearcherAffiliationOptions(formattedAffiliationOptions);
             setSelectedResearcherAffiliationOption(matchedOption?.value || '');
 
+            const tagToastSuffix = newlyAddedInterestTagNames.length
+                ? `関連する興味タグ（${newlyAddedInterestTagNames.join('、')}）を自動で追加しました。`
+                : '';
+
             if (hasMultipleAffiliationCandidates) {
-                showToast('所属候補が複数見つかりました。候補一覧から選択してください。', 'success');
+                const selectionMessageBase = '所属候補が複数見つかりました。候補一覧から選択してください。';
+                const selectionMessage = tagToastSuffix
+                    ? `${selectionMessageBase}${selectionMessageBase.endsWith('。') ? '' : '。'}${tagToastSuffix}`
+                    : selectionMessageBase;
+                showToast(selectionMessage, 'success');
             } else if (hasDerivedValue) {
-                showToast('researchmapから情報を読み込みました。', 'success');
+                const successMessageBase = 'researchmapから情報を読み込みました。';
+                const successMessage = tagToastSuffix
+                    ? `${successMessageBase}${successMessageBase.endsWith('。') ? '' : '。'}${tagToastSuffix}`
+                    : successMessageBase;
+                showToast(successMessage, 'success');
             } else {
                 setResearcherFetchError('researchmapに該当情報が見つかりませんでした。');
                 showToast('researchmapに該当情報が見つかりませんでした。', 'warning');
