@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { db } from '../lib/supabase';
 import { DEFAULT_INTEREST_TAGS } from '../constants/interestTags';
 
+const EXCLUDED_TAG_NAMES = new Set(['医用工学', '医療工学']);
+
 /**
  * タグ一覧を取得するフック
  * @returns {object} - { data, isLoading, isError, error, refetch }
@@ -40,13 +42,18 @@ const useTags = () => {
                 return tags;
             }
 
+            const filteredTags = tags.filter((tag) => {
+                const name = tag?.name;
+                return name && !EXCLUDED_TAG_NAMES.has(name);
+            });
+
             const descriptionMap = new Map(
                 DEFAULT_INTEREST_TAGS
                     .filter((item) => item?.name)
                     .map((item) => [item.name, item.description || null])
             );
 
-            return tags.map((tag) => {
+            return filteredTags.map((tag) => {
                 if (!tag?.name) {
                     return tag;
                 }
