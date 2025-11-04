@@ -104,12 +104,52 @@ const MessagesTab = ({ currentParticipant, conferenceId }) => {
 
     setIsSending(true);
     try {
+      const trimmedMessage = newMessage.trim();
+
       await db.createMeetRequest({
         conferenceId,
         fromParticipantId: currentParticipant.id,
         toParticipantId: selectedConversation.participantId,
-        message: newMessage.trim()
+        message: trimmedMessage
       });
+
+      // LINE通知を送信（受信者のLINEユーザーIDがある場合のみ）
+      try {
+        // 受信者の詳細情報を取得（line_user_idを含む）
+        const { data: recipientData, error: recipientError } = await supabase
+          .from('participants')
+          .select('line_user_id, introduction:introductions(name, affiliation)')
+          .eq('id', selectedConversation.participantId)
+          .single();
+
+        if (!recipientError && recipientData?.line_user_id) {
+          const senderName = currentParticipant?.introduction?.name ||
+            currentParticipant?.introduction?.affiliation ||
+            '他の参加者';
+
+          const messageText = `送信者: ${senderName}\nメッセージ: ${trimmedMessage}`;
+
+          // Supabaseセッションを取得して認証ヘッダーに使用
+          const { data: { session } } = await supabase.auth.getSession();
+          const authToken = session?.access_token;
+
+          await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-line-notification`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({
+              userId: recipientData.line_user_id,
+              message: messageText,
+              type: 'meet_request'
+            })
+          });
+        }
+      } catch (lineError) {
+        console.error('Failed to send LINE notification:', lineError);
+        // LINE通知の失敗はユーザーに表示しない
+      }
 
       setNewMessage('');
 
@@ -232,19 +272,22 @@ const MessagesTab = ({ currentParticipant, conferenceId }) => {
 
             {/* メッセージ入力 */}
             <div className="p-3 border-t border-border bg-muted/20">
-              <div className="flex gap-2">
-                <Textarea
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="メッセージを入力..."
-                  className="flex-1 min-h-[60px] max-h-[120px]"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendMessage();
-                    }
-                  }}
-                />
+              <div className="flex gap-2 items-center">
+                <div className="flex-1">
+                  <Textarea
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    placeholder="メッセージを入力..."
+                    rows={1}
+                    className="min-h-[40px] resize-none"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage();
+                      }
+                    }}
+                  />
+                </div>
                 <Button
                   onClick={handleSendMessage}
                   disabled={!newMessage.trim() || isSending}

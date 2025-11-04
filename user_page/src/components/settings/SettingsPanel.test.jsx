@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import SettingsPanel from './SettingsPanel';
 
 const mockGetUserIntroductions = vi.fn();
@@ -72,12 +73,14 @@ describe('SettingsPanel', () => {
         }]);
 
         render(
-            <SettingsPanel
-                isOpen
-                onClose={vi.fn()}
-                onLogout={vi.fn()}
-                user={baseUser}
-            />
+            <MemoryRouter>
+                <SettingsPanel
+                    isOpen
+                    onClose={vi.fn()}
+                    onLogout={vi.fn()}
+                    user={baseUser}
+                />
+            </MemoryRouter>
         );
 
         await waitFor(() => expect(mockGetUserIntroductions).toHaveBeenCalledWith('user-1'));
@@ -101,12 +104,14 @@ describe('SettingsPanel', () => {
         const user = userEvent.setup();
 
         render(
-            <SettingsPanel
-                isOpen
-                onClose={vi.fn()}
-                onLogout={vi.fn()}
-                user={baseUser}
-            />
+            <MemoryRouter>
+                <SettingsPanel
+                    isOpen
+                    onClose={vi.fn()}
+                    onLogout={vi.fn()}
+                    user={baseUser}
+                />
+            </MemoryRouter>
         );
 
         const nameInput = await screen.findByLabelText('お名前');
@@ -150,12 +155,14 @@ describe('SettingsPanel', () => {
         const user = userEvent.setup();
 
         render(
-            <SettingsPanel
-                isOpen
-                onClose={vi.fn()}
-                onLogout={vi.fn()}
-                user={baseUser}
-            />
+            <MemoryRouter>
+                <SettingsPanel
+                    isOpen
+                    onClose={vi.fn()}
+                    onLogout={vi.fn()}
+                    user={baseUser}
+                />
+            </MemoryRouter>
         );
 
         const tagsButton = await screen.findByRole('button', { name: '1個選択中' });
@@ -186,12 +193,14 @@ describe('SettingsPanel', () => {
         const user = userEvent.setup();
 
         render(
-            <SettingsPanel
-                isOpen
-                onClose={vi.fn()}
-                onLogout={vi.fn()}
-                user={baseUser}
-            />
+            <MemoryRouter>
+                <SettingsPanel
+                    isOpen
+                    onClose={vi.fn()}
+                    onLogout={vi.fn()}
+                    user={baseUser}
+                />
+            </MemoryRouter>
         );
 
         await waitFor(() => expect(mockGetUserIntroductions).toHaveBeenCalled());
@@ -218,12 +227,14 @@ describe('SettingsPanel', () => {
         const user = userEvent.setup();
 
         render(
-            <SettingsPanel
-                isOpen
-                onClose={vi.fn()}
-                onLogout={onLogout}
-                user={baseUser}
-            />
+            <MemoryRouter>
+                <SettingsPanel
+                    isOpen
+                    onClose={vi.fn()}
+                    onLogout={onLogout}
+                    user={baseUser}
+                />
+            </MemoryRouter>
         );
 
         await waitFor(() => expect(mockGetUserIntroductions).toHaveBeenCalled());
@@ -231,5 +242,40 @@ describe('SettingsPanel', () => {
         await user.click(screen.getByRole('button', { name: 'ログアウト' }));
 
         await waitFor(() => expect(onLogout).toHaveBeenCalledTimes(1));
+    });
+
+    it('invokes conference switch handler when confirmed', async () => {
+        mockGetUserIntroductions.mockResolvedValueOnce([{
+            id: 'intro-4',
+            name: 'Conference Changer',
+            affiliation: '',
+            one_liner: '',
+            conference_id: 'conf-123',
+            is_public: true
+        }]);
+
+        const onConferenceSwitch = vi.fn();
+        const user = userEvent.setup();
+
+        render(
+            <MemoryRouter>
+                <SettingsPanel
+                    isOpen
+                    onClose={vi.fn()}
+                    onLogout={vi.fn()}
+                    onConferenceSwitch={onConferenceSwitch}
+                    user={baseUser}
+                />
+            </MemoryRouter>
+        );
+
+        await waitFor(() => expect(mockGetUserIntroductions).toHaveBeenCalled());
+
+        await user.click(screen.getByRole('button', { name: '学会を変更' }));
+
+        const confirmButtons = await screen.findAllByRole('button', { name: '学会を変更' });
+        await user.click(confirmButtons[confirmButtons.length - 1]);
+
+        expect(onConferenceSwitch).toHaveBeenCalledTimes(1);
     });
 });

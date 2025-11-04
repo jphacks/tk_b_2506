@@ -173,7 +173,7 @@ Deno.serve(async (req) => {
     }
 
     // 5) Generate magic link to establish session on client
-    const redirectUrl = redirect_to || `${SUPABASE_URL}/auth/callback`;
+    const redirectUrl = redirect_to;
 
     const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
       type: "magiclink",

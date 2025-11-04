@@ -61,7 +61,7 @@ export default function Home() {
               <p className="text-muted-foreground mb-6">
                 会場のマップと場所を管理します。各プレゼンテーションに場所を割り当てることができます。
               </p>
-              <Button variant="outline" onClick={(e) => {e.stopPropagation(); router.push("/conferences");}}>
+              <Button className="bg-blue-500 text-white hover:bg-blue-500 hover:text-white" variant="outline" onClick={(e) => {e.stopPropagation(); router.push("/conferences");}}>
                 学会から選択
               </Button>
             </div>

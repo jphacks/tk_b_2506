@@ -6,7 +6,12 @@ import SettingsPanel from '../settings/SettingsPanel';
 import HelpModal from './HelpModal';
 import NotificationButton from './NotificationButton';
 
-const Header = ({ notifications = [], onNotificationClick = () => { }, showSettings = false }) => {
+const Header = ({
+    notifications = [],
+    onNotificationClick = () => { },
+    showSettings = false,
+    onConferenceSwitch
+}) => {
     const navigate = useNavigate();
     const { user, logout } = useAuth();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -117,6 +122,7 @@ const Header = ({ notifications = [], onNotificationClick = () => { }, showSetti
                 onClose={handleCloseSettings}
                 user={user}
                 onLogout={handleLogout}
+                onConferenceSwitch={onConferenceSwitch}
             />
 
             <HelpModal
