@@ -849,39 +849,18 @@ export default function ConferenceDetailPage() {
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <Input
-                      label="画像幅（px）"
-                      type="number"
-                      required
-                      value={newMap.image_width ? newMap.image_width.toString() : ""}
-                      onChange={(e) =>
-                        setNewMap({
-                          ...newMap,
-                          image_width: parseInt(e.target.value) || 0,
-                        })
-                      }
-                      disabled={mapImageDimensionsLoading}
-                    />
-
-                    <Input
-                      label="画像高さ（px）"
-                      type="number"
-                      required
-                      value={newMap.image_height ? newMap.image_height.toString() : ""}
-                      onChange={(e) =>
-                        setNewMap({
-                          ...newMap,
-                          image_height: parseInt(e.target.value) || 0,
-                        })
-                      }
-                      disabled={mapImageDimensionsLoading}
-                    />
+                  <div>
+                    <p className="text-sm font-medium text-foreground mb-1">
+                      画像サイズ
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {mapImageDimensionsLoading
+                        ? "読み込み中..."
+                        : newMap.image_width && newMap.image_height
+                          ? `${newMap.image_width} × ${newMap.image_height}px`
+                          : "画像を選択すると自動で取得されます。"}
+                    </p>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    画像を選択すると自動で入力されます。
-                    {mapImageDimensionsLoading && "（読み込み中...）"}
-                  </p>
 
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">
