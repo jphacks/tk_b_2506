@@ -57,6 +57,48 @@ npx supabase migrations up --linked
    npx supabase migrations up --linked
    ```
 
+## Edge Functionのデプロイ
+
+### 特定のEdge Functionをデプロイ
+
+```bash
+# line-login関数をデプロイ
+npx supabase functions deploy line-login
+
+# send-line-notification関数をデプロイ
+npx supabase functions deploy send-line-notification
+```
+
+### すべてのEdge Functionをデプロイ
+
+```bash
+# すべてのEdge Functionを一括デプロイ
+npx supabase functions deploy
+```
+
+### Edge Functionのログを確認
+
+```bash
+# リアルタイムでログを監視
+npx supabase functions logs <function_name>
+
+# 例: line-loginのログを確認
+npx supabase functions logs line-login
+```
+
+### Edge Functionの環境変数（Secrets）を設定
+
+```bash
+# 環境変数を設定
+npx supabase secrets set <KEY>=<VALUE>
+
+# 例: LINE_CHANNEL_SECRETを設定
+npx supabase secrets set LINE_CHANNEL_SECRET=your_secret_here
+
+# 設定済みのSecretsを確認
+npx supabase secrets list
+```
+
 ## seedsデータの挿入
 - SQL EditorからRunコマンドをたたいて実行
 

@@ -173,8 +173,7 @@ Deno.serve(async (req) => {
     }
 
     // 5) Generate magic link to establish session on client
-    const redirectUrl = "https://unmilted-amirah-nonethnologic.ngrok-free.dev/auth/callback";
-    console.log("Magic link redirect URL:", redirectUrl);
+    const redirectUrl = redirect_to || `${SUPABASE_URL}/auth/callback`;
 
     const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
       type: "magiclink",

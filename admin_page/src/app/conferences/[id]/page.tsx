@@ -96,11 +96,12 @@ export default function ConferenceDetailPage() {
   const [selectedMap, setSelectedMap] = useState<Map | null>(null);
   const [mapFile, setMapFile] = useState<File | null>(null);
   const [uploadingMap, setUploadingMap] = useState(false);
+  const [mapImageDimensionsLoading, setMapImageDimensionsLoading] = useState(false);
   const [newMap, setNewMap] = useState({
     name: "",
     location_id: "",
-    image_width: 1200,
-    image_height: 800,
+    image_width: 0,
+    image_height: 0,
     is_active: true,
   });
 
@@ -328,9 +329,46 @@ export default function ConferenceDetailPage() {
   };
 
   const handleMapFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setMapFile(e.target.files[0]);
+    if (!e.target.files || !e.target.files[0]) {
+      return;
     }
+
+    const file = e.target.files[0];
+    setMapFile(file);
+    setError("");
+    setMapImageDimensionsLoading(true);
+    setNewMap((prev) => ({
+      ...prev,
+      image_width: 0,
+      image_height: 0,
+    }));
+
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+
+    image.onload = () => {
+      setNewMap((prev) => ({
+        ...prev,
+        image_width: image.naturalWidth,
+        image_height: image.naturalHeight,
+      }));
+      setMapImageDimensionsLoading(false);
+      URL.revokeObjectURL(objectUrl);
+    };
+
+    image.onerror = () => {
+      console.error("Failed to read map image dimensions");
+      setError("画像サイズの読み込みに失敗しました。別のファイルをお試しください。");
+      setMapImageDimensionsLoading(false);
+      setNewMap((prev) => ({
+        ...prev,
+        image_width: 0,
+        image_height: 0,
+      }));
+      URL.revokeObjectURL(objectUrl);
+    };
+
+    image.src = objectUrl;
   };
 
   const handleAddMap = async (e: React.FormEvent) => {
@@ -341,6 +379,12 @@ export default function ConferenceDetailPage() {
     try {
       if (!newMap.name || !mapFile || !newMap.location_id) {
         setError("マップ名・画像・紐づける場所を選択してください");
+        setUploadingMap(false);
+        return;
+      }
+
+      if (!newMap.image_width || !newMap.image_height) {
+        setError("画像サイズが自動取得できませんでした。画像ファイルをご確認ください。");
         setUploadingMap(false);
         return;
       }
@@ -367,11 +411,12 @@ export default function ConferenceDetailPage() {
       setNewMap({
         name: "",
         location_id: "",
-        image_width: 1200,
-        image_height: 800,
+        image_width: 0,
+        image_height: 0,
         is_active: true,
       });
       setMapFile(null);
+      setMapImageDimensionsLoading(false);
       setShowAddMap(false);
       setSelectedMap(createdMap);
       loadMaps();
@@ -804,32 +849,17 @@ export default function ConferenceDetailPage() {
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <Input
-                      label="画像幅（px）"
-                      type="number"
-                      required
-                      value={newMap.image_width.toString()}
-                      onChange={(e) =>
-                        setNewMap({
-                          ...newMap,
-                          image_width: parseInt(e.target.value) || 1200,
-                        })
-                      }
-                    />
-
-                    <Input
-                      label="画像高さ（px）"
-                      type="number"
-                      required
-                      value={newMap.image_height.toString()}
-                      onChange={(e) =>
-                        setNewMap({
-                          ...newMap,
-                          image_height: parseInt(e.target.value) || 800,
-                        })
-                      }
-                    />
+                  <div>
+                    <p className="text-sm font-medium text-foreground mb-1">
+                      画像サイズ
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {mapImageDimensionsLoading
+                        ? "読み込み中..."
+                        : newMap.image_width && newMap.image_height
+                          ? `${newMap.image_width} × ${newMap.image_height}px`
+                          : "画像を選択すると自動で取得されます。"}
+                    </p>
                   </div>
 
                   <div>
