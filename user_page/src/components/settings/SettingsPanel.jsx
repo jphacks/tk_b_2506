@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import useConferences from '../../hooks/useConferences';
 import { db, supabase } from '../../lib/supabase';
 import VisibilityToggle from '../../pages/self-introduction-form/components/VisibilityToggle';
@@ -51,6 +52,7 @@ const initialPasswordForm = {
 
 const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, conferenceName }) => {
     const panelRef = useRef(null);
+    const navigate = useNavigate();
     const [introForm, setIntroForm] = useState(initialIntroForm);
     const [introErrors, setIntroErrors] = useState({});
     const [introId, setIntroId] = useState(null);
@@ -1036,7 +1038,17 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                                                 onClick={() => {
                                                     setShowConferenceConfirm(false);
                                                     onClose?.();
-                                                    onConferenceSwitch?.();
+                                                    if (onConferenceSwitch) {
+                                                        onConferenceSwitch();
+                                                        return;
+                                                    }
+                                                    navigate('/select-conference', {
+                                                        state: {
+                                                            requiresSelection: false,
+                                                            currentConferenceId: conferenceId,
+                                                            reason: '別の学会に切り替えます。パスワードを入力してください。'
+                                                        }
+                                                    });
                                                 }}
                                             >
                                                 学会を変更
