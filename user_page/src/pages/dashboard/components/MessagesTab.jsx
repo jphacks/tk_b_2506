@@ -133,7 +133,7 @@ const MessagesTab = ({ currentParticipant, conferenceId }) => {
           const { data: { session } } = await supabase.auth.getSession();
           const authToken = session?.access_token;
 
-          await fetch('https://cqudhplophskbgzepoti.supabase.co/functions/v1/send-line-notification', {
+          await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-line-notification`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
