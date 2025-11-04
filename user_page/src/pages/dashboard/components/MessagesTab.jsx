@@ -272,19 +272,22 @@ const MessagesTab = ({ currentParticipant, conferenceId }) => {
 
             {/* メッセージ入力 */}
             <div className="p-3 border-t border-border bg-muted/20">
-              <div className="flex gap-2">
-                <Textarea
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="メッセージを入力..."
-                  className="flex-1 min-h-[60px] max-h-[120px]"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendMessage();
-                    }
-                  }}
-                />
+              <div className="flex gap-2 items-center">
+                <div className="flex-1">
+                  <Textarea
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    placeholder="メッセージを入力..."
+                    rows={1}
+                    className="min-h-[40px] resize-none"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage();
+                      }
+                    }}
+                  />
+                </div>
                 <Button
                   onClick={handleSendMessage}
                   disabled={!newMessage.trim() || isSending}
