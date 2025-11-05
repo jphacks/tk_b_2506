@@ -21,5 +21,6 @@ admin_page/.env*.local
 user_page/node_modules/
 user_page/.env.local
 user_page/.env*.local
+user_page/build/
 
 .temp/
