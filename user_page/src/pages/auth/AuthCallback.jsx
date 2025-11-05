@@ -50,27 +50,25 @@ const AuthCallback = () => {
           setStatus('Supabase認証を処理中...');
 
           // Edge Functionを呼び出してSupabase認証
-          const resp = await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/line-login`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-              },
-              body: JSON.stringify({
-                id_token: idToken,
-                line_user_id: profile.userId,
-                name: profile.displayName,
-                picture: profile.pictureUrl,
-                redirect_to: `${window.location.origin}/auth/callback`,
-              }),
-            }
-          );
+          const edgeFunctionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/line-login`;
+
+          const resp = await fetch(edgeFunctionUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify({
+              id_token: idToken,
+              line_user_id: profile.userId,
+              name: profile.displayName,
+              picture: profile.pictureUrl,
+              redirect_to: `${window.location.origin}/auth/callback`,
+            }),
+          });
 
           if (!resp.ok) {
             const errorData = await resp.text();
-            console.error('line-login failed:', errorData);
             throw new Error(`LINE認証処理に失敗しました: ${errorData}`);
           }
 

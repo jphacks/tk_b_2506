@@ -44,16 +44,30 @@ const LiffEntry = () => {
         } catch (_) { }
 
         setMessage('サインイン処理中…');
-        const res = await fetch('/api/line-login', {
+        
+        // Supabase Edge Function の正しいURLを構築
+        const edgeFunctionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/line-login`;
+
+        const res = await fetch(edgeFunctionUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ idToken, lineUserId: profile?.userId || null })
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({ 
+            id_token: idToken, 
+            line_user_id: profile?.userId || null,
+            name: profile?.displayName || null,
+            picture: profile?.pictureUrl || null,
+            redirect_to: `${window.location.origin}/auth/callback`
+          })
         });
 
         // APIがトークンを返す場合はクライアント側でセッションを確立
         if (res.ok) {
           try {
             const payload = await res.json();
+            
             // 1) token ペア方式
             if (payload?.access_token && payload?.refresh_token) {
               await supabase.auth.setSession({
@@ -68,9 +82,13 @@ const LiffEntry = () => {
               window.location.replace(payload.url);
               return;
             }
-          } catch (_) {
+          } catch (e) {
+            console.error('[LiffEntry] Error parsing response:', e);
             // JSON以外（Cookie方式）の場合は無視
           }
+        } else {
+          const errorText = await res.text();
+          console.error('[LiffEntry] Edge Function error:', errorText);
         }
         // 何も返ってこない場合は通常の認証ページへ
         navigate('/auth', { replace: true });
