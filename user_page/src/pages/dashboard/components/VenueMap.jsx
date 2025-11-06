@@ -78,6 +78,7 @@ const VenueMap = ({
     const [selectedLocation, setSelectedLocation] = useState(null);
     const [selectedRegionId, setSelectedRegionId] = useState(null);
     const [selectedParticipant, setSelectedParticipant] = useState(null);
+    const [hasMovedToDesk, setHasMovedToDesk] = useState(false);
 
     const regions = useMemo(() => mapData?.regions ?? [], [mapData]);
     const mapLocation = mapData?.location ?? null;
@@ -85,6 +86,10 @@ const VenueMap = ({
     useEffect(() => {
         setSelectedRegionId(null);
     }, [mapData?.id]);
+
+    useEffect(() => {
+        setHasMovedToDesk(false);
+    }, [selectedLocation?.id]);
 
     const hasValidDimensions = Number.isFinite(mapData?.imageWidth) && Number.isFinite(mapData?.imageHeight) && mapData.imageWidth > 0 && mapData.imageHeight > 0;
     const aspectRatio = hasValidDimensions
@@ -131,6 +136,7 @@ const VenueMap = ({
     const handleCloseLocationModal = () => {
         setSelectedLocation(null);
         setSelectedRegionId(null);
+        setHasMovedToDesk(false);
     };
 
     const renderRegion = (region) => {
@@ -165,6 +171,19 @@ const VenueMap = ({
             </g>
         );
     };
+
+    const isAlreadyAtSelectedLocation = Boolean(
+        selectedLocation &&
+        currentLocation &&
+        selectedLocation.id === currentLocation.id &&
+        selectedLocation.mapRegionId === currentParticipant?.current_map_region_id
+    );
+
+    const shouldShowMoveButton = Boolean(
+        onLocationUpdate &&
+        selectedLocation &&
+        (!isAlreadyAtSelectedLocation || hasMovedToDesk)
+    );
 
     return (
         <div className="bg-card border border-border rounded-xl shadow-soft p-6 flex flex-col gap-6">
@@ -315,26 +334,30 @@ const VenueMap = ({
                             />
                         </div>
                         <div className="flex gap-2">
-                            {onLocationUpdate && (
-                                selectedLocation.id !== currentLocation?.id ||
-                                selectedLocation.mapRegionId !== currentParticipant?.current_map_region_id
-                            ) && (
-                                    <Button
-                                        variant="primary"
-                                        onClick={() => {
-                                            onLocationUpdate(selectedLocation.id, {
+                            {shouldShowMoveButton && (
+                                <Button
+                                    variant={hasMovedToDesk ? 'danger' : 'default'}
+                                    className="h-12 text-base"
+                                    iconName="MapPin"
+                                    disabled={hasMovedToDesk}
+                                    onClick={async () => {
+                                        try {
+                                            await onLocationUpdate(selectedLocation.id, {
                                                 mapRegionId: selectedLocation.mapRegionId,
                                                 deskLabel: selectedLocation.mapLabel
-                                            });
-                                            handleCloseLocationModal();
-                                        }}
-                                        fullWidth
-                                    >
-                                        📍 この机に移動する
-                                    </Button>
-                                )}
+                                            }, { suppressToast: true });
+                                            setHasMovedToDesk(true);
+                                        } catch (error) {
+                                            console.error('[VenueMap] Failed to update location:', error);
+                                        }
+                                    }}
+                                    fullWidth
+                                >
+                                    {hasMovedToDesk ? '移動しました' : 'この机へ移動する'}
+                                </Button>
+                            )}
                             <Button
-                                variant="success"
+                                variant="secondary"
                                 onClick={handleCloseLocationModal}
                                 fullWidth
                             >

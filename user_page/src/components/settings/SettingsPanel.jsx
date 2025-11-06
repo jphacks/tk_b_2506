@@ -865,7 +865,7 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                                                 onClick={handleResearcherFetch}
                                                 loading={isFetchingResearcher}
                                                 disabled={isFetchingResearcher}
-                                                className="w-full sm:w-auto h-10"
+                                                className="w-full h-12 text-base"
                                             >
                                                 自動入力
                                             </Button>
@@ -992,7 +992,7 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                                     fullWidth={false}
                                     iconName="Lock"
                                     iconPosition="left"
-                                    className="flex-1 h-10"
+                                    className="w-full h-12 text-base"
                                     onClick={() => setShowPasswordDialog(true)}
                                 >
                                     パスワードを変更
@@ -1005,7 +1005,7 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                                     fullWidth={false}
                                     iconName="LogOut"
                                     iconPosition="left"
-                                    className="flex-1 h-10"
+                                    className="w-full h-12 text-base"
                                     onClick={handleLogoutClick}
                                     loading={isLoggingOut}
                                     disabled={isLoggingOut}
@@ -1025,7 +1025,7 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                                             </div>
                                         </div>
                                         <div className="flex justify-center gap-8 mt-4">
-                                            <Button variant="success" type="button" size="xl" className="w-40 h-10" onClick={() => setShowConferenceConfirm(false)}>
+                                            <Button variant="secondary" type="button" size="xl" className="w-full h-12 text-base" onClick={() => setShowConferenceConfirm(false)}>
                                                 閉じる
                                             </Button>
                                             <Button
@@ -1034,7 +1034,7 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                                                 iconName="RefreshCw"
                                                 iconPosition="left"
                                                 size="xl"
-                                                className="w-40 h-10"
+                                                className="w-full h-12 text-base"
                                                 onClick={() => {
                                                     setShowConferenceConfirm(false);
                                                     onClose?.();
@@ -1097,9 +1097,9 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                                                 <div className="flex justify-center gap-8 mt-4">
                                                     <Button
                                                         type="button"
-                                                        variant="success"
+                                                        variant="secondary"
                                                         size="xl"
-                                                        className="w-40 h-10"
+                                                        className="w-40 h-12"
                                                         onClick={() => setShowPasswordDialog(false)}
                                                         disabled={isUpdatingPassword}
                                                     >
@@ -1109,7 +1109,7 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                                                         type="submit"
                                                         variant="primary"
                                                         size="xl"
-                                                        className="w-40 h-10"
+                                                        className="w-40 h-12"
                                                         loading={isUpdatingPassword}
                                                         disabled={isUpdatingPassword}
                                                     >

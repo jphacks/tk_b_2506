@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Icon from '../AppIcon';
 import Button from './Button';
 
@@ -9,6 +9,8 @@ const MessageModal = ({
   onChat = () => { },
   onVisit = () => { }
 }) => {
+  const [hasVisited, setHasVisited] = useState(false);
+
   useEffect(() => {
     const originalOverflow = document.body.style.overflow;
     if (isOpen) {
@@ -19,6 +21,14 @@ const MessageModal = ({
       document.body.style.overflow = originalOverflow;
     };
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setHasVisited(false);
+      return;
+    }
+    setHasVisited(false);
+  }, [isOpen, message?.id]);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -49,6 +59,16 @@ const MessageModal = ({
     });
   };
 
+  const handleVisit = async () => {
+    if (!message) return;
+    try {
+      await onVisit(message);
+      setHasVisited(true);
+    } catch (error) {
+      console.error('[MessageModal] Failed to visit location:', error);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-card border border-border rounded-lg shadow-lg w-full max-w-md">
@@ -69,12 +89,14 @@ const MessageModal = ({
         {/* Content */}
         <div className="p-4 space-y-4">
           {/* Sender Info */}
-          <div className="bg-muted/30 rounded-lg p-3">
+          <div>
             <div className="flex items-center space-x-2 mb-2">
               <Icon name="User" size={16} className="text-muted-foreground" />
               <span className="text-sm font-medium">差出人</span>
             </div>
-            <p className="text-sm">{message.senderName || '他の参加者'}</p>
+            <div className="bg-muted/30 rounded-lg p-3">
+              <p className="text-sm">{message.senderName || '他の参加者'}</p>
+            </div>
           </div>
 
           {/* Message */}
@@ -104,24 +126,24 @@ const MessageModal = ({
             <Button
               variant="default"
               size="lg"
-              className="flex-1 h-12 text-base"
+              className="w-full h-12 text-base"
               onClick={() => message && onChat(message)}
               iconName="MessageSquare"
             >
               チャットへ
             </Button>
             <Button
-              variant="default"
+              variant={hasVisited ? 'danger' : 'default'}
               size="lg"
-              className="flex-1 h-12 text-base"
-              onClick={() => message && onVisit(message)}
+              className="w-full h-12 text-base"
+              onClick={handleVisit}
               iconName="MapPin"
             >
-              会いに行く
+              {hasVisited ? '移動しました' : '場所へ移動'}
             </Button>
           </div>
           <Button
-            variant="success"
+            variant="secondary"
             size="lg"
             onClick={onClose}
             className="w-full h-12 text-base"

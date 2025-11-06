@@ -10,9 +10,9 @@ const RecommendedTab = ({
 }) => {
   return (
     <div className="space-y-6">
-      <div className="bg-muted/30 border border-border rounded-lg p-4">
-        <h2 className="text-lg font-semibold mb-2">おすすめの研究者</h2>
-        <p className="text-sm text-muted-foreground">
+      <div className="bg-card border border-border rounded-xl p-6 shadow-soft">
+        <h2 className="text-lg font-semibold text-foreground">おすすめの研究者</h2>
+        <p className="text-sm text-muted-foreground mt-1">
           あなたの研究トピックに基づいて、興味を持ちそうな研究者を表示しています。
         </p>
       </div>

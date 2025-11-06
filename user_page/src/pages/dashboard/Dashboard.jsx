@@ -1,6 +1,7 @@
 import liff from '@line/liff'; // 追加
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 import Header from '../../components/ui/Header';
 import MessageModal from '../../components/ui/MessageModal';
@@ -276,7 +277,8 @@ const Dashboard = () => {
         });
     };
 
-    const handleLocationUpdate = async (locationId, deskInfo = {}) => {
+    const handleLocationUpdate = async (locationId, deskInfo = {}, options = {}) => {
+        const { suppressToast = false } = options;
         if (!currentParticipant?.id || !locationId) return;
 
         try {
@@ -311,15 +313,17 @@ const Dashboard = () => {
             await refetchParticipants();
             await refetchLocations();
 
-            const message = deskInfo.deskLabel
-                ? `${deskInfo.deskLabel}に移動しました！`
-                : '位置情報を更新しました！';
+            if (!suppressToast) {
+                const message = deskInfo.deskLabel
+                    ? `${deskInfo.deskLabel}に移動しました！`
+                    : '位置情報を更新しました！';
 
-            setToast({
-                isVisible: true,
-                message,
-                type: 'success'
-            });
+                setToast({
+                    isVisible: true,
+                    message,
+                    type: 'success'
+                });
+            }
         } catch (error) {
             console.error('Failed to update location:', error);
             setToast({
@@ -368,10 +372,14 @@ const Dashboard = () => {
             return;
         }
 
-        await handleLocationUpdate(targetLocationId, {
-            mapRegionId: participant.current_map_region_id || null,
-            deskLabel: participant.current_map_region?.label || participant.location?.name || null
-        });
+        await handleLocationUpdate(
+            targetLocationId,
+            {
+                mapRegionId: participant.current_map_region_id || null,
+                deskLabel: participant.current_map_region?.label || participant.location?.name || null
+            },
+            { suppressToast: true }
+        );
     };
 
     const markNotificationAsRead = async (notificationId) => {
@@ -676,36 +684,41 @@ const Dashboard = () => {
                 showSettings={true}
                 onConferenceSwitch={handleConferenceSwitch}
             />
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-                <div className="flex items-center justify-end gap-3 w-full">
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 space-y-3">
+                <div className="flex justify-end">
                     {currentLocation && (
-                        <span className="flex items-center text-base text-muted-foreground">
-                            <svg className="w-5 h-5 mr-1 text-red-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 21c4.418 0 8-7.29 8-11A8 8 0 0 0 4 10c0 3.71 3.582 11 8 11Zm0-9a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z" fill="currentColor" /></svg>
-                            現在地：{currentLocation.name}{mapRegionLabel && `・${mapRegionLabel}`}
+                        <span className="inline-flex items-center gap-1 rounded-full border border-border bg-card/70 px-3 py-1 text-sm text-muted-foreground shadow-sm">
+                            <Icon name="MapPin" size={16} className="text-primary" />
+                            <span className="font-medium">現在地：</span>
+                            <span>{currentLocation.name}{mapRegionLabel && `・${mapRegionLabel}`}</span>
                         </span>
                     )}
                 </div>
-                {!conferenceMeta && !conferencesLoading && (
-                    <div>
-                        <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={handleConferenceReselect}
-                        >
-                            学会を再選択する
-                        </Button>
-                    </div>
-                )}
-                {(conferencesError || locationsError || participantsError) && (
-                    <div className="bg-error/10 text-error border border-error/30 rounded-lg px-4 py-3 text-sm">
-                        データの取得中にエラーが発生しました。必要に応じてリロードしてください。
-                        {conferencesError && (
-                            <div className="mt-1">
-                                学会情報: {conferencesError.message}
-                            </div>
-                        )}
-                    </div>
-                )}
+                {
+                    !conferenceMeta && !conferencesLoading && (
+                        <div>
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={handleConferenceReselect}
+                            >
+                                学会を再選択する
+                            </Button>
+                        </div>
+                    )
+                }
+                {
+                    (conferencesError || locationsError || participantsError) && (
+                        <div className="bg-error/10 text-error border border-error/30 rounded-lg px-4 py-3 text-sm">
+                            データの取得中にエラーが発生しました。必要に応じてリロードしてください。
+                            {conferencesError && (
+                                <div className="mt-1">
+                                    学会情報: {conferencesError.message}
+                                </div>
+                            )}
+                        </div>
+                    )
+                }
                 {/* タブUI */}
                 <Tabs
                     tabs={tabs}
@@ -782,7 +795,7 @@ const Dashboard = () => {
                         />
                     )}
                 </div>
-            </main>
+            </main >
             <Toast
                 isVisible={toast.isVisible}
                 message={toast.message}

@@ -63,6 +63,7 @@ const ParticipantProfileModal = ({
     const [sending, setSending] = useState(false);
     const [hasSent, setHasSent] = useState(false);
     const [feedback, setFeedback] = useState({ type: null, text: '' });
+    const [hasMoved, setHasMoved] = useState(false);
 
     const effectiveConferenceId = useMemo(
         () => conferenceId ?? participant.conference_id ?? currentParticipant?.conference_id ?? null,
@@ -79,6 +80,7 @@ const ParticipantProfileModal = ({
         setSending(false);
         setHasSent(false);
         setFeedback({ type: null, text: '' });
+        setHasMoved(false);
     }, [participant?.id]);
 
     useEffect(() => {
@@ -203,8 +205,13 @@ const ParticipantProfileModal = ({
         }
     };
 
-    const handleVisitParticipant = () => {
-        onVisitParticipant?.(participant);
+    const handleVisitParticipant = async () => {
+        try {
+            await onVisitParticipant?.(participant);
+            setHasMoved(true);
+        } catch (error) {
+            console.error('[ParticipantProfileModal] Failed to visit participant location:', error);
+        }
     };
 
     return createPortal(
@@ -288,16 +295,17 @@ const ParticipantProfileModal = ({
                                             {hasSent ? 'もう一度送信' : 'メッセージを送信'}
                                         </Button>
                                         <Button
-                                            variant="default"
+                                            variant={hasMoved ? 'danger' : 'default'}
                                             className="w-full h-12 text-base"
                                             iconName="MapPin"
                                             onClick={handleVisitParticipant}
                                             fullWidth
+                                            disabled={hasMoved}
                                         >
-                                            会いに行く
+                                            {hasMoved ? '移動しました' : '場所へ移動'}
                                         </Button>
                                         <Button
-                                            variant="success"
+                                            variant="secondary"
                                             className="w-full h-12 text-base"
                                             onClick={onClose}
                                             disabled={sending}
@@ -317,16 +325,17 @@ const ParticipantProfileModal = ({
                                     </p>
                                     <div className="space-y-3">
                                         <Button
-                                            variant="default"
+                                            variant={hasMoved ? 'danger' : 'default'}
                                             className="w-full h-12 text-base"
                                             iconName="MapPin"
                                             onClick={handleVisitParticipant}
                                             fullWidth
+                                            disabled={hasMoved}
                                         >
-                                            会いに行く
+                                            {hasMoved ? '移動しました' : '場所へ移動'}
                                         </Button>
                                         <Button
-                                            variant="success"
+                                            variant="secondary"
                                             className="w-full h-12 text-base"
                                             onClick={onClose}
                                             fullWidth

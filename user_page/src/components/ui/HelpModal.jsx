@@ -27,10 +27,10 @@ const HelpModal = ({ isOpen, onClose }) => {
             <div>
               <h3 className="font-medium text-foreground mb-2">主な機能</h3>
               <ul className="space-y-1 list-disc list-inside">
+                <li>自己紹介プロフィール管理</li>
                 <li>QRコードを用いた位置情報更新</li>
                 <li>メッセージの送信</li>
                 <li>おすすめの研究者の検索</li>
-                <li>自己紹介プロフィール管理</li>
                 <li>リアルタイム通知</li>
               </ul>
             </div>
@@ -41,7 +41,7 @@ const HelpModal = ({ isOpen, onClose }) => {
                 <li>アカウントを作成してログイン</li>
                 <li>参加する学会を選択</li>
                 <li>自己紹介プロフィールを作成</li>
-                <li>ダッシュボードで他の参加者と交流</li>
+                <li>参加者と交流!</li>
               </ol>
             </div>
 
@@ -54,7 +54,7 @@ const HelpModal = ({ isOpen, onClose }) => {
           <div className="mt-6 pt-4 border-t border-border">
             <button
               onClick={onClose}
-              className="w-full px-4 py-2 bg-success text-success-foreground rounded-lg hover:bg-success/90 transition-gentle"
+              className="w-full h-12 text-base bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/90 transition-gentle"
             >
               閉じる
             </button>
