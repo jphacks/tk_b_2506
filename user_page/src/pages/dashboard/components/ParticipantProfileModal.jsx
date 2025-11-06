@@ -180,7 +180,7 @@ const ParticipantProfileModal = ({
 
     const helperText = useMemo(() => {
         if (canSendRequest) {
-            return '待ち合わせの希望時間や場所を具体的に書き添えてください。';
+            return 'メッセージ送信時は、待ち合わせの希望時間や場所を具体的に書き添えてください。';
         }
         if (isSelf) {
             return '自分自身にはメッセージを送信できません。';
@@ -271,12 +271,12 @@ const ParticipantProfileModal = ({
                                         placeholder="例: セッション後に5Fロビーでお話ししませんか？"
                                         value={message}
                                         onChange={handleMessageChange}
-                                        rows={1}
+                                        rows={3}
                                         maxLength={MAX_MESSAGE_LENGTH}
                                         description={`最大${MAX_MESSAGE_LENGTH}文字（${message.length}/${MAX_MESSAGE_LENGTH}）`}
                                         error={feedback.type === 'error' ? feedback.text : undefined}
                                         disabled={sending}
-                                        className="min-h-0 h-9 text-sm leading-tight"
+                                        className="min-h-[72px] text-sm leading-relaxed"
                                     />
                                     {feedback.type === 'success' && (
                                         <p className="text-xs text-primary text-left">
