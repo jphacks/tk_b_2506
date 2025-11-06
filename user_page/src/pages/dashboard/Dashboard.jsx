@@ -792,6 +792,7 @@ const Dashboard = () => {
                             conferenceId={conferenceId}
                             selectedParticipantId={pendingChatParticipantId}
                             onConversationReady={() => setPendingChatParticipantId(null)}
+                            onVisitParticipant={handleVisitButtonFromProfile}
                         />
                     )}
                 </div>

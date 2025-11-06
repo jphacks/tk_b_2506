@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react';
 import Button from '../../../components/ui/Button';
 import Textarea from '../../../components/ui/Textarea';
+import ParticipantProfileModal from './ParticipantProfileModal';
 import { db, supabase } from '../../../lib/supabase';
 import Icon from '../../../components/AppIcon';
 
-const MessagesTab = ({ currentParticipant, conferenceId, selectedParticipantId = null, onConversationReady = null }) => {
+const MessagesTab = ({
+  currentParticipant,
+  conferenceId,
+  selectedParticipantId = null,
+  onConversationReady = null,
+  onVisitParticipant = () => { }
+}) => {
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -12,6 +19,8 @@ const MessagesTab = ({ currentParticipant, conferenceId, selectedParticipantId =
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isConversationView, setIsConversationView] = useState(false);
+  const [profileParticipant, setProfileParticipant] = useState(null);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   // 会話一覧を取得（ミートリクエストから）
   useEffect(() => {
@@ -205,6 +214,17 @@ const MessagesTab = ({ currentParticipant, conferenceId, selectedParticipantId =
     }
   }, [selectedConversation]);
 
+  const handleOpenProfile = (participant) => {
+    if (!participant) return;
+    setProfileParticipant(participant);
+    setIsProfileModalOpen(true);
+  };
+
+  const handleCloseProfile = () => {
+    setIsProfileModalOpen(false);
+    setProfileParticipant(null);
+  };
+
   const renderConversationHeader = () => {
     if (!selectedConversation) {
       return (
@@ -230,13 +250,20 @@ const MessagesTab = ({ currentParticipant, conferenceId, selectedParticipantId =
           <Icon name="ArrowLeft" size={18} className="text-muted-foreground" />
         </button>
         <div>
-          <h3 className="text-sm font-semibold">{name}</h3>
+          <button
+            type="button"
+            onClick={() => handleOpenProfile(selectedConversation.participant)}
+            className="text-sm font-semibold text-left hover:underline"
+          >
+            {name}
+          </button>
         </div>
       </div>
     );
   };
 
   return (
+    <>
     <div className="bg-card border border-border rounded-xl shadow-soft h-[600px] flex flex-col">
       {isLoading && (
         <div className="flex-1 flex items-center justify-center">
@@ -272,15 +299,34 @@ const MessagesTab = ({ currentParticipant, conferenceId, selectedParticipantId =
                     const isActive = selectedConversation?.participantId === conv.participantId;
 
                     return (
-                      <button
+                      <div
                         key={conv.participantId}
+                        role="button"
+                        tabIndex={0}
                         onClick={() => handleOpenConversation(conv)}
-                        className={`w-full text-left p-3 transition-colors ${isActive
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleOpenConversation(conv);
+                          }
+                        }}
+                        className={`w-full text-left p-3 transition-colors cursor-pointer ${isActive
                           ? 'bg-primary/10 border-l-4 border-primary'
                           : 'hover:bg-muted/40'
                           }`}
                       >
-                        <p className="font-medium text-sm truncate">{name}</p>
+                        <p className="font-medium text-sm truncate">
+                          <button
+                            type="button"
+                            className="w-full text-left hover:underline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenProfile(conv.participant);
+                            }}
+                          >
+                            {name}
+                          </button>
+                        </p>
                         <p className="text-xs text-muted-foreground truncate mt-1">
                           {conv.lastMessage || 'メッセージなし'}
                         </p>
@@ -292,7 +338,7 @@ const MessagesTab = ({ currentParticipant, conferenceId, selectedParticipantId =
                             minute: '2-digit'
                           })}
                         </p>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -380,6 +426,16 @@ const MessagesTab = ({ currentParticipant, conferenceId, selectedParticipantId =
         </div>
       )}
     </div>
+      {isProfileModalOpen && profileParticipant && (
+        <ParticipantProfileModal
+          participant={profileParticipant}
+          currentParticipant={currentParticipant}
+          conferenceId={conferenceId}
+          onClose={handleCloseProfile}
+          onVisitParticipant={onVisitParticipant}
+        />
+      )}
+    </>
   );
 };
 
