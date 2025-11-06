@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Button from '../../../components/ui/Button';
 import Textarea from '../../../components/ui/Textarea';
 import { db, supabase } from '../../../lib/supabase';
+import Icon from '../../../components/AppIcon';
 
 const MessagesTab = ({ currentParticipant, conferenceId, selectedParticipantId = null, onConversationReady = null }) => {
   const [conversations, setConversations] = useState([]);
@@ -10,6 +11,7 @@ const MessagesTab = ({ currentParticipant, conferenceId, selectedParticipantId =
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isConversationView, setIsConversationView] = useState(false);
 
   // 会話一覧を取得（ミートリクエストから）
   useEffect(() => {
@@ -81,6 +83,7 @@ const MessagesTab = ({ currentParticipant, conferenceId, selectedParticipantId =
 
     if (existing && existing.participantId !== selectedConversation?.participantId) {
       setSelectedConversation(existing);
+      setIsConversationView(true);
       if (typeof onConversationReady === 'function') {
         onConversationReady();
       }
@@ -186,137 +189,196 @@ const MessagesTab = ({ currentParticipant, conferenceId, selectedParticipantId =
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <p className="text-muted-foreground">読み込み中...</p>
-        </div>
-      </div>
-    );
-  }
+  const handleOpenConversation = (conversation) => {
+    setSelectedConversation(conversation);
+    setIsConversationView(true);
+  };
 
-  if (conversations.length === 0) {
+  const handleBackToList = () => {
+    setIsConversationView(false);
+    setSelectedConversation(null);
+  };
+
+  useEffect(() => {
+    if (!selectedConversation) {
+      setIsConversationView(false);
+    }
+  }, [selectedConversation]);
+
+  const renderConversationHeader = () => {
+    if (!selectedConversation) {
+      return (
+        <div className="flex items-center p-3 border-b border-border bg-muted/30">
+          <h3 className="text-sm font-semibold text-muted-foreground">会話を選択してください</h3>
+        </div>
+      );
+    }
+
+    const name =
+      selectedConversation.participant?.introduction?.name ||
+      selectedConversation.participant?.introduction?.affiliation ||
+      '名前未設定';
+
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center space-y-2">
-          <p className="text-lg font-medium">メッセージがありません</p>
-          <p className="text-sm text-muted-foreground">
-            参加者にメッセージを送信すると、ここに表示されます。
-          </p>
+      <div className="flex items-center gap-3 p-3 border-b border-border bg-muted/30">
+        <button
+          type="button"
+          onClick={handleBackToList}
+          className="md:hidden inline-flex items-center justify-center w-9 h-9 rounded-full hover:bg-muted transition-colors"
+          aria-label="戻る"
+        >
+          <Icon name="ArrowLeft" size={18} className="text-muted-foreground" />
+        </button>
+        <div>
+          <h3 className="text-sm font-semibold">{name}</h3>
         </div>
       </div>
     );
-  }
+  };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-[600px]">
-      {/* 会話一覧 */}
-      <div className="md:col-span-1 border border-border rounded-lg overflow-y-auto">
-        <div className="p-3 border-b border-border bg-muted/30">
-          <h3 className="font-semibold">会話</h3>
+    <div className="bg-card border border-border rounded-xl shadow-soft h-[600px] flex flex-col">
+      {isLoading && (
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-muted-foreground">読み込み中...</p>
         </div>
-        <div className="divide-y divide-border">
-          {conversations.map((conv) => {
-            const name = conv.participant?.introduction?.name ||
-              conv.participant?.introduction?.affiliation ||
-              '名前未設定';
-
-            return (
-              <button
-                key={conv.participantId}
-                onClick={() => setSelectedConversation(conv)}
-                className={`w-full text-left p-3 hover:bg-muted/40 transition-colors ${selectedConversation?.participantId === conv.participantId
-                  ? 'bg-primary/10 border-l-4 border-primary'
-                  : ''
-                  }`}
-              >
-                <p className="font-medium text-sm truncate">{name}</p>
-                <p className="text-xs text-muted-foreground truncate mt-1">
-                  {conv.lastMessage || 'メッセージなし'}
-                </p>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* メッセージ表示 */}
-      <div className="md:col-span-2 border border-border rounded-lg flex flex-col">
-        {selectedConversation ? (
-          <>
-            {/* ヘッダー */}
-            <div className="p-3 border-b border-border bg-muted/30">
-              <h3 className="font-semibold">
-                {selectedConversation.participant?.introduction?.name ||
-                  selectedConversation.participant?.introduction?.affiliation ||
-                  '名前未設定'}
-              </h3>
+      )}
+      {!isLoading && (
+        <div className="flex flex-1 flex-col md:flex-row">
+          {/* Conversation list */}
+          <div
+            className={`${isConversationView ? 'hidden' : 'flex'} md:flex md:w-1/3 flex-col border-b md:border-b-0 md:border-r border-border`}
+          >
+            <div className="flex items-center p-3 border-b border-border bg-muted/20">
+              <h3 className="text-sm font-semibold">メッセージ</h3>
             </div>
-
-            {/* メッセージ一覧 */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {messages.map((msg) => {
-                const isSent = msg.from_participant_id === currentParticipant.id;
-                return (
-                  <div
-                    key={msg.id}
-                    className={`flex ${isSent ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div
-                      className={`max-w-[70%] rounded-lg px-4 py-2 ${isSent
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted'
-                        }`}
-                    >
-                      <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
-                      <p className={`text-xs mt-1 ${isSent ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                        {new Date(msg.created_at).toLocaleString('ja-JP', {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </p>
-                    </div>
+            <div className="flex-1 overflow-y-auto">
+              {conversations.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-center px-4 py-8">
+                  <div>
+                    <p className="text-sm font-medium">メッセージがありません</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      参加者にメッセージを送信すると、ここに表示されます。
+                    </p>
                   </div>
-                );
-              })}
-            </div>
-
-            {/* メッセージ入力 */}
-            <div className="p-3 border-t border-border bg-muted/20">
-              <div className="flex gap-2 items-center">
-                <div className="flex-1">
-                  <Textarea
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder="メッセージを入力..."
-                    rows={1}
-                    className="min-h-[40px] resize-none"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendMessage();
-                      }
-                    }}
-                  />
                 </div>
-                <Button
-                  onClick={handleSendMessage}
-                  disabled={!newMessage.trim() || isSending}
-                >
-                  {isSending ? '送信中...' : '送信'}
-                </Button>
-              </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {conversations.map((conv) => {
+                    const name = conv.participant?.introduction?.name ||
+                      conv.participant?.introduction?.affiliation ||
+                      '名前未設定';
+
+                    const isActive = selectedConversation?.participantId === conv.participantId;
+
+                    return (
+                      <button
+                        key={conv.participantId}
+                        onClick={() => handleOpenConversation(conv)}
+                        className={`w-full text-left p-3 transition-colors ${isActive
+                          ? 'bg-primary/10 border-l-4 border-primary'
+                          : 'hover:bg-muted/40'
+                          }`}
+                      >
+                        <p className="font-medium text-sm truncate">{name}</p>
+                        <p className="text-xs text-muted-foreground truncate mt-1">
+                          {conv.lastMessage || 'メッセージなし'}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          {new Date(conv.lastMessageTime).toLocaleString('ja-JP', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          </>
-        ) : (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-muted-foreground">会話を選択してください</p>
           </div>
-        )}
-      </div>
+
+          {/* Chat panel */}
+          <div className={`${isConversationView ? 'flex' : 'hidden'} md:flex flex-1 flex-col`}>
+            <div className="border-b border-border">
+              {renderConversationHeader()}
+            </div>
+            {selectedConversation ? (
+              <>
+                <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-background">
+                  {messages.length === 0 ? (
+                    <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                      まだメッセージがありません
+                    </div>
+                  ) : (
+                    messages.map((msg) => {
+                      const isSent = msg.from_participant_id === currentParticipant.id;
+                      return (
+                        <div
+                          key={msg.id}
+                          className={`flex ${isSent ? 'justify-end' : 'justify-start'}`}
+                        >
+                          <div
+                            className={`max-w-[80%] rounded-2xl px-4 py-2 ${isSent
+                              ? 'bg-primary text-primary-foreground rounded-br-sm'
+                              : 'bg-muted rounded-bl-sm'
+                              }`}
+                          >
+                            <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                            <p className={`text-[10px] mt-1 ${isSent ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                              {new Date(msg.created_at).toLocaleString('ja-JP', {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                <div className="p-3 border-t border-border bg-muted/20">
+                  <div className="flex gap-2 items-end w-full">
+                    <div className="flex-1">
+                      <Textarea
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        placeholder="メッセージを入力..."
+                        rows={1}
+                        className="min-h-[44px] resize-none"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendMessage();
+                          }
+                        }}
+                      />
+                    </div>
+                    <Button
+                      onClick={handleSendMessage}
+                      disabled={!newMessage.trim() || isSending}
+                      className="h-11 px-5 flex-shrink-0"
+                    >
+                      {isSending ? '送信中' : '送信'}
+                    </Button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-center px-4">
+                <p className="text-sm text-muted-foreground">
+                  {conversations.length === 0 ? 'メッセージがありません' : '会話を選択してください'}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
