@@ -668,6 +668,7 @@ export default function ConferenceDetailPage() {
                 </h2>
                 <Button
                   size="sm"
+                  variant={showAddLocation ? "success" : "default"}
                   onClick={() => setShowAddLocation(!showAddLocation)}
                 >
                   {showAddLocation ? "キャンセル" : "場所を追加"}
@@ -797,6 +798,7 @@ export default function ConferenceDetailPage() {
                 </h2>
                 <Button
                   size="sm"
+                  variant={showAddMap ? "success" : "default"}
                   onClick={() => setShowAddMap(!showAddMap)}
                 >
                   {showAddMap ? "キャンセル" : "マップを追加"}

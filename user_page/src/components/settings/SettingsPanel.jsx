@@ -1025,7 +1025,7 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                                             </div>
                                         </div>
                                         <div className="flex justify-center gap-8 mt-4">
-                                            <Button variant="secondary" type="button" size="xl" className="w-40 h-10" onClick={() => setShowConferenceConfirm(false)}>
+                                            <Button variant="success" type="button" size="xl" className="w-40 h-10" onClick={() => setShowConferenceConfirm(false)}>
                                                 閉じる
                                             </Button>
                                             <Button
@@ -1097,7 +1097,7 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                                                 <div className="flex justify-center gap-8 mt-4">
                                                     <Button
                                                         type="button"
-                                                        variant="secondary"
+                                                        variant="success"
                                                         size="xl"
                                                         className="w-40 h-10"
                                                         onClick={() => setShowPasswordDialog(false)}

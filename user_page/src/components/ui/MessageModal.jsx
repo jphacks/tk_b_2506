@@ -121,10 +121,10 @@ const MessageModal = ({
             </Button>
           </div>
           <Button
-            variant="outline"
-            size="sm"
+            variant="success"
+            size="lg"
             onClick={onClose}
-            className="w-full"
+            className="w-full h-12 text-base"
           >
             閉じる
           </Button>

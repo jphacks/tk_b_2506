@@ -218,58 +218,49 @@ const ParticipantProfileModal = ({
                 <div className="flex min-h-full items-center justify-center px-4 py-8 sm:px-6">
                     <div
                         className="relative w-full max-w-lg bg-card border border-border rounded-2xl shadow-large overflow-hidden flex flex-col max-h-[90vh]"
-                    role="dialog"
-                    aria-modal="true"
-                    aria-label="参加者のプロフィール"
-                    onMouseDown={(event) => event.stopPropagation()}
-                >
-                    <header className="flex items-start justify-between gap-4 px-6 py-5 border-b border-border">
-                        <div>
-                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">参加者プロフィール</p>
-                            <h2 className="text-xl font-semibold text-foreground">
-                                {introduction.name || '匿名参加者'}
-                            </h2>
-                            {introduction.affiliation && (
-                                <p className="text-sm text-muted-foreground mt-1">
-                                    {introduction.affiliation}
-                                </p>
-                            )}
-                        </div>
-                    </header>
-
-                        <div className="px-6 py-5 space-y-5 flex-1 overflow-y-auto">
-                            {introduction.one_liner && (
-                                <div className="rounded-xl border border-border/60 bg-muted/50 px-4 py-3 text-sm text-foreground">
-                                    {introduction.one_liner}
-                                </div>
-                            )}
-
-                            <div className="grid gap-4">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <ProfileField label="所属" value={introduction.affiliation} />
-                                    <ProfileField label="職業" value={occupation} />
-                                </div>
-                                <ProfileField label="研究トピック" value={introduction.research_topic} />
-                                <ProfileField label="興味・関心" value={introduction.interests} />
-                                <ProfileField label="現在地" value={locationDisplay} />
-                                <ProfileField label="登録日時" value={registeredAt} />
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="参加者のプロフィール"
+                        onMouseDown={(event) => event.stopPropagation()}
+                    >
+                        <header className="flex items-start justify-between gap-4 px-6 py-5 border-b border-border">
+                            <div>
+                                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">参加者プロフィール</p>
+                                <h2 className="text-xl font-semibold text-foreground">
+                                    {introduction.name || '匿名参加者'}
+                                </h2>
+                                {introduction.affiliation && (
+                                    <p className="text-sm text-muted-foreground mt-1">
+                                        {introduction.affiliation}
+                                    </p>
+                                )}
                             </div>
-                        </div>
+                        </header>
 
-                        <footer className="px-6 py-4 border-t border-border bg-muted/40">
+                        <div className="px-6 py-5 space-y-6 flex-1 overflow-y-auto">
+                            <div className="space-y-5">
+                                {introduction.one_liner && (
+                                    <div className="rounded-xl border border-border/60 bg-muted/50 px-4 py-3 text-sm text-foreground">
+                                        {introduction.one_liner}
+                                    </div>
+                                )}
+
+                                <div className="grid gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <ProfileField label="所属" value={introduction.affiliation} />
+                                        <ProfileField label="職業" value={occupation} />
+                                    </div>
+                                    <ProfileField label="研究トピック" value={introduction.research_topic} />
+                                    <ProfileField label="興味・関心" value={introduction.interests} />
+                                    <ProfileField label="現在地" value={locationDisplay} />
+                                    <ProfileField label="登録日時" value={registeredAt} />
+                                </div>
+                            </div>
+
                             {canSendRequest ? (
                                 <div className="space-y-4">
-                                    <Button
-                                        variant="default"
-                                        size="lg"
-                                        className="w-full h-12 text-base"
-                                        iconName="MapPin"
-                                        onClick={handleVisitParticipant}
-                                    >
-                                        会いに行く
-                                    </Button>
                                     <Textarea
-                                        label="ミートリクエストを送信"
+                                        label="メッセージを送信"
                                         placeholder="例: セッション後に5Fロビーでお話ししませんか？"
                                         value={message}
                                         onChange={handleMessageChange}
@@ -285,54 +276,67 @@ const ParticipantProfileModal = ({
                                             {feedback.text}
                                         </p>
                                     )}
-                                    <p className="text-xs text-muted-foreground text-left">
-                                        {helperText}
-                                    </p>
-                                    <div className="flex flex-col sm:flex-row gap-2">
-                                        <Button
-                                            variant="secondary"
-                                            onClick={onClose}
-                                            fullWidth
-                                            disabled={sending}
-                                        >
-                                            閉じる
-                                        </Button>
+                                    <div className="space-y-3">
                                         <Button
                                             onClick={handleSendRequest}
                                             loading={sending}
                                             disabled={sending || !message.trim()}
                                             iconName="Send"
-                                            iconPosition="right"
+                                            iconPosition="left"
                                             fullWidth
                                         >
                                             {hasSent ? 'もう一度送信' : 'メッセージを送信'}
                                         </Button>
+                                        <Button
+                                            variant="default"
+                                            className="w-full h-12 text-base"
+                                            iconName="MapPin"
+                                            onClick={handleVisitParticipant}
+                                            fullWidth
+                                        >
+                                            会いに行く
+                                        </Button>
+                                        <Button
+                                            variant="success"
+                                            className="w-full h-12 text-base"
+                                            onClick={onClose}
+                                            disabled={sending}
+                                            fullWidth
+                                        >
+                                            閉じる
+                                        </Button>
                                     </div>
-                                </div>
-                            ) : (
-                                <div className="space-y-3">
-                                    <Button
-                                        variant="default"
-                                        size="lg"
-                                        className="w-full h-12 text-base"
-                                        iconName="MapPin"
-                                        onClick={handleVisitParticipant}
-                                    >
-                                        会いに行く
-                                    </Button>
                                     <p className="text-xs text-muted-foreground text-left">
                                         {helperText}
                                     </p>
-                                    <Button
-                                        variant="secondary"
-                                        fullWidth
-                                        onClick={onClose}
-                                    >
-                                        閉じる
-                                    </Button>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    <p className="text-xs text-muted-foreground text-left">
+                                        {helperText}
+                                    </p>
+                                    <div className="space-y-3">
+                                        <Button
+                                            variant="default"
+                                            className="w-full h-12 text-base"
+                                            iconName="MapPin"
+                                            onClick={handleVisitParticipant}
+                                            fullWidth
+                                        >
+                                            会いに行く
+                                        </Button>
+                                        <Button
+                                            variant="success"
+                                            className="w-full h-12 text-base"
+                                            onClick={onClose}
+                                            fullWidth
+                                        >
+                                            閉じる
+                                        </Button>
+                                    </div>
                                 </div>
                             )}
-                        </footer>
+                        </div>
                     </div>
                 </div>
             </div>

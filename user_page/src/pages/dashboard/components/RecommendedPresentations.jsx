@@ -177,7 +177,7 @@ const RecommendedPresentations = ({
                         {presentation.ai_summary && presentation.ai_summary.length > 100 && (
                             <button
                                 onClick={() => toggleExpand(presentation.id)}
-                                className="text-xs text-primary hover:underline flex items-center gap-1"
+                                className={`text-xs flex items-center gap-1 hover:underline ${expandedId === presentation.id ? 'text-success hover:text-success/80' : 'text-primary'}`}
                             >
                                 {expandedId === presentation.id ? (
                                     <>

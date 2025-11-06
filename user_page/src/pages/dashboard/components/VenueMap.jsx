@@ -334,7 +334,7 @@ const VenueMap = ({
                                     </Button>
                                 )}
                             <Button
-                                variant="secondary"
+                                variant="success"
                                 onClick={handleCloseLocationModal}
                                 fullWidth
                             >

@@ -560,7 +560,7 @@ export function MapEditor({
           <Button onClick={finishPolygon} size="sm">
             多角形を完成 ({currentPoints.length}点)
           </Button>
-          <Button onClick={handleCancelDrawing} size="sm" variant="outline">
+          <Button onClick={handleCancelDrawing} size="sm" variant="success">
             キャンセル
           </Button>
         </div>
@@ -568,7 +568,7 @@ export function MapEditor({
 
       {(startPoint && (shapeType === "rect" || shapeType === "circle")) && (
         <div className="flex gap-2">
-          <Button onClick={handleCancelDrawing} size="sm" variant="outline">
+          <Button onClick={handleCancelDrawing} size="sm" variant="success">
             描画をキャンセル
           </Button>
         </div>

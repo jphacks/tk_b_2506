@@ -420,7 +420,7 @@ export default function NewPresentationPage() {
           <div className="flex justify-end gap-4">
             <Button
               type="button"
-              variant="outline"
+              variant="success"
               onClick={() => router.back()}
             >
               キャンセル

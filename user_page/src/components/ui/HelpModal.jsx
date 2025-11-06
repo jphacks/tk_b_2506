@@ -54,7 +54,7 @@ const HelpModal = ({ isOpen, onClose }) => {
           <div className="mt-6 pt-4 border-t border-border">
             <button
               onClick={onClose}
-              className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-gentle"
+              className="w-full px-4 py-2 bg-success text-success-foreground rounded-lg hover:bg-success/90 transition-gentle"
             >
               閉じる
             </button>

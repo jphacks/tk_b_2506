@@ -128,7 +128,7 @@ const QrScanButton = ({
                                 </div>
                             )}
                             <Button
-                                variant="secondary"
+                                variant="success"
                                 onClick={() => setIsModalOpen(false)}
                                 disabled={isScanning}
                                 fullWidth
