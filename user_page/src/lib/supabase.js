@@ -589,7 +589,7 @@ export const db = {
                 debugLog('[db.createMeetRequest] 受信者がLINE認証済み、通知を送信します');
                 await sendLineNotification({
                     participantId: toParticipantId,
-                    message: `新しいミートリクエストが届きました！\n\n${message || 'メッセージなし'}`,
+                    message: `新しいメッセージが届きました！\n\n${message || 'メッセージなし'}`,
                     type: 'meet_request'
                 });
                 debugLog('[db.createMeetRequest] LINE通知送信成功');

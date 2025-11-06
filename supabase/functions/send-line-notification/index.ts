@@ -66,7 +66,7 @@ serve(async (req) => {
     if (type === 'meet_request') {
       lineMessage = {
         type: 'text',
-        text: `🔔 新しいミートリクエストが届きました！
+        text: `🔔 新しいメッセージが届きました！
 
 ${message}
 

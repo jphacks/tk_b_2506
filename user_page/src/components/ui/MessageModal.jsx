@@ -5,7 +5,9 @@ import Button from './Button';
 const MessageModal = ({
   isOpen = false,
   message = null,
-  onClose = () => { }
+  onClose = () => { },
+  onChat = () => { },
+  onVisit = () => { }
 }) => {
   useEffect(() => {
     const originalOverflow = document.body.style.overflow;
@@ -54,7 +56,7 @@ const MessageModal = ({
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="flex items-center space-x-2">
             <Icon name="MessageCircle" size={20} className="text-primary" />
-            <h2 className="font-medium text-lg">ミートリクエスト</h2>
+            <h2 className="font-medium text-lg">新しいメッセージ</h2>
           </div>
           <button
             onClick={onClose}
@@ -96,8 +98,28 @@ const MessageModal = ({
           )}
         </div>
 
-        {/* Close Button */}
-        <div className="p-4 border-t border-border">
+        {/* Actions */}
+        <div className="p-4 border-t border-border space-y-3">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button
+              variant="default"
+              size="lg"
+              className="flex-1 h-12 text-base"
+              onClick={() => message && onChat(message)}
+              iconName="MessageSquare"
+            >
+              チャットへ
+            </Button>
+            <Button
+              variant="default"
+              size="lg"
+              className="flex-1 h-12 text-base"
+              onClick={() => message && onVisit(message)}
+              iconName="MapPin"
+            >
+              会いに行く
+            </Button>
+          </div>
           <Button
             variant="outline"
             size="sm"

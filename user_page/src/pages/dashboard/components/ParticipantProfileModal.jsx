@@ -33,7 +33,13 @@ const formatDateTime = (value) => {
     }).format(parsed);
 };
 
-const ParticipantProfileModal = ({ participant, currentParticipant = null, conferenceId = null, onClose }) => {
+const ParticipantProfileModal = ({
+    participant,
+    currentParticipant = null,
+    conferenceId = null,
+    onClose,
+    onVisitParticipant = () => { }
+}) => {
     if (!participant || typeof document === 'undefined') {
         return null;
     }
@@ -197,6 +203,10 @@ const ParticipantProfileModal = ({ participant, currentParticipant = null, confe
         }
     };
 
+    const handleVisitParticipant = () => {
+        onVisitParticipant?.(participant);
+    };
+
     return createPortal(
         <>
             <div
@@ -204,9 +214,10 @@ const ParticipantProfileModal = ({ participant, currentParticipant = null, confe
                 onMouseDown={onClose}
                 aria-hidden="true"
             />
-            <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8 sm:px-6">
-                <div
-                    className="relative w-full max-w-lg bg-card border border-border rounded-2xl shadow-large overflow-hidden"
+            <div className="fixed inset-0 z-50 overflow-y-auto">
+                <div className="flex min-h-full items-center justify-center px-4 py-8 sm:px-6">
+                    <div
+                        className="relative w-full max-w-lg bg-card border border-border rounded-2xl shadow-large overflow-hidden flex flex-col max-h-[90vh]"
                     role="dialog"
                     aria-modal="true"
                     aria-label="参加者のプロフィール"
@@ -226,84 +237,103 @@ const ParticipantProfileModal = ({ participant, currentParticipant = null, confe
                         </div>
                     </header>
 
-                    <div className="px-6 py-5 space-y-5 max-h-[70vh] overflow-y-auto">
-                        {introduction.one_liner && (
-                            <div className="rounded-xl border border-border/60 bg-muted/50 px-4 py-3 text-sm text-foreground">
-                                {introduction.one_liner}
-                            </div>
-                        )}
+                        <div className="px-6 py-5 space-y-5 flex-1 overflow-y-auto">
+                            {introduction.one_liner && (
+                                <div className="rounded-xl border border-border/60 bg-muted/50 px-4 py-3 text-sm text-foreground">
+                                    {introduction.one_liner}
+                                </div>
+                            )}
 
-                        <div className="grid gap-4">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <ProfileField label="所属" value={introduction.affiliation} />
-                                <ProfileField label="職業" value={occupation} />
+                            <div className="grid gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <ProfileField label="所属" value={introduction.affiliation} />
+                                    <ProfileField label="職業" value={occupation} />
+                                </div>
+                                <ProfileField label="研究トピック" value={introduction.research_topic} />
+                                <ProfileField label="興味・関心" value={introduction.interests} />
+                                <ProfileField label="現在地" value={locationDisplay} />
+                                <ProfileField label="登録日時" value={registeredAt} />
                             </div>
-                            <ProfileField label="研究トピック" value={introduction.research_topic} />
-                            <ProfileField label="興味・関心" value={introduction.interests} />
-                            <ProfileField label="現在地" value={locationDisplay} />
-                            <ProfileField label="登録日時" value={registeredAt} />
                         </div>
-                    </div>
 
-                    <footer className="px-6 py-3 border-t border-border bg-muted/40">
-                        {canSendRequest ? (
-                            <div className="space-y-1">
-                                <Textarea
-                                    label="ミートリクエストを送信"
-                                    placeholder="例: セッション後に5Fロビーでお話ししませんか？"
-                                    value={message}
-                                    onChange={handleMessageChange}
-                                    rows={1}
-                                    maxLength={MAX_MESSAGE_LENGTH}
-                                    description={`最大${MAX_MESSAGE_LENGTH}文字（${message.length}/${MAX_MESSAGE_LENGTH}）`}
-                                    error={feedback.type === 'error' ? feedback.text : undefined}
-                                    disabled={sending}
-                                    className="min-h-0 h-9 text-sm leading-tight"
-                                />
-                                {feedback.type === 'success' && (
-                                    <p className="text-xs text-primary text-left">
-                                        {feedback.text}
+                        <footer className="px-6 py-4 border-t border-border bg-muted/40">
+                            {canSendRequest ? (
+                                <div className="space-y-4">
+                                    <Button
+                                        variant="default"
+                                        size="lg"
+                                        className="w-full h-12 text-base"
+                                        iconName="MapPin"
+                                        onClick={handleVisitParticipant}
+                                    >
+                                        会いに行く
+                                    </Button>
+                                    <Textarea
+                                        label="ミートリクエストを送信"
+                                        placeholder="例: セッション後に5Fロビーでお話ししませんか？"
+                                        value={message}
+                                        onChange={handleMessageChange}
+                                        rows={1}
+                                        maxLength={MAX_MESSAGE_LENGTH}
+                                        description={`最大${MAX_MESSAGE_LENGTH}文字（${message.length}/${MAX_MESSAGE_LENGTH}）`}
+                                        error={feedback.type === 'error' ? feedback.text : undefined}
+                                        disabled={sending}
+                                        className="min-h-0 h-9 text-sm leading-tight"
+                                    />
+                                    {feedback.type === 'success' && (
+                                        <p className="text-xs text-primary text-left">
+                                            {feedback.text}
+                                        </p>
+                                    )}
+                                    <p className="text-xs text-muted-foreground text-left">
+                                        {helperText}
                                     </p>
-                                )}
-                                <p className="text-xs text-muted-foreground text-left">
-                                    {helperText}
-                                </p>
-                                <div className="flex flex-col sm:flex-row gap-2">
+                                    <div className="flex flex-col sm:flex-row gap-2">
+                                        <Button
+                                            variant="secondary"
+                                            onClick={onClose}
+                                            fullWidth
+                                            disabled={sending}
+                                        >
+                                            閉じる
+                                        </Button>
+                                        <Button
+                                            onClick={handleSendRequest}
+                                            loading={sending}
+                                            disabled={sending || !message.trim()}
+                                            iconName="Send"
+                                            iconPosition="right"
+                                            fullWidth
+                                        >
+                                            {hasSent ? 'もう一度送信' : 'メッセージを送信'}
+                                        </Button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    <Button
+                                        variant="default"
+                                        size="lg"
+                                        className="w-full h-12 text-base"
+                                        iconName="MapPin"
+                                        onClick={handleVisitParticipant}
+                                    >
+                                        会いに行く
+                                    </Button>
+                                    <p className="text-xs text-muted-foreground text-left">
+                                        {helperText}
+                                    </p>
                                     <Button
                                         variant="secondary"
-                                        onClick={onClose}
                                         fullWidth
-                                        disabled={sending}
+                                        onClick={onClose}
                                     >
                                         閉じる
                                     </Button>
-                                    <Button
-                                        onClick={handleSendRequest}
-                                        loading={sending}
-                                        disabled={sending || !message.trim()}
-                                        iconName="Send"
-                                        iconPosition="right"
-                                        fullWidth
-                                    >
-                                        {hasSent ? 'もう一度送信' : 'メッセージを送信'}
-                                    </Button>
                                 </div>
-                            </div>
-                        ) : (
-                            <div className="space-y-3">
-                                <p className="text-xs text-muted-foreground text-left">
-                                    {helperText}
-                                </p>
-                                <Button
-                                    variant="secondary"
-                                    fullWidth
-                                    onClick={onClose}
-                                >
-                                    閉じる
-                                </Button>
-                            </div>
-                        )}
-                    </footer>
+                            )}
+                        </footer>
+                    </div>
                 </div>
             </div>
         </>,

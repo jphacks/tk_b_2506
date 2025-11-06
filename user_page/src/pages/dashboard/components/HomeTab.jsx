@@ -11,7 +11,8 @@ const HomeTab = ({
   error,
   onQrScanSuccess,
   onQrScanError,
-  user
+  user,
+  onVisitParticipant = () => { }
 }) => {
   return (
     <div className="space-y-6">
@@ -34,6 +35,7 @@ const HomeTab = ({
         onOccupationFilterChange={onOccupationFilterChange}
         isLoading={isLoading}
         error={error}
+        onVisitParticipant={onVisitParticipant}
       />
     </div>
   );

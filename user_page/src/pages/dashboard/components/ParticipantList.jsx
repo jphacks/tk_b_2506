@@ -43,6 +43,7 @@ const ParticipantList = ({
     // フィルタUI
     occupationFilter = 'all',
     onOccupationFilterChange,
+    onVisitParticipant = () => { },
 }) => {
     const [selectedParticipant, setSelectedParticipant] = useState(null);
 
@@ -220,7 +221,7 @@ const ParticipantList = ({
                 )}
             </div>
 
-            <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+            <div className="space-y-3">
                 {filtered.map((participant) => {
                     const intro = participant?.introduction ?? {};
                     const location = participant?.location;
@@ -285,6 +286,7 @@ const ParticipantList = ({
                     currentParticipant={currentParticipant}
                     conferenceId={conferenceId}
                     onClose={handleCloseProfile}
+                    onVisitParticipant={onVisitParticipant}
                 />
             )}
         </div>

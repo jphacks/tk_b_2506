@@ -48,6 +48,7 @@ const Dashboard = () => {
     });
 
     const [notifications, setNotifications] = useState([]);
+    const [pendingChatParticipantId, setPendingChatParticipantId] = useState(null);
     const [selectedMessage, setSelectedMessage] = useState(null);
     const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
     const notificationsLoadedRef = useRef(false);
@@ -329,23 +330,129 @@ const Dashboard = () => {
         }
     };
 
-    const handleNotificationClick = async (notification) => {
-        setSelectedMessage(notification);
-        setIsMessageModalOpen(true);
+    const getParticipantDisplayName = (participant) => {
+        return (
+            participant?.introduction?.name ||
+            participant?.introduction?.affiliation ||
+            'この参加者'
+        );
+    };
 
-        // データベースで既読にする
+    const showMissingLocationToast = (participantName) => {
+        setToast({
+            isVisible: true,
+            type: 'error',
+            message: (
+                <span className="text-error font-semibold">
+                    {`${participantName}さんの現在地が設定されていません。`}
+                </span>
+            )
+        });
+    };
+
+    const visitParticipantLocation = async (participant) => {
+        if (!participant) {
+            setToast({
+                isVisible: true,
+                type: 'error',
+                message: '参加者の情報を取得できませんでした。'
+            });
+            return;
+        }
+
+        const targetLocationId = participant?.current_location_id || participant?.location?.id;
+
+        if (!targetLocationId) {
+            const participantName = getParticipantDisplayName(participant);
+            showMissingLocationToast(participantName);
+            return;
+        }
+
+        await handleLocationUpdate(targetLocationId, {
+            mapRegionId: participant.current_map_region_id || null,
+            deskLabel: participant.current_map_region?.label || participant.location?.name || null
+        });
+    };
+
+    const markNotificationAsRead = async (notificationId) => {
+        if (!notificationId) {
+            return;
+        }
+
         try {
-            await db.markMeetRequestAsRead(notification.id);
+            await db.markMeetRequestAsRead(notificationId);
 
             // ローカル状態も更新
             setNotifications(prev =>
                 prev.map(n =>
-                    n.id === notification.id ? { ...n, is_read: true } : n
+                    n.id === notificationId ? { ...n, is_read: true } : n
                 )
             );
         } catch (error) {
             console.error('Failed to mark notification as read:', error);
         }
+    };
+    const handleNotificationClick = async (notification) => {
+        setSelectedMessage(notification);
+        setIsMessageModalOpen(true);
+        await markNotificationAsRead(notification.id);
+    };
+
+    const handleNotificationChat = async (notification) => {
+        await markNotificationAsRead(notification.id);
+
+        const senderParticipantId = notification.senderParticipantId
+            || notification.requestData?.from_participant_id;
+
+        if (!senderParticipantId) {
+            setToast({
+                isVisible: true,
+                type: 'error',
+                message: 'チャット相手の情報を取得できませんでした。'
+            });
+            return;
+        }
+
+        setActiveTab('messages');
+        setSearchParams({ tab: 'messages' });
+        setPendingChatParticipantId(senderParticipantId);
+    };
+
+    const handleNotificationVisit = async (notification) => {
+        await markNotificationAsRead(notification.id);
+
+        const senderParticipantId = notification.senderParticipantId
+            || notification.requestData?.from_participant_id;
+
+        if (!senderParticipantId) {
+            setToast({
+                isVisible: true,
+                type: 'error',
+                message: '参加者の場所情報を取得できませんでした。'
+            });
+            return;
+        }
+
+        const senderParticipant = participants.find((participant) => participant.id === senderParticipantId);
+        await visitParticipantLocation(senderParticipant);
+    };
+
+    const handleVisitButtonFromProfile = async (participant) => {
+        await visitParticipantLocation(participant);
+    };
+
+    const handleModalChat = async () => {
+        if (!selectedMessage) return;
+        await handleNotificationChat(selectedMessage);
+        setIsMessageModalOpen(false);
+        setSelectedMessage(null);
+    };
+
+    const handleModalVisit = async () => {
+        if (!selectedMessage) return;
+        await handleNotificationVisit(selectedMessage);
+        setIsMessageModalOpen(false);
+        setSelectedMessage(null);
     };
 
     useEffect(() => {
@@ -391,9 +498,10 @@ const Dashboard = () => {
 
                                 const newNotification = {
                                     id: newRequest.id,
-                                    title: '新しいミートリクエスト',
+                                    title: '新しいメッセージ',
                                     message: messagePreview,
                                     senderName,
+                                    senderParticipantId: sender?.id || newRequest.from_participant_id,
                                     content: newRequest.message,
                                     timestamp: newRequest.created_at,
                                     is_read: newRequest.is_read || false,
@@ -451,9 +559,10 @@ const Dashboard = () => {
 
                     return {
                         id: request.id,
-                        title: 'ミートリクエスト',
+                        title: 'メッセージ',
                         message: messagePreview,
                         senderName,
+                        senderParticipantId: sender?.id || request.from_participant_id,
                         content: request.message,
                         timestamp: request.created_at,
                         is_read: request.is_read || false,
@@ -631,6 +740,7 @@ const Dashboard = () => {
                             locationError={locationsError}
                             mapError={mapsError}
                             user={user}
+                            onVisitParticipant={handleVisitButtonFromProfile}
                         />
                     )}
                     {activeTab === 'recommended' && (
@@ -667,6 +777,8 @@ const Dashboard = () => {
                         <MessagesTab
                             currentParticipant={currentParticipant}
                             conferenceId={conferenceId}
+                            selectedParticipantId={pendingChatParticipantId}
+                            onConversationReady={() => setPendingChatParticipantId(null)}
                         />
                     )}
                 </div>
@@ -685,6 +797,8 @@ const Dashboard = () => {
                     setIsMessageModalOpen(false);
                     setSelectedMessage(null);
                 }}
+                onChat={handleModalChat}
+                onVisit={handleModalVisit}
             />
         </div >
     );

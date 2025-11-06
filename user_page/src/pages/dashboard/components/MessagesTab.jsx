@@ -3,7 +3,7 @@ import Button from '../../../components/ui/Button';
 import Textarea from '../../../components/ui/Textarea';
 import { db, supabase } from '../../../lib/supabase';
 
-const MessagesTab = ({ currentParticipant, conferenceId }) => {
+const MessagesTab = ({ currentParticipant, conferenceId, selectedParticipantId = null, onConversationReady = null }) => {
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -72,6 +72,20 @@ const MessagesTab = ({ currentParticipant, conferenceId }) => {
 
     loadConversations();
   }, [currentParticipant?.id, conferenceId]);
+
+  useEffect(() => {
+    if (!selectedParticipantId || conversations.length === 0) return;
+    const existing = conversations.find(
+      (conversation) => conversation.participantId === selectedParticipantId
+    );
+
+    if (existing && existing.participantId !== selectedConversation?.participantId) {
+      setSelectedConversation(existing);
+      if (typeof onConversationReady === 'function') {
+        onConversationReady();
+      }
+    }
+  }, [selectedParticipantId, conversations, selectedConversation, onConversationReady]);
 
   // 選択した会話のメッセージを取得
   useEffect(() => {
@@ -188,7 +202,7 @@ const MessagesTab = ({ currentParticipant, conferenceId }) => {
         <div className="text-center space-y-2">
           <p className="text-lg font-medium">メッセージがありません</p>
           <p className="text-sm text-muted-foreground">
-            参加者にミートリクエストを送信すると、ここにメッセージが表示されます。
+            参加者にメッセージを送信すると、ここに表示されます。
           </p>
         </div>
       </div>

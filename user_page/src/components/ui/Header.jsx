@@ -50,15 +50,7 @@ const Header = ({
                 <div className="w-full px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center justify-between h-16">
                         {/* Logo Section */}
-                        <div className="flex items-center space-x-3">
-                            <div className="flex items-center justify-center w-10 h-10 bg-primary rounded-lg">
-                                <Icon
-                                    name="Users"
-                                    size={24}
-                                    color="white"
-                                    strokeWidth={2}
-                                />
-                            </div>
+                        <div className="flex items-center">
                             <div className="flex flex-col">
                                 <div className="flex items-center space-x-3">
                                     <h1 className="text-lg font-heading font-semibold text-foreground">
