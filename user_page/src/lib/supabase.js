@@ -896,7 +896,6 @@ export const auth = {
             window.location.href = url;
         } catch (e) {
             console.error(e);
-            alert('LINEログイン処理でエラーが発生しました');
         }
     },
 
