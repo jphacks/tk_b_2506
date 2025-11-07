@@ -743,13 +743,20 @@ const Dashboard = () => {
                     </div>
                 )}
                 <div className="flex justify-end">
-                    {currentLocation && (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-border bg-card/70 px-3 py-1 text-sm text-muted-foreground shadow-sm">
-                            <Icon name="MapPin" size={16} className="text-primary" />
-                            <span className="font-medium">現在地：</span>
-                            <span>{currentLocation.name}{mapRegionLabel && `・${mapRegionLabel}`}</span>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-card/70 px-3 py-1 text-sm text-muted-foreground shadow-sm">
+                        <Icon name="MapPin" size={16} className="text-primary" />
+                        <span className="font-medium">位置情報：</span>
+                        <span>
+                            {currentLocation ? (
+                                <>
+                                    {currentLocation.name}
+                                    {mapRegionLabel && `・${mapRegionLabel}`}
+                                </>
+                            ) : (
+                                '未設定'
+                            )}
                         </span>
-                    )}
+                    </span>
                 </div>
                 {
                     !conferenceMeta && !conferencesLoading && (
