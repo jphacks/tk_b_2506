@@ -138,8 +138,9 @@ const MessageModal = ({
               className="w-full h-12 text-base"
               onClick={handleVisit}
               iconName="MapPin"
+              disabled={hasVisited}
             >
-              {hasVisited ? '移動しました' : '場所へ移動'}
+              {hasVisited ? '移動しました' : '机へ移動'}
             </Button>
           </div>
           <Button

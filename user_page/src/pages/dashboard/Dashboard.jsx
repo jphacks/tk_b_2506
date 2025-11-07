@@ -459,8 +459,6 @@ const Dashboard = () => {
     const handleModalVisit = async () => {
         if (!selectedMessage) return;
         await handleNotificationVisit(selectedMessage);
-        setIsMessageModalOpen(false);
-        setSelectedMessage(null);
     };
 
     useEffect(() => {

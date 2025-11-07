@@ -23,11 +23,18 @@ serve(async (req) => {
   }
 
   try {
-    const { participantId, message, type = 'meet_request' } = await req.json()
+    const {
+      participantId,
+      message,
+      type = 'meet_request',
+      senderName,
+      userId,
+      lineUserId
+    } = await req.json()
 
-    if (!participantId || !message) {
+    if ((!participantId && !userId && !lineUserId) || (!message && type === 'meet_request')) {
       return new Response(
-        JSON.stringify({ error: 'participantId and message are required' }),
+        JSON.stringify({ error: 'participantId or lineUserId and message are required' }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -35,17 +42,32 @@ serve(async (req) => {
       )
     }
 
-    // 参加者IDからLINE User IDを取得
-    const { data: participant, error: participantError } = await supabaseAdmin
-      .from('participants')
-      .select('line_user_id')
-      .eq('id', participantId)
-      .single()
+    // 参加者IDが渡された場合はLINE User IDを取得
+    let targetLineUserId = lineUserId || userId || null
+    if (!targetLineUserId && participantId) {
+      const { data: participant, error: participantError } = await supabaseAdmin
+        .from('participants')
+        .select('line_user_id')
+        .eq('id', participantId)
+        .single()
 
-    if (participantError || !participant?.line_user_id) {
-      console.error('Participant not found or no LINE user ID:', participantError)
+      if (participantError || !participant?.line_user_id) {
+        console.error('Participant not found or no LINE user ID:', participantError)
+        return new Response(
+          JSON.stringify({ error: 'Participant not found or no LINE user ID' }),
+          {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        )
+      }
+
+      targetLineUserId = participant.line_user_id
+    }
+
+    if (!targetLineUserId) {
       return new Response(
-        JSON.stringify({ error: 'Participant not found or no LINE user ID' }),
+        JSON.stringify({ error: 'LINE user ID could not be determined' }),
         {
           status: 404,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -53,14 +75,23 @@ serve(async (req) => {
       )
     }
 
-    const lineUserId = participant.line_user_id
-    console.log('Found LINE user ID:', lineUserId)
+    console.log('Found LINE user ID:', targetLineUserId)
 
     // LINE Messaging API に送信するメッセージを構築
     let lineMessage = {
       type: 'text',
-      text: message
+      text: message || 'メッセージをご確認ください。'
     }
+
+    const sanitizedSenderName = senderName?.trim() || 'SympoLink! 参加者'
+    const incomingMessage = typeof message === 'string' ? message.trim() : ''
+    const legacyPrefixRegex = /^新しいメッセージが届きました！\s*/m
+    const strippedMessage = incomingMessage.replace(legacyPrefixRegex, '').trim()
+    const hasSenderBlock =
+      strippedMessage.includes('送信者:') && strippedMessage.includes('メッセージ:')
+    const formattedBody = hasSenderBlock
+      ? strippedMessage
+      : `送信者 : ${sanitizedSenderName}\n\nメッセージ:\n${strippedMessage || 'メッセージをご確認ください。'}`
 
     // メッセージタイプに応じてカスタマイズ
     if (type === 'meet_request') {
@@ -68,9 +99,9 @@ serve(async (req) => {
         type: 'text',
         text: `🔔 新しいメッセージが届きました！
 
-${message}
+${formattedBody}
 
-リッチメニューからダッシュボードを確認してください。`
+SympoLink!アプリから返信しましょう`
       }
     } else if (type === 'location_update') {
       lineMessage = {
@@ -91,7 +122,7 @@ ${message}
         'Authorization': `Bearer ${Deno.env.get('LINE_CHANNEL_ACCESS_TOKEN')}`
       },
       body: JSON.stringify({
-        to: lineUserId,
+        to: targetLineUserId,
         messages: [lineMessage]
       })
     })

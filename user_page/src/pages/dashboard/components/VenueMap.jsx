@@ -13,13 +13,9 @@ const createRegionShape = (region, { isHighlighted, isSelected }) => {
         return null;
     }
 
-    const baseFill = isSelected ? 'rgba(59,130,246,0.35)' : isHighlighted ? 'rgba(59,130,246,0.22)' : 'rgba(59,130,246,0.12)';
-    const strokeColor = isSelected ? 'rgba(59,130,246,0.9)' : 'rgba(59,130,246,0.45)';
-
     const common = {
-        fill: baseFill,
-        stroke: strokeColor,
-        strokeWidth: 2
+        fill: 'transparent',
+        stroke: 'none'
     };
 
     if (region.shapeType === 'rect') {

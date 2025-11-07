@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 
 import Button from '../../../components/ui/Button';
 import Textarea from '../../../components/ui/Textarea';
-import { db, supabase } from '../../../lib/supabase';
+import { db } from '../../../lib/supabase';
 
 const MAX_MESSAGE_LENGTH = 300;
 
@@ -130,36 +130,6 @@ const ParticipantProfileModal = ({
                 toParticipantId,
                 message: trimmed
             });
-
-            // LINE通知を送信（受信者のLINEユーザーIDがある場合のみ）
-            try {
-                if (participant?.line_user_id) {
-                    const senderName = currentParticipant?.introduction?.name?.trim() ||
-                        currentParticipant?.introduction?.affiliation?.trim() ||
-                        'SympoLink! 参加者';
-
-                    // Supabaseセッションを取得して認証ヘッダーに使用
-                    const { data: { session } } = await supabase.auth.getSession();
-                    const authToken = session?.access_token;
-
-                    await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-line-notification`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${authToken}`
-                        },
-                        body: JSON.stringify({
-                            userId: participant.line_user_id,
-                            senderName,
-                            message: trimmed || 'メッセージをご確認ください。',
-                            type: 'meet_request'
-                        })
-                    });
-                }
-            } catch (lineError) {
-                console.error('Failed to send LINE notification:', lineError);
-                // LINE通知の失敗はユーザーに表示しない
-            }
 
             setHasSent(true);
             setFeedback({
@@ -301,7 +271,7 @@ const ParticipantProfileModal = ({
                                             fullWidth
                                             disabled={hasMoved}
                                         >
-                                            {hasMoved ? '移動しました' : '場所へ移動'}
+                                            {hasMoved ? '移動しました' : '机へ移動'}
                                         </Button>
                                         <Button
                                             variant="secondary"
@@ -331,7 +301,7 @@ const ParticipantProfileModal = ({
                                             fullWidth
                                             disabled={hasMoved}
                                         >
-                                            {hasMoved ? '移動しました' : '場所へ移動'}
+                                            {hasMoved ? '移動しました' : '机へ移動'}
                                         </Button>
                                         <Button
                                             variant="secondary"

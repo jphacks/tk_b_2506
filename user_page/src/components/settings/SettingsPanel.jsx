@@ -20,7 +20,6 @@ import Input from '../ui/Input';
 import MultiSelect from '../ui/MultiSelect';
 import Select from '../ui/Select';
 import Textarea from '../ui/Textarea';
-import Toast from '../ui/Toast';
 import AffiliationCandidates from '../researchmap/AffiliationCandidates';
 
 const initialIntroForm = {
@@ -79,12 +78,6 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [showConferenceConfirm, setShowConferenceConfirm] = useState(false);
     const [showPasswordDialog, setShowPasswordDialog] = useState(false);
-
-    const [toast, setToast] = useState({
-        isVisible: false,
-        message: '',
-        type: 'success'
-    });
 
     const { data: conferences = [] } = useConferences({ includeInactive: true });
 
@@ -254,14 +247,6 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
         });
         return map;
     }, [tags]);
-
-    const showToast = (message, type = 'success') => {
-        setToast({
-            isVisible: true,
-            message,
-            type
-        });
-    };
 
     const handleResearcherIdChange = (event) => {
         const value = event?.target?.value ?? '';
@@ -507,32 +492,14 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
             setResearcherAffiliationOptions(formattedAffiliationOptions);
             setSelectedResearcherAffiliationOption(matchedOption?.value || '');
 
-            const tagToastSuffix = newlyAddedInterestTagNames.length
-                ? `関連する興味タグ（${newlyAddedInterestTagNames.join('、')}）を自動で追加しました。`
-                : '';
-
-            if (hasMultipleAffiliationCandidates) {
-                const selectionMessageBase = '所属候補が複数見つかりました。候補一覧から選択してください。';
-                const selectionMessage = tagToastSuffix
-                    ? `${selectionMessageBase}${selectionMessageBase.endsWith('。') ? '' : '。'}${tagToastSuffix}`
-                    : selectionMessageBase;
-                showToast(selectionMessage, 'success');
-            } else if (hasDerivedValue) {
-                const successMessageBase = 'researchmapから情報を読み込みました。';
-                const successMessage = tagToastSuffix
-                    ? `${successMessageBase}${successMessageBase.endsWith('。') ? '' : '。'}${tagToastSuffix}`
-                    : successMessageBase;
-                showToast(successMessage, 'success');
-            } else {
+            if (!hasMultipleAffiliationCandidates && !hasDerivedValue) {
                 setResearcherFetchError('researchmapに該当情報が見つかりませんでした。');
-                showToast('researchmapに該当情報が見つかりませんでした。', 'warning');
             }
         } catch (error) {
             const message = error?.message || 'researchmap情報の取得に失敗しました。';
             setResearcherFetchError(message);
             setResearcherAffiliationOptions([]);
             setSelectedResearcherAffiliationOption('');
-            showToast(message, 'error');
         } finally {
             setIsFetchingResearcher(false);
         }
@@ -601,7 +568,6 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
         event?.preventDefault?.();
 
         if (!user?.id) {
-            showToast('ログイン後に自己紹介を編集できます。', 'error');
             return;
         }
 
@@ -654,13 +620,8 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                 tagsUpdateFailed = true;
             }
 
-            if (tagsUpdateFailed) {
-                showToast('自己紹介は保存されましたが、興味タグの更新に失敗しました。', 'warning');
-            } else {
-                showToast(successMessage, 'success');
-            }
         } catch (error) {
-            showToast(error.message || '自己紹介の保存に失敗しました。', 'error');
+            console.error('Failed to save introduction:', error);
         } finally {
             setIsSavingIntro(false);
         }
@@ -706,7 +667,6 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
         event?.preventDefault?.();
 
         if (!user?.email) {
-            showToast('ユーザー情報を取得できません。再度ログインしてください。', 'error');
             return;
         }
 
@@ -735,9 +695,8 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
             }
 
             setPasswordForm({ ...initialPasswordForm });
-            showToast('パスワードを変更しました。', 'success');
         } catch (error) {
-            showToast(error.message || 'パスワードの変更に失敗しました。', 'error');
+            console.error('Failed to update password:', error);
         } finally {
             setIsUpdatingPassword(false);
         }
@@ -753,7 +712,7 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
             await onLogout();
         } catch (error) {
             setIsLoggingOut(false);
-            showToast(error.message || 'ログアウトに失敗しました。', 'error');
+            console.error('Failed to logout:', error);
         }
     };
 
@@ -762,13 +721,6 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
             onClose?.();
         }
     };
-
-    const toastPosition = useMemo(() => {
-        if (typeof window === 'undefined') {
-            return 'top';
-        }
-        return window.innerWidth < 640 ? 'bottom' : 'top';
-    }, []);
 
     const hasAffiliationCandidates = researcherAffiliationOptions.length > 0;
     const recommendedAffiliationLabel = hasAffiliationCandidates
@@ -1125,13 +1077,6 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                     </div>
                 </div>
             </div>
-            <Toast
-                message={toast.message}
-                type={toast.type}
-                isVisible={toast.isVisible}
-                onClose={() => setToast((prev) => ({ ...prev, isVisible: false }))}
-                position={toastPosition}
-            />
         </>,
         document.body
     );

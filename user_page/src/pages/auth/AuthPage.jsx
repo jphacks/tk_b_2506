@@ -342,7 +342,7 @@ const AuthPage = () => {
                             <button
                                 type="button"
                                 onClick={toggleMode}
-                                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                                className="text-m text-muted-foreground hover:text-foreground transition-colors"
                             >
                                 {isLogin
                                     ? "アカウントをお持ちでない方はこちら"
@@ -352,27 +352,6 @@ const AuthPage = () => {
                         </div>
                     </form>
 
-                    {/* Guest Access */}
-                    <div className="mt-8 pt-6 border-t border-border">
-                        <div className="text-center space-y-4">
-                            <p className="text-sm text-muted-foreground">
-                                アカウントを作成せずに体験したい方
-                            </p>
-                            <Link
-                                to="/new-introduction"
-                                className="inline-flex items-center px-4 py-2 border border-border rounded-md hover:bg-muted transition-colors"
-                            >
-                                <Icon
-                                    name="Eye"
-                                    size={16}
-                                    color="currentColor"
-                                    strokeWidth={2}
-                                    className="mr-2"
-                                />
-                                ゲストとして体験
-                            </Link>
-                        </div>
-                    </div>
                 </div>
             </main>
 
