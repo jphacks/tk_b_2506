@@ -134,11 +134,9 @@ const ParticipantProfileModal = ({
             // LINE通知を送信（受信者のLINEユーザーIDがある場合のみ）
             try {
                 if (participant?.line_user_id) {
-                    const senderName = currentParticipant?.introduction?.name ||
-                        currentParticipant?.introduction?.affiliation ||
-                        '他の参加者';
-
-                    const messageText = `送信者: ${senderName}\nメッセージ: ${trimmed || 'メッセージをご確認ください。'}`;
+                    const senderName = currentParticipant?.introduction?.name?.trim() ||
+                        currentParticipant?.introduction?.affiliation?.trim() ||
+                        'SympoLink! 参加者';
 
                     // Supabaseセッションを取得して認証ヘッダーに使用
                     const { data: { session } } = await supabase.auth.getSession();
@@ -152,7 +150,8 @@ const ParticipantProfileModal = ({
                         },
                         body: JSON.stringify({
                             userId: participant.line_user_id,
-                            message: messageText,
+                            senderName,
+                            message: trimmed || 'メッセージをご確認ください。',
                             type: 'meet_request'
                         })
                     });

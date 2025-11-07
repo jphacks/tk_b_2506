@@ -527,12 +527,14 @@ export const db = {
             message: message?.trim() || null
         });
 
+        const normalizedMessage = message?.trim() ? message.trim() : null;
+
         const payload = {
             conference_id: conferenceId,
             from_participant_id: fromParticipantId,
             to_participant_id: toParticipantId,
             status: 'pending',
-            message: message?.trim() ? message.trim() : null,
+            message: normalizedMessage,
             is_read: false
             // created_atは自動生成されるため削除
         };
@@ -585,12 +587,29 @@ export const db = {
                 detailError
             });
 
+            // 送信者情報も取得して通知に利用
+            let senderName = 'SympoLink! 参加者';
+            const { data: sender, error: senderError } = await supabase
+                .from('participants')
+                .select('introduction:introductions(name, affiliation)')
+                .eq('id', fromParticipantId)
+                .single();
+
+            if (senderError) {
+                console.warn('[db.createMeetRequest] 送信者情報の取得に失敗しました', senderError);
+            } else if (sender?.introduction) {
+                senderName = sender.introduction.name?.trim()
+                    || sender.introduction.affiliation?.trim()
+                    || senderName;
+            }
+
             if (!recipientError && recipient?.line_user_id) {
                 debugLog('[db.createMeetRequest] 受信者がLINE認証済み、通知を送信します');
                 await sendLineNotification({
                     participantId: toParticipantId,
-                    message: `新しいメッセージが届きました！\n\n${message || 'メッセージなし'}`,
-                    type: 'meet_request'
+                    message: normalizedMessage || 'メッセージをご確認ください。',
+                    type: 'meet_request',
+                    senderName
                 });
                 debugLog('[db.createMeetRequest] LINE通知送信成功');
             } else {
@@ -658,7 +677,7 @@ export const db = {
 };
 
 // LINE通知送信関数
-export const sendLineNotification = async ({ participantId, message, type = 'meet_request' }) => {
+export const sendLineNotification = async ({ participantId, message, type = 'meet_request', senderName }) => {
     try {
         const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-line-notification`, {
             method: 'POST',
@@ -669,7 +688,8 @@ export const sendLineNotification = async ({ participantId, message, type = 'mee
             body: JSON.stringify({
                 participantId,
                 message,
-                type
+                type,
+                senderName
             })
         });
 

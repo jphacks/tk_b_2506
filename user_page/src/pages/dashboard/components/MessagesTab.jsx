@@ -149,11 +149,9 @@ const MessagesTab = ({
           .single();
 
         if (!recipientError && recipientData?.line_user_id) {
-          const senderName = currentParticipant?.introduction?.name ||
-            currentParticipant?.introduction?.affiliation ||
-            '他の参加者';
-
-          const messageText = `送信者: ${senderName}\nメッセージ: ${trimmedMessage}`;
+          const senderName = currentParticipant?.introduction?.name?.trim() ||
+            currentParticipant?.introduction?.affiliation?.trim() ||
+            'SympoLink! 参加者';
 
           // Supabaseセッションを取得して認証ヘッダーに使用
           const { data: { session } } = await supabase.auth.getSession();
@@ -167,7 +165,8 @@ const MessagesTab = ({
             },
             body: JSON.stringify({
               userId: recipientData.line_user_id,
-              message: messageText,
+              senderName,
+              message: trimmedMessage || 'メッセージをご確認ください。',
               type: 'meet_request'
             })
           });
