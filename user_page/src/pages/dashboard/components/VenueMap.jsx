@@ -332,7 +332,7 @@ const VenueMap = ({
                         <div className="flex gap-2">
                             {shouldShowMoveButton && (
                                 <Button
-                                    variant={hasMovedToDesk ? 'danger' : 'default'}
+                                    variant="default"
                                     className="h-12 text-base"
                                     iconName="MapPin"
                                     disabled={hasMovedToDesk}

@@ -133,7 +133,7 @@ const MessageModal = ({
               チャットへ
             </Button>
             <Button
-              variant={hasVisited ? 'danger' : 'default'}
+              variant="default"
               size="lg"
               className="w-full h-12 text-base"
               onClick={handleVisit}
