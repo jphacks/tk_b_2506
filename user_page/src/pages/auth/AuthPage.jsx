@@ -18,6 +18,7 @@ const AuthPage = () => {
         confirmPassword: ''
     });
     const [isLoading, setIsLoading] = useState(false);
+    const [isLineLoginLoading, setIsLineLoginLoading] = useState(false);
     const [errors, setErrors] = useState({});
     const [statusMessage, setStatusMessage] = useState('');
     const [statusType, setStatusType] = useState('success');
@@ -70,6 +71,10 @@ const AuthPage = () => {
     // Handle form submission
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        if (isLineLoginLoading) {
+            return;
+        }
 
         if (!validateForm()) {
             return;
@@ -179,23 +184,28 @@ const AuthPage = () => {
 
     // Handle LINE login
     const handleLineLogin = async () => {
-        setIsLoading(true);
+        if (isLineLoginLoading) {
+            return;
+        }
+        setStatusMessage('');
+        setIsLineLoginLoading(true);
         try {
             const result = await loginWithLine();
             if (!result.success) {
                 setStatusType('error');
                 setStatusMessage(result.error || 'LINEログインに失敗しました。');
+                setIsLineLoginLoading(false);
             }
-            // LINE認証はリダイレクトされるため、ここには到達しない
+            // 成功時はリダイレクトされるため以降の処理は不要
         } catch (error) {
             setStatusType('error');
             setStatusMessage('LINEログインに失敗しました。');
-        } finally {
-            setIsLoading(false);
+            setIsLineLoginLoading(false);
         }
     };
 
     return (
+        <>
         <div className="min-h-screen bg-background">
             <Header notifications={[]} onNotificationClick={() => { }} showSettings={false} />
             <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
@@ -289,7 +299,7 @@ const AuthPage = () => {
                             size="lg"
                             fullWidth
                             loading={isLoading}
-                            disabled={isLoading}
+                            disabled={isLoading || isLineLoginLoading}
                             iconName={isLogin ? "LogIn" : "UserPlus"}
                             iconPosition="left"
                         >
@@ -315,7 +325,8 @@ const AuthPage = () => {
                             size="lg"
                             fullWidth
                             onClick={handleLineLogin}
-                            disabled={isLoading}
+                            loading={isLineLoginLoading}
+                            disabled={isLoading || isLineLoginLoading}
                             iconPosition="left"
                             className="bg-[#06C755] hover:bg-[#05B64A] text-white border-[#06C755]"
                         >
@@ -343,6 +354,18 @@ const AuthPage = () => {
                 </div>
             </main>
         </div>
+        {isLineLoginLoading && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                <div className="bg-card rounded-2xl p-6 shadow-xl text-center space-y-4">
+                    <div
+                        className="mx-auto h-12 w-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin"
+                        aria-label="LINEでログイン処理中"
+                    />
+                    <p className="text-sm text-muted-foreground">LINEでログイン処理中です。しばらくお待ちください。</p>
+                </div>
+            </div>
+        )}
+        </>
     );
 };
 
