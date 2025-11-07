@@ -44,11 +44,12 @@ const ParticipantList = ({
     occupationFilter = 'all',
     onOccupationFilterChange,
     onVisitParticipant = () => { },
-    enablePagination = false
+    enablePagination = false,
+    maxVisible = Infinity
 }) => {
     const [selectedParticipant, setSelectedParticipant] = useState(null);
     const [currentPage, setCurrentPage] = useState(1);
-    const PAGE_SIZE = 1;
+    const PAGE_SIZE = 10;
 
     // Fetch hooks (有効時のみ)
     const confQuery = useParticipants(conferenceId, { enabled: Boolean(conferenceId) });
@@ -109,15 +110,22 @@ const ParticipantList = ({
         // if (error) console.warn('[ParticipantList][debug] error ->', error);
     }, [conferenceId, locationId, list.length, error]);
 
+    const totalCount = filtered.length;
+    const limitedPageSize = Number.isFinite(maxVisible)
+        ? Math.max(1, Number(maxVisible))
+        : PAGE_SIZE;
+
     useEffect(() => {
         setCurrentPage(1);
-    }, [filtered.length, enablePagination]);
+    }, [filtered.length, limitedPageSize, enablePagination]);
 
-    const shouldPaginate = enablePagination && filtered.length > PAGE_SIZE;
-    const totalPages = shouldPaginate ? Math.ceil(filtered.length / PAGE_SIZE) : 1;
+    const shouldPaginate = enablePagination && totalCount > limitedPageSize;
+    const totalPages = shouldPaginate ? Math.ceil(totalCount / limitedPageSize) : 1;
     const paginatedParticipants = shouldPaginate
-        ? filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
-        : filtered;
+        ? filtered.slice((currentPage - 1) * limitedPageSize, currentPage * limitedPageSize)
+        : Number.isFinite(maxVisible)
+            ? filtered.slice(0, limitedPageSize)
+            : filtered;
 
     const handleOpenProfile = (participant) => setSelectedParticipant(participant);
     const handleCloseProfile = () => setSelectedParticipant(null);
@@ -205,7 +213,7 @@ const ParticipantList = ({
                 <div>
                     <h2 className="text-lg font-semibold text-foreground">参加者</h2>
                     <p className="text-sm text-muted-foreground">
-                        {filtered.length} 名
+                        {totalCount} 名
                     </p>
                 </div>
 

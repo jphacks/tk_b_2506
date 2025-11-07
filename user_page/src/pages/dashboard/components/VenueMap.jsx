@@ -327,6 +327,8 @@ const VenueMap = ({
                                 mapRegionId={selectedLocation.mapRegionId}
                                 currentParticipant={currentParticipant}
                                 onOpenProfile={handleOpenProfile}
+                                enablePagination
+                                maxVisible={5}
                             />
                         </div>
                         <div className="flex gap-2">
