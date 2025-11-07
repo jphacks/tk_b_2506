@@ -6,7 +6,6 @@ import Button from '../../components/ui/Button';
 import Header from '../../components/ui/Header';
 import MessageModal from '../../components/ui/MessageModal';
 import Tabs from '../../components/ui/Tabs';
-import Toast from '../../components/ui/Toast';
 import { useAuth } from '../../contexts/AuthContext';
 import useConferenceMap from '../../hooks/useConferenceMap';
 import useConferences from '../../hooks/useConferences';
@@ -42,19 +41,47 @@ const Dashboard = () => {
         }
     }, [searchParams]);
 
-    const [toast, setToast] = useState({
-        isVisible: false,
-        message: '',
-        type: 'success'
-    });
-
     const [notifications, setNotifications] = useState([]);
     const [pendingChatParticipantId, setPendingChatParticipantId] = useState(null);
     const [selectedMessage, setSelectedMessage] = useState(null);
     const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
+    const [statusMessage, setStatusMessage] = useState('');
+    const [statusType, setStatusType] = useState('info');
     const notificationsLoadedRef = useRef(false);
 
     const [occupationFilter, setOccupationFilter] = useState('all');
+
+    const showStatusMessage = (message, type = 'info') => {
+        if (!message) {
+            setStatusMessage('');
+            setStatusType('info');
+            return;
+        }
+        const normalizedMessage = typeof message === 'string' ? message : String(message);
+        setStatusMessage(normalizedMessage);
+        setStatusType(type);
+    };
+
+    useEffect(() => {
+        if (!statusMessage) {
+            return;
+        }
+        const timer = setTimeout(() => setStatusMessage(''), 5000);
+        return () => clearTimeout(timer);
+    }, [statusMessage]);
+
+    const getStatusBannerClassName = (type) => {
+        switch (type) {
+            case 'success':
+                return 'border-primary/30 bg-primary/5 text-primary';
+            case 'error':
+                return 'border-error/30 bg-error/10 text-error';
+            case 'warning':
+                return 'border-amber-300 bg-amber-50 text-amber-900';
+            default:
+                return 'border-border bg-muted/40 text-muted-foreground';
+        }
+    };
 
     const {
         data: conferences = [],
@@ -242,20 +269,12 @@ const Dashboard = () => {
     const handleScanSuccess = (data) => {
         refetchParticipants();
         refetchLocations();
-        setToast({
-            isVisible: true,
-            message: `${data.locationName} にチェックインしました！`,
-            type: 'success'
-        });
+        showStatusMessage(`${data.locationName} にチェックインしました！`, 'success');
     };
 
     const handleScanError = (error) => {
         const message = error?.message || 'QRコードの処理中にエラーが発生しました。';
-        setToast({
-            isVisible: true,
-            message,
-            type: 'error'
-        });
+        showStatusMessage(message, 'error');
     };
 
     const handleConferenceReselect = () => {
@@ -318,19 +337,11 @@ const Dashboard = () => {
                     ? `${deskInfo.deskLabel}に移動しました！`
                     : '位置情報を更新しました！';
 
-                setToast({
-                    isVisible: true,
-                    message,
-                    type: 'success'
-                });
+                showStatusMessage(message, 'success');
             }
         } catch (error) {
             console.error('Failed to update location:', error);
-            setToast({
-                isVisible: true,
-                message: '位置情報の更新に失敗しました。',
-                type: 'error'
-            });
+            showStatusMessage('位置情報の更新に失敗しました。', 'error');
         }
     };
 
@@ -342,25 +353,13 @@ const Dashboard = () => {
         );
     };
 
-    const showMissingLocationToast = (participantName) => {
-        setToast({
-            isVisible: true,
-            type: 'error',
-            message: (
-                <span className="text-error font-semibold">
-                    {`${participantName}さんの現在地が設定されていません。`}
-                </span>
-            )
-        });
+    const showMissingLocationMessage = (participantName) => {
+        showStatusMessage(`${participantName}さんの現在地が設定されていません。`, 'error');
     };
 
     const visitParticipantLocation = async (participant) => {
         if (!participant) {
-            setToast({
-                isVisible: true,
-                type: 'error',
-                message: '参加者の情報を取得できませんでした。'
-            });
+            showStatusMessage('参加者の情報を取得できませんでした。', 'error');
             return;
         }
 
@@ -368,7 +367,7 @@ const Dashboard = () => {
 
         if (!targetLocationId) {
             const participantName = getParticipantDisplayName(participant);
-            showMissingLocationToast(participantName);
+            showMissingLocationMessage(participantName);
             return;
         }
 
@@ -413,17 +412,63 @@ const Dashboard = () => {
             || notification.requestData?.from_participant_id;
 
         if (!senderParticipantId) {
-            setToast({
-                isVisible: true,
-                type: 'error',
-                message: 'チャット相手の情報を取得できませんでした。'
-            });
+            showStatusMessage('チャット相手の情報を取得できませんでした。', 'error');
             return;
         }
 
         setActiveTab('messages');
         setSearchParams({ tab: 'messages' });
         setPendingChatParticipantId(senderParticipantId);
+    };
+
+    const fetchParticipantLocationSnapshot = async (participantId) => {
+        if (!participantId) {
+            return null;
+        }
+
+        try {
+            const { data, error } = await supabase
+                .from('participants')
+                .select(`
+                    id,
+                    user_id,
+                    current_location_id,
+                    current_map_region_id,
+                    current_map_region:map_regions!current_map_region_id(
+                        id,
+                        label
+                    )
+                `)
+                .eq('id', participantId)
+                .single();
+
+            if (error) {
+                throw error;
+            }
+
+            let locationData = null;
+            if (data?.current_location_id) {
+                const { data: loc, error: locationError } = await supabase
+                    .from('locations')
+                    .select('id, name, floor, building, location_type')
+                    .eq('id', data.current_location_id)
+                    .single();
+
+                if (locationError) {
+                    console.error('Failed to fetch location details:', locationError);
+                } else {
+                    locationData = loc;
+                }
+            }
+
+            return {
+                ...data,
+                location: locationData
+            };
+        } catch (error) {
+            console.error('Failed to fetch participant location snapshot:', error);
+            return null;
+        }
     };
 
     const handleNotificationVisit = async (notification) => {
@@ -433,15 +478,24 @@ const Dashboard = () => {
             || notification.requestData?.from_participant_id;
 
         if (!senderParticipantId) {
-            setToast({
-                isVisible: true,
-                type: 'error',
-                message: '参加者の場所情報を取得できませんでした。'
-            });
+            showStatusMessage('参加者の場所情報を取得できませんでした。', 'error');
             return;
         }
 
-        const senderParticipant = participants.find((participant) => participant.id === senderParticipantId);
+        let senderParticipant = participants.find((participant) => participant.id === senderParticipantId);
+
+        if (!senderParticipant || (!senderParticipant.current_location_id && !senderParticipant.location?.id)) {
+            const snapshot = await fetchParticipantLocationSnapshot(senderParticipantId);
+            if (snapshot) {
+                senderParticipant = {
+                    ...senderParticipant,
+                    ...snapshot,
+                    current_map_region: snapshot.current_map_region || senderParticipant?.current_map_region,
+                    location: snapshot.location || senderParticipant?.location
+                };
+            }
+        }
+
         await visitParticipantLocation(senderParticipant);
     };
 
@@ -653,7 +707,7 @@ const Dashboard = () => {
             } catch (e) {
                 // LIFFが初期化できない（エンドポイント不一致/外部ブラウザ許可なしなど）場合は既存フローにフォールバック
                 console.warn('LIFF bootstrap failed:', e);
-                setToast({ isVisible: true, type: 'warning', message: 'LINE連携に失敗しました。通常ログインをご利用ください。' });
+                showStatusMessage('LINE連携に失敗しました。通常ログインをご利用ください。', 'warning');
             }
         }
     }, []);
@@ -683,6 +737,11 @@ const Dashboard = () => {
                 onConferenceSwitch={handleConferenceSwitch}
             />
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 space-y-3">
+                {statusMessage && (
+                    <div className={`px-4 py-3 rounded-lg border text-sm ${getStatusBannerClassName(statusType)}`}>
+                        {statusMessage}
+                    </div>
+                )}
                 <div className="flex justify-end">
                     {currentLocation && (
                         <span className="inline-flex items-center gap-1 rounded-full border border-border bg-card/70 px-3 py-1 text-sm text-muted-foreground shadow-sm">
@@ -795,13 +854,6 @@ const Dashboard = () => {
                     )}
                 </div>
             </main >
-            <Toast
-                isVisible={toast.isVisible}
-                message={toast.message}
-                type={toast.type}
-                position="bottom"
-                onClose={() => setToast(prev => ({ ...prev, isVisible: false }))}
-            />
             <MessageModal
                 isOpen={isMessageModalOpen}
                 message={selectedMessage}

@@ -36,11 +36,59 @@ const MessagesTab = ({
                         *,
                         from_participant:participants!from_participant_id(
                             id,
-                            introduction:introductions(name, affiliation)
+                            conference_id,
+                            registered_at,
+                            current_location_id,
+                            current_map_region_id,
+                            introduction:introductions(
+                                id,
+                                name,
+                                affiliation,
+                                research_topic,
+                                interests,
+                                one_liner,
+                                occupation,
+                                occupation_other
+                            ),
+                            location:locations(
+                                id,
+                                name,
+                                floor,
+                                building,
+                                location_type
+                            ),
+                            current_map_region:map_regions!current_map_region_id(
+                                id,
+                                label
+                            )
                         ),
                         to_participant:participants!to_participant_id(
                             id,
-                            introduction:introductions(name, affiliation)
+                            conference_id,
+                            registered_at,
+                            current_location_id,
+                            current_map_region_id,
+                            introduction:introductions(
+                                id,
+                                name,
+                                affiliation,
+                                research_topic,
+                                interests,
+                                one_liner,
+                                occupation,
+                                occupation_other
+                            ),
+                            location:locations(
+                                id,
+                                name,
+                                floor,
+                                building,
+                                location_type
+                            ),
+                            current_map_region:map_regions!current_map_region_id(
+                                id,
+                                label
+                            )
                         )
                     `)
           .or(`from_participant_id.eq.${currentParticipant.id},to_participant_id.eq.${currentParticipant.id}`)

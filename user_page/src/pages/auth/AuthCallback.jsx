@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Header from '../../components/ui/Header';
-import Toast from '../../components/ui/Toast';
 import { setStoredConferenceId } from '../../constants/conference';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -11,11 +10,6 @@ const AuthCallback = () => {
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const [status, setStatus] = useState('処理中...');
-  const [toast, setToast] = useState({
-    isVisible: false,
-    message: '',
-    type: 'success'
-  });
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -147,12 +141,7 @@ const AuthCallback = () => {
 
       } catch (error) {
         console.error('Auth callback error:', error);
-        setStatus('認証に失敗しました');
-        setToast({
-          isVisible: true,
-          message: `認証エラー: ${error.message}`,
-          type: 'error'
-        });
+        setStatus(`認証に失敗しました: ${error.message}`);
 
         // エラー時はログインページにリダイレクト
         setTimeout(() => {
@@ -179,14 +168,6 @@ const AuthCallback = () => {
           </div>
         </div>
       </div>
-
-      {toast.isVisible && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast({ ...toast, isVisible: false })}
-        />
-      )}
     </div>
   );
 };

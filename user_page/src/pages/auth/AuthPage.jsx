@@ -4,7 +4,6 @@ import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 import Header from '../../components/ui/Header';
 import Input from '../../components/ui/Input';
-import Toast from '../../components/ui/Toast';
 import { clearStoredConferenceId, setStoredConferenceId } from '../../constants/conference';
 import { useAuth } from '../../contexts/AuthContext';
 import { db, auth as supabaseAuth } from '../../lib/supabase';
@@ -20,11 +19,8 @@ const AuthPage = () => {
     });
     const [isLoading, setIsLoading] = useState(false);
     const [errors, setErrors] = useState({});
-    const [toast, setToast] = useState({
-        isVisible: false,
-        message: '',
-        type: 'success'
-    });
+    const [statusMessage, setStatusMessage] = useState('');
+    const [statusType, setStatusType] = useState('success');
 
     // Form validation
     const validateForm = () => {
@@ -80,6 +76,7 @@ const AuthPage = () => {
         }
 
         setIsLoading(true);
+        setStatusMessage('');
 
         try {
             let result;
@@ -91,11 +88,8 @@ const AuthPage = () => {
 
             if (result.success) {
                 if (!isLogin) {
-                    setToast({
-                        isVisible: true,
-                        message: "確認メールを送信しました。メールを開いて手続きを完了してください。",
-                        type: 'success'
-                    });
+                    setStatusType('success');
+                    setStatusMessage("確認メールを送信しました。メールを開いて手続きを完了してください。");
                     navigate('/auth/verify-email', {
                         replace: true,
                         state: { email: formData.email }
@@ -138,11 +132,8 @@ const AuthPage = () => {
                         ? conferences.some(conf => conf.id === selectedConferenceId)
                         : false;
 
-                    setToast({
-                        isVisible: true,
-                        message: isLogin ? "ログインしました！" : "アカウントが作成されました！",
-                        type: 'success'
-                    });
+                    setStatusType('success');
+                    setStatusMessage(isLogin ? "ログインしました！" : "アカウントが作成されました！");
 
                     if (conferenceExists) {
                         await navigateWithConference(selectedConferenceId);
@@ -158,26 +149,17 @@ const AuthPage = () => {
                     }
                 } catch (postAuthError) {
                     console.error('Post-auth navigation error:', postAuthError);
-                    setToast({
-                        isVisible: true,
-                        message: postAuthError.message || 'ログイン後の処理に失敗しました。',
-                        type: 'error'
-                    });
+                    setStatusType('error');
+                    setStatusMessage(postAuthError.message || 'ログイン後の処理に失敗しました。');
                 }
             } else {
-                setToast({
-                    isVisible: true,
-                    message: result.error || (isLogin ? "ログインに失敗しました。" : "アカウント作成に失敗しました。"),
-                    type: 'error'
-                });
+                setStatusType('error');
+                setStatusMessage(result.error || (isLogin ? "ログインに失敗しました。" : "アカウント作成に失敗しました。"));
             }
 
         } catch (error) {
-            setToast({
-                isVisible: true,
-                message: isLogin ? "ログインに失敗しました。" : "アカウント作成に失敗しました。",
-                type: 'error'
-            });
+            setStatusType('error');
+            setStatusMessage(isLogin ? "ログインに失敗しました。" : "アカウント作成に失敗しました。");
         } finally {
             setIsLoading(false);
         }
@@ -192,6 +174,7 @@ const AuthPage = () => {
             confirmPassword: ''
         });
         setErrors({});
+        setStatusMessage('');
     };
 
     // Handle LINE login
@@ -200,19 +183,13 @@ const AuthPage = () => {
         try {
             const result = await loginWithLine();
             if (!result.success) {
-                setToast({
-                    isVisible: true,
-                    message: result.error || 'LINEログインに失敗しました。',
-                    type: 'error'
-                });
+                setStatusType('error');
+                setStatusMessage(result.error || 'LINEログインに失敗しました。');
             }
             // LINE認証はリダイレクトされるため、ここには到達しない
         } catch (error) {
-            setToast({
-                isVisible: true,
-                message: 'LINEログインに失敗しました。',
-                type: 'error'
-            });
+            setStatusType('error');
+            setStatusMessage('LINEログインに失敗しました。');
         } finally {
             setIsLoading(false);
         }
@@ -251,6 +228,17 @@ const AuthPage = () => {
 
                     {/* Auth Form */}
                     <form onSubmit={handleSubmit} className="space-y-6">
+                        {statusMessage && (
+                            <div
+                                className={`px-4 py-3 rounded-lg border text-sm ${
+                                    statusType === 'error'
+                                        ? 'border-error/30 bg-error/10 text-error'
+                                        : 'border-primary/30 bg-primary/5 text-primary'
+                                }`}
+                            >
+                                {statusMessage}
+                            </div>
+                        )}
                         <div className="bg-card border border-border rounded-xl p-6 shadow-soft space-y-4">
                             {/* Email Field */}
                             <Input
@@ -354,16 +342,6 @@ const AuthPage = () => {
 
                 </div>
             </main>
-
-            {/* Toast Notification */}
-            <Toast
-                message={toast.message}
-                type={toast.type}
-                isVisible={toast.isVisible}
-                onClose={() => setToast(prev => ({ ...prev, isVisible: false }))}
-                duration={5000}
-                position="top"
-            />
         </div>
     );
 };

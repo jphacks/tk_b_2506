@@ -5,7 +5,6 @@ import Header from '../../components/ui/Header';
 import Input from '../../components/ui/Input';
 import MultiSelect from '../../components/ui/MultiSelect';
 import Select from '../../components/ui/Select';
-import Toast from '../../components/ui/Toast';
 import AffiliationCandidates from '../../components/researchmap/AffiliationCandidates';
 import { getStoredConferenceId, setStoredConferenceId } from '../../constants/conference';
 import { useAuth } from '../../contexts/AuthContext';
@@ -57,11 +56,8 @@ const SelfIntroductionForm = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [isLoadingData, setIsLoadingData] = useState(false);
     const [errors, setErrors] = useState({});
-    const [toast, setToast] = useState({
-        isVisible: false,
-        message: '',
-        type: 'success'
-    });
+    const [statusMessage, setStatusMessage] = useState('');
+    const [statusType, setStatusType] = useState('info');
     const [selectedConferenceId, setSelectedConferenceId] = useState(preferredConferenceId || '');
     const [existingIntroductionId, setExistingIntroductionId] = useState(null);
     const [isFetchingResearcher, setIsFetchingResearcher] = useState(false);
@@ -184,11 +180,8 @@ const SelfIntroductionForm = () => {
                     }
                 } else {
                     // 既存データがない場合は新規作成モードに切り替え
-                    setToast({
-                        isVisible: true,
-                        message: '既存の自己紹介が見つかりませんでした。新規作成してください。',
-                        type: 'info'
-                    });
+                    setStatusType('info');
+                    setStatusMessage('既存の自己紹介が見つかりませんでした。新規作成してください。');
                 }
 
                 // ユーザーの興味タグを取得
@@ -198,11 +191,8 @@ const SelfIntroductionForm = () => {
 
             } catch (error) {
                 console.error('Failed to load introduction:', error);
-                setToast({
-                    isVisible: true,
-                    message: `データの読み込みに失敗しました: ${error.message}`,
-                    type: 'error'
-                });
+                setStatusType('error');
+                setStatusMessage(`データの読み込みに失敗しました: ${error.message}`);
             } finally {
                 setIsLoadingData(false);
             }
@@ -265,6 +255,19 @@ const SelfIntroductionForm = () => {
                 ...prev,
                 conference: ''
             }));
+        }
+    };
+
+    const getStatusClassName = (type) => {
+        switch (type) {
+            case 'success':
+                return 'border-primary/30 bg-primary/5 text-primary';
+            case 'error':
+                return 'border-error/30 bg-error/10 text-error';
+            case 'warning':
+                return 'border-amber-300 bg-amber-50 text-amber-900';
+            default:
+                return 'border-border bg-muted/40 text-muted-foreground';
         }
     };
 
@@ -520,18 +523,12 @@ const SelfIntroductionForm = () => {
                     ? `${successMessageBase}${successMessageBase.endsWith('。') ? '' : '。'}${tagToastSuffix}`
                     : successMessageBase;
 
-                setToast({
-                    isVisible: true,
-                    message: successMessage,
-                    type: 'success'
-                });
+                setStatusType('success');
+                setStatusMessage(successMessage);
             } else {
                 setResearcherFetchError('researchmapに該当情報が見つかりませんでした。');
-                setToast({
-                    isVisible: true,
-                    message: 'researchmapに該当情報が見つかりませんでした。',
-                    type: 'warning'
-                });
+                setStatusType('warning');
+                setStatusMessage('researchmapに該当情報が見つかりませんでした。');
             }
         } catch (error) {
             const message = error?.message || 'researchmap情報の取得に失敗しました。';
@@ -540,11 +537,8 @@ const SelfIntroductionForm = () => {
             setSelectedResearcherAffiliationOption('');
             setIsAffiliationSelectionRequired(false);
             setPrimaryAffiliationCandidate(null);
-            setToast({
-                isVisible: true,
-                message,
-                type: 'error'
-            });
+            setStatusType('error');
+            setStatusMessage(message);
         } finally {
             setIsFetchingResearcher(false);
         }
@@ -559,15 +553,13 @@ const SelfIntroductionForm = () => {
         }
 
         if (!user?.id) {
-            setToast({
-                isVisible: true,
-                message: 'ログインしてから自己紹介を登録してください。',
-                type: 'error'
-            });
+            setStatusType('error');
+            setStatusMessage('ログインしてから自己紹介を登録してください。');
             return;
         }
 
         setIsLoading(true);
+        setStatusMessage('');
 
         try {
             const conferenceIdToUse = selectedConferenceId || null;
@@ -591,21 +583,15 @@ const SelfIntroductionForm = () => {
                 // 更新処理
                 savedIntroduction = await db.updateIntroduction(existingIntroductionId, introductionData);
 
-                setToast({
-                    isVisible: true,
-                    message: '自己紹介を更新しました！',
-                    type: 'success'
-                });
+                setStatusType('success');
+                setStatusMessage('自己紹介を更新しました！');
             } else {
                 // 新規作成処理
                 introductionData.created_by = user.id || null;
                 savedIntroduction = await db.createIntroduction(introductionData);
 
-                setToast({
-                    isVisible: true,
-                    message: `自己紹介が保存されました！ID: ${savedIntroduction.id.slice(-6)}`,
-                    type: 'success'
-                });
+                setStatusType('success');
+                setStatusMessage(`自己紹介が保存されました！ID: ${savedIntroduction.id.slice(-6)}`);
             }
 
             console.log(savedIntroduction);
@@ -657,11 +643,8 @@ const SelfIntroductionForm = () => {
 
         } catch (error) {
             console.error('Error saving introduction:', error);
-            setToast({
-                isVisible: true,
-                message: `保存中にエラーが発生しました: ${error.message}`,
-                type: 'error'
-            });
+            setStatusType('error');
+            setStatusMessage(`保存中にエラーが発生しました: ${error.message}`);
         } finally {
             setIsLoading(false);
         }
@@ -686,6 +669,8 @@ const SelfIntroductionForm = () => {
         setIsAffiliationSelectionRequired(false);
         setPrimaryAffiliationCandidate(null);
         setResearcherFetchError('');
+        setStatusMessage('');
+        setStatusType('info');
     };
 
     // Check if form is valid
@@ -712,6 +697,12 @@ const SelfIntroductionForm = () => {
                 <div className="max-w-2xl mx-auto">
                     {/* Form Header */}
                     <FormHeader className="mb-8" isEditMode={isEditMode} />
+
+                    {statusMessage && (
+                        <div className={`mb-6 px-4 py-3 rounded-lg border text-sm ${getStatusClassName(statusType)}`}>
+                            {statusMessage}
+                        </div>
+                    )}
 
                     {/* データ読み込み中の表示 */}
                     {isLoadingData && (
@@ -918,15 +909,6 @@ const SelfIntroductionForm = () => {
                     </form>
                 </div>
             </main>
-            {/* Toast Notification */}
-            <Toast
-                message={toast?.message}
-                type={toast?.type}
-                isVisible={toast?.isVisible}
-                onClose={() => setToast(prev => ({ ...prev, isVisible: false }))}
-                duration={5000}
-                position="top"
-            />
         </div>
     );
 };

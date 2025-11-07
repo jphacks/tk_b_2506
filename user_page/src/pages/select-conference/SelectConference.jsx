@@ -4,7 +4,6 @@ import Button from '../../components/ui/Button';
 import Header from '../../components/ui/Header';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
-import Toast from '../../components/ui/Toast';
 import { clearStoredConferenceId, setStoredConferenceId } from '../../constants/conference';
 import { useAuth } from '../../contexts/AuthContext';
 import useConferences from '../../hooks/useConferences';
@@ -18,11 +17,39 @@ const SelectConferencePage = () => {
     const [selectedConferenceId, setSelectedConferenceId] = useState('');
     const [password, setPassword] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [toast, setToast] = useState({
-        isVisible: false,
-        message: '',
-        type: 'success'
-    });
+    const [statusMessage, setStatusMessage] = useState('');
+    const [statusType, setStatusType] = useState('info');
+
+    const showStatusMessage = (message, type = 'info') => {
+        if (!message) {
+            setStatusMessage('');
+            setStatusType('info');
+            return;
+        }
+        setStatusMessage(message);
+        setStatusType(type);
+    };
+
+    useEffect(() => {
+        if (!statusMessage) {
+            return;
+        }
+        const timer = setTimeout(() => setStatusMessage(''), 5000);
+        return () => clearTimeout(timer);
+    }, [statusMessage]);
+
+    const getStatusClassName = (type) => {
+        switch (type) {
+            case 'success':
+                return 'border-primary/30 bg-primary/5 text-primary';
+            case 'error':
+                return 'border-error/30 bg-error/10 text-error';
+            case 'warning':
+                return 'border-amber-300 bg-amber-50 text-amber-900';
+            default:
+                return 'border-border bg-muted/40 text-muted-foreground';
+        }
+    };
 
     const {
         data: conferences = [],
@@ -106,34 +133,23 @@ const SelectConferencePage = () => {
 
     const handleSubmit = async () => {
         if (!user?.id) {
-            setToast({
-                isVisible: true,
-                message: 'ログインしてから学会を選択してください。',
-                type: 'error'
-            });
+            showStatusMessage('ログインしてから学会を選択してください。', 'error');
             return;
         }
 
         if (!selectedConferenceId) {
-            setToast({
-                isVisible: true,
-                message: '学会を選択してください。',
-                type: 'error'
-            });
+            showStatusMessage('学会を選択してください。', 'error');
             return;
         }
 
         // パスワードが必須の場合は入力チェック
         if (requiresPassword && !password.trim()) {
-            setToast({
-                isVisible: true,
-                message: 'この学会への参加にはパスワードが必要です。',
-                type: 'error'
-            });
+            showStatusMessage('この学会への参加にはパスワードが必要です。', 'error');
             return;
         }
 
         setIsSubmitting(true);
+        setStatusMessage('');
 
         try {
             const introductions = await db.getUserIntroductions(user.id, {
@@ -151,11 +167,7 @@ const SelectConferencePage = () => {
 
             setStoredConferenceId(selectedConferenceId);
 
-            setToast({
-                isVisible: true,
-                message: `${selectedConference?.name || '学会'}への参加登録が完了しました！`,
-                type: 'success'
-            });
+            showStatusMessage(`${selectedConference?.name || '学会'}への参加登録が完了しました！`, 'success');
 
             const hasIntroduction = Boolean(latestIntroduction);
 
@@ -172,11 +184,7 @@ const SelectConferencePage = () => {
 
         } catch (error) {
             console.error('Failed to join conference:', error);
-            setToast({
-                isVisible: true,
-                message: error?.message || '学会への参加登録に失敗しました。',
-                type: 'error'
-            });
+            showStatusMessage(error?.message || '学会への参加登録に失敗しました。', 'error');
             setIsSubmitting(false);
         }
     };
@@ -194,6 +202,12 @@ const SelectConferencePage = () => {
                             ログイン後にアクセスするダッシュボードを決定するため、参加予定の学会を選択してください。
                         </p>
                     </div>
+
+                    {statusMessage && (
+                        <div className={`px-4 py-3 rounded-lg border text-sm ${getStatusClassName(statusType)}`}>
+                            {statusMessage}
+                        </div>
+                    )}
 
                     <Select
                         label="参加する学会"
@@ -261,15 +275,6 @@ const SelectConferencePage = () => {
                     </Button>
                 </div>
             </main>
-
-            <Toast
-                message={toast.message}
-                type={toast.type}
-                isVisible={toast.isVisible}
-                onClose={() => setToast(prev => ({ ...prev, isVisible: false }))}
-                duration={5000}
-                position="top"
-            />
         </div>
     );
 };
