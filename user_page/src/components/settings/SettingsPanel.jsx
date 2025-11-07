@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import useConferences from '../../hooks/useConferences';
@@ -78,6 +78,15 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [showConferenceConfirm, setShowConferenceConfirm] = useState(false);
     const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+    const [participantLocationInfo, setParticipantLocationInfo] = useState({
+        participantId: null,
+        locationName: '',
+        mapRegionLabel: '',
+        hasLocation: false
+    });
+    const [isLoadingLocationInfo, setIsLoadingLocationInfo] = useState(false);
+    const [isClearingLocation, setIsClearingLocation] = useState(false);
+    const [locationStatus, setLocationStatus] = useState({ type: '', message: '' });
 
     const { data: conferences = [] } = useConferences({ includeInactive: true });
 
@@ -218,6 +227,81 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
         };
     }, [isOpen, user?.id]);
 
+    const loadParticipantLocation = useCallback(async () => {
+        if (!user?.id) {
+            setParticipantLocationInfo({
+                participantId: null,
+                locationName: '',
+                mapRegionLabel: '',
+                hasLocation: false
+            });
+            return;
+        }
+
+        setIsLoadingLocationInfo(true);
+        setLocationStatus((prev) => ({ ...prev, message: prev.type === 'error' ? prev.message : '' }));
+
+        try {
+            const participant = await db.getParticipantByUser(user.id);
+
+            if (!participant?.id) {
+                setParticipantLocationInfo({
+                    participantId: null,
+                    locationName: '',
+                    mapRegionLabel: '',
+                    hasLocation: false
+                });
+                return;
+            }
+
+            let locationName = '';
+            if (participant.current_location_id) {
+                const { data: locationData, error: locationError } = await supabase
+                    .from('locations')
+                    .select('name')
+                    .eq('id', participant.current_location_id)
+                    .maybeSingle();
+
+                if (!locationError) {
+                    locationName = locationData?.name || '';
+                }
+            }
+
+            let mapRegionLabel = '';
+            if (participant.current_map_region_id) {
+                const { data: regionData, error: regionError } = await supabase
+                    .from('map_regions')
+                    .select('label')
+                    .eq('id', participant.current_map_region_id)
+                    .maybeSingle();
+
+                if (!regionError) {
+                    mapRegionLabel = regionData?.label || '';
+                }
+            }
+
+            setParticipantLocationInfo({
+                participantId: participant.id,
+                locationName,
+                mapRegionLabel,
+                hasLocation: Boolean(participant.current_location_id || participant.current_map_region_id)
+            });
+        } catch (error) {
+            console.error('Failed to load participant location info:', error);
+            setParticipantLocationInfo((prev) => ({
+                participantId: prev.participantId,
+                locationName: '',
+                mapRegionLabel: '',
+                hasLocation: false
+            }));
+            setLocationStatus({
+                type: 'error',
+                message: '位置情報の取得に失敗しました。'
+            });
+        } finally {
+            setIsLoadingLocationInfo(false);
+        }
+    }, [user?.id]);
     useEffect(() => {
         if (!isOpen) {
             return;
@@ -229,6 +313,13 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
         setResearcherAffiliationOptions([]);
         setSelectedResearcherAffiliationOption('');
     }, [isOpen]);
+
+    useEffect(() => {
+        if (!isOpen) {
+            return;
+        }
+        loadParticipantLocation();
+    }, [isOpen, loadParticipantLocation]);
 
     const tagOptions = useMemo(() => {
         return tags.map((tag) => ({
@@ -254,6 +345,51 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
 
         if (researcherFetchError) {
             setResearcherFetchError('');
+        }
+    };
+
+    const handleClearLocation = async () => {
+        if (isClearingLocation) {
+            return;
+        }
+        if (!participantLocationInfo.participantId) {
+            setLocationStatus({
+                type: 'error',
+                message: '参加者情報を取得できませんでした。'
+            });
+            return;
+        }
+
+        setIsClearingLocation(true);
+        setLocationStatus({ type: '', message: '' });
+
+        try {
+            const { error } = await supabase
+                .from('participants')
+                .update({
+                    current_location_id: null,
+                    current_map_region_id: null,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', participantLocationInfo.participantId);
+
+            if (error) {
+                throw error;
+            }
+
+            await loadParticipantLocation();
+            setLocationStatus({
+                type: 'success',
+                message: '位置情報を削除しました。'
+            });
+        } catch (error) {
+            console.error('Failed to clear participant location:', error);
+            setLocationStatus({
+                type: 'error',
+                message: error?.message || '位置情報の削除に失敗しました。'
+            });
+        } finally {
+            setIsClearingLocation(false);
         }
     };
 
@@ -735,6 +871,21 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
         : (hasAffiliationCandidates
             ? '選んだ候補が所属欄に反映されます。必要に応じて直接編集してください。'
             : '');
+    const currentLocationLabel = useMemo(() => {
+        if (!participantLocationInfo.hasLocation) {
+            return '未設定';
+        }
+        const parts = [
+            participantLocationInfo.locationName,
+            participantLocationInfo.mapRegionLabel
+        ].filter(Boolean);
+        return parts.length ? parts.join(' / ') : '設定済み';
+    }, [participantLocationInfo]);
+    const locationStatusClass = locationStatus.type === 'error'
+        ? 'text-error'
+        : locationStatus.type === 'success'
+            ? 'text-primary'
+            : 'text-muted-foreground';
 
     if (!isOpen || typeof document === 'undefined') {
         return null;
@@ -921,6 +1072,37 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                             )}
                         </section>
 
+                        <section className="px-6 py-5 border-b border-border space-y-4">
+                            <div>
+                                <h3 className="text-sm font-semibold text-foreground">位置情報</h3>
+                            </div>
+                            <div className="text-sm text-foreground flex flex-wrap items-center gap-2">
+                                <span className="font-medium text-muted-foreground">現在の位置情報：</span>
+                                <span>{isLoadingLocationInfo ? '取得中...' : currentLocationLabel}</span>
+                            </div>
+                            {locationStatus.message && (
+                                <p className={`text-xs ${locationStatusClass}`}>
+                                    {locationStatus.message}
+                                </p>
+                            )}
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                iconName="MapPin"
+                                iconPosition="left"
+                                className="w-full sm:w-auto h-10 text-sm"
+                                onClick={handleClearLocation}
+                                loading={isClearingLocation}
+                                disabled={
+                                    isClearingLocation ||
+                                    !participantLocationInfo.participantId ||
+                                    locationStatus.type === 'success'
+                                }
+                            >
+                                {locationStatus.type === 'success' ? '位置情報は削除済み' : '位置情報を削除'}
+                            </Button>
+                        </section>
+
                         <div className="px-6 py-5 border-b border-border">
                             <div className="flex flex-col md:flex-row gap-4 w-full justify-around my-3">
                                 {/* 学会変更 ボタン */}
@@ -931,7 +1113,7 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                                     fullWidth={false}
                                     iconName="RefreshCw"
                                     iconPosition="left"
-                                    className="flex-1 h-10"
+                                    className="w-full h-12 text-base"
                                     onClick={() => setShowConferenceConfirm(true)}
                                 >
                                     学会を変更
