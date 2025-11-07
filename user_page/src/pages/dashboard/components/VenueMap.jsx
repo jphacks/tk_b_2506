@@ -119,6 +119,8 @@ const VenueMap = ({
             onSelectMap?.(mapForLocation.id);
         }
         setSelectedRegionId(null);
+        setSelectedLocation(null);
+        setHasMovedToDesk(false);
     };
 
     const handleOpenProfile = (participant) => {
@@ -268,10 +270,10 @@ const VenueMap = ({
                     )}
                     {locations.map((location) => {
                         const isActive = selectedLocation?.id === location.id;
-                        const isCurrent = !selectedLocation && currentLocation?.id === location.id;
                         const mapForLocation = mapsByLocationId[location.id];
                         const isMapLocation = Boolean(mapForLocation);
                         const isMapActive = mapData?.locationId === location.id;
+                        const isCurrent = currentLocation?.id === location.id;
 
                         const detailParts = [];
                         if (isMapActive && mapData?.location?.name) {
@@ -292,9 +294,7 @@ const VenueMap = ({
                                         ? 'bg-primary/15 border-primary text-primary'
                                         : isMapActive
                                             ? 'bg-primary/10 border-primary/60 text-primary'
-                                            : isCurrent
-                                                ? 'bg-primary/5 border-primary/40 text-primary'
-                                                : 'bg-background hover:bg-muted/50 cursor-pointer'
+                                            : 'bg-background hover:bg-muted/50 cursor-pointer'
                                 )}
                             >
                                 <div className="font-medium">{location.name}</div>
