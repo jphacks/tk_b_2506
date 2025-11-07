@@ -44,8 +44,11 @@ const ParticipantList = ({
     occupationFilter = 'all',
     onOccupationFilterChange,
     onVisitParticipant = () => { },
+    enablePagination = false
 }) => {
     const [selectedParticipant, setSelectedParticipant] = useState(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const PAGE_SIZE = 1;
 
     // Fetch hooks (有効時のみ)
     const confQuery = useParticipants(conferenceId, { enabled: Boolean(conferenceId) });
@@ -105,6 +108,16 @@ const ParticipantList = ({
         // console.log('[ParticipantList][debug] all participants ->', list.length);
         // if (error) console.warn('[ParticipantList][debug] error ->', error);
     }, [conferenceId, locationId, list.length, error]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [filtered.length, enablePagination]);
+
+    const shouldPaginate = enablePagination && filtered.length > PAGE_SIZE;
+    const totalPages = shouldPaginate ? Math.ceil(filtered.length / PAGE_SIZE) : 1;
+    const paginatedParticipants = shouldPaginate
+        ? filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+        : filtered;
 
     const handleOpenProfile = (participant) => setSelectedParticipant(participant);
     const handleCloseProfile = () => setSelectedParticipant(null);
@@ -222,7 +235,7 @@ const ParticipantList = ({
             </div>
 
             <div className="space-y-3">
-                {filtered.map((participant) => {
+                {paginatedParticipants.map((participant) => {
                     const intro = participant?.introduction ?? {};
                     const location = participant?.location;
 
@@ -279,6 +292,32 @@ const ParticipantList = ({
                     );
                 })}
             </div>
+
+            {shouldPaginate && (
+                <div className="flex items-center justify-between pt-2 text-sm text-muted-foreground">
+                    {currentPage > 1 ? (
+                        <button
+                            type="button"
+                            className="rounded-md bg-white px-3 py-1 border border-border text-muted-foreground"
+                            onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                        >
+                            前へ
+                        </button>
+                    ) : <span />}
+                    <span>
+                        ページ {currentPage} / {totalPages}
+                    </span>
+                    {currentPage < totalPages ? (
+                        <button
+                            type="button"
+                            className="rounded-md bg-white px-3 py-1 border border-border text-muted-foreground"
+                            onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                        >
+                            次へ
+                        </button>
+                    ) : <span />}
+                </div>
+            )}
 
             {selectedParticipant && (
                 <ParticipantProfileModal
