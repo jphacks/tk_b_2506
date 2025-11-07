@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import useConferences from '../../hooks/useConferences';
@@ -49,9 +50,20 @@ const initialPasswordForm = {
     confirmPassword: ''
 };
 
+const initialParticipantLocationInfo = {
+    participantId: null,
+    conferenceId: null,
+    locationId: null,
+    mapRegionId: null,
+    locationName: '',
+    mapRegionLabel: '',
+    hasLocation: false
+};
+
 const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, conferenceName }) => {
     const panelRef = useRef(null);
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
     const [introForm, setIntroForm] = useState(initialIntroForm);
     const [introErrors, setIntroErrors] = useState({});
     const [introId, setIntroId] = useState(null);
@@ -78,12 +90,7 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [showConferenceConfirm, setShowConferenceConfirm] = useState(false);
     const [showPasswordDialog, setShowPasswordDialog] = useState(false);
-    const [participantLocationInfo, setParticipantLocationInfo] = useState({
-        participantId: null,
-        locationName: '',
-        mapRegionLabel: '',
-        hasLocation: false
-    });
+    const [participantLocationInfo, setParticipantLocationInfo] = useState({ ...initialParticipantLocationInfo });
     const [isLoadingLocationInfo, setIsLoadingLocationInfo] = useState(false);
     const [isClearingLocation, setIsClearingLocation] = useState(false);
     const [locationStatus, setLocationStatus] = useState({ type: '', message: '' });
@@ -229,12 +236,7 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
 
     const loadParticipantLocation = useCallback(async () => {
         if (!user?.id) {
-            setParticipantLocationInfo({
-                participantId: null,
-                locationName: '',
-                mapRegionLabel: '',
-                hasLocation: false
-            });
+            setParticipantLocationInfo({ ...initialParticipantLocationInfo });
             return;
         }
 
@@ -245,12 +247,7 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
             const participant = await db.getParticipantByUser(user.id);
 
             if (!participant?.id) {
-                setParticipantLocationInfo({
-                    participantId: null,
-                    locationName: '',
-                    mapRegionLabel: '',
-                    hasLocation: false
-                });
+                setParticipantLocationInfo({ ...initialParticipantLocationInfo });
                 return;
             }
 
@@ -282,6 +279,9 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
 
             setParticipantLocationInfo({
                 participantId: participant.id,
+                conferenceId: participant.conference_id || null,
+                locationId: participant.current_location_id || null,
+                mapRegionId: participant.current_map_region_id || null,
                 locationName,
                 mapRegionLabel,
                 hasLocation: Boolean(participant.current_location_id || participant.current_map_region_id)
@@ -290,6 +290,9 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
             console.error('Failed to load participant location info:', error);
             setParticipantLocationInfo((prev) => ({
                 participantId: prev.participantId,
+                conferenceId: prev.conferenceId ?? null,
+                locationId: null,
+                mapRegionId: null,
                 locationName: '',
                 mapRegionLabel: '',
                 hasLocation: false
@@ -352,7 +355,13 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
         if (isClearingLocation) {
             return;
         }
-        if (!participantLocationInfo.participantId) {
+        const {
+            participantId,
+            conferenceId: participantConferenceId,
+            locationId: participantLocationId
+        } = participantLocationInfo;
+
+        if (!participantId) {
             setLocationStatus({
                 type: 'error',
                 message: '参加者情報を取得できませんでした。'
@@ -364,6 +373,18 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
         setLocationStatus({ type: '', message: '' });
 
         try {
+            if (participantLocationId) {
+                const { error: deleteError } = await supabase
+                    .from('participant_locations')
+                    .delete()
+                    .eq('participant_id', participantId)
+                    .eq('location_id', participantLocationId);
+
+                if (deleteError) {
+                    throw deleteError;
+                }
+            }
+
             const { error } = await supabase
                 .from('participants')
                 .update({
@@ -371,13 +392,20 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                     current_map_region_id: null,
                     updated_at: new Date().toISOString()
                 })
-                .eq('id', participantLocationInfo.participantId);
+                .eq('id', participantId);
 
             if (error) {
                 throw error;
             }
 
             await loadParticipantLocation();
+            if (participantConferenceId) {
+                queryClient.invalidateQueries({ queryKey: ['participants', participantConferenceId] });
+                queryClient.invalidateQueries({ queryKey: ['locations', participantConferenceId] });
+            }
+            if (participantLocationId) {
+                queryClient.invalidateQueries({ queryKey: ['participants_by_location', participantLocationId] });
+            }
             setLocationStatus({
                 type: 'success',
                 message: '位置情報を削除しました。'

@@ -733,19 +733,9 @@ export const realtime = {
         }
 
         const channel = supabase.channel(channelName);
-        debugLog('[realtime.subscribeMeetRequests] チャンネル作成:', channel);
 
         // Realtime接続状態を詳細に確認
         const realtimeClient = supabase.realtime;
-        debugLog('[realtime.subscribeMeetRequests] Realtime接続状態詳細:', {
-            isConnected: realtimeClient.isConnected(),
-            connectionState: realtimeClient.connectionState(),
-            endpointURL: realtimeClient.endpointURL,
-            channels: realtimeClient.getChannels().map(ch => ({
-                topic: ch.topic,
-                state: ch.state
-            }))
-        });
 
         // Realtime接続を強制的に確立
         if (!realtimeClient.isConnected()) {
