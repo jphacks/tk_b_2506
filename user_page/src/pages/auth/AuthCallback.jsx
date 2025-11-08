@@ -10,6 +10,9 @@ const AuthCallback = () => {
   const [isProcessing, setIsProcessing] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
+  // LINE認証フロー中かチェック
+  const isLineLoginFlow = sessionStorage.getItem('lineLoginInProgress') === 'true';
+
   useEffect(() => {
     const handleCallback = async () => {
       try {
@@ -59,6 +62,8 @@ const AuthCallback = () => {
 
           const { url } = await resp.json();
           if (url) {
+            // LINE認証フロー完了、sessionStorageをクリア
+            sessionStorage.removeItem('lineLoginInProgress');
             window.location.href = url; // Supabaseのマジックリンクへリダイレクト
             return;
           }
@@ -112,6 +117,8 @@ const AuthCallback = () => {
 
       } catch (error) {
         console.error('Auth callback error:', error);
+        // エラー時もsessionStorageをクリア
+        sessionStorage.removeItem('lineLoginInProgress');
         setErrorMessage('ログインに失敗しました。もう一度お試しください。');
         setIsProcessing(false);
 
@@ -124,6 +131,11 @@ const AuthCallback = () => {
 
     handleCallback();
   }, [navigate, searchParams]);
+
+  // LINE認証フロー中は何も表示しない（AuthPageのローディング画面が維持される）
+  if (isLineLoginFlow) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">

@@ -189,18 +189,24 @@ const AuthPage = () => {
         }
         setStatusMessage('');
         setIsLineLoginLoading(true);
+        
+        // LINE認証フローの開始をマーク（AuthCallbackでローディング画面を表示しないため）
+        sessionStorage.setItem('lineLoginInProgress', 'true');
+        
         try {
             const result = await loginWithLine();
             if (!result.success) {
                 setStatusType('error');
                 setStatusMessage(result.error || 'LINEログインに失敗しました。');
                 setIsLineLoginLoading(false);
+                sessionStorage.removeItem('lineLoginInProgress');
             }
             // 成功時はリダイレクトされるため以降の処理は不要
         } catch (error) {
             setStatusType('error');
             setStatusMessage('LINEログインに失敗しました。');
             setIsLineLoginLoading(false);
+            sessionStorage.removeItem('lineLoginInProgress');
         }
     };
 
