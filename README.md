@@ -18,7 +18,7 @@ https://sympolink.vercel.app/
 で使用可能です
 
 ## 管理者ページ
-https://vercel.com/takosu9314-gmailcoms-projects/tk-b-2506
+https://tk-b-2506.vercel.app/
 
 ## 製品概要
 ### 背景(製品開発のきっかけ，課題等）

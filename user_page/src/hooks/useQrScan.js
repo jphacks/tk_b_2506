@@ -23,45 +23,39 @@ const useQrScan = ({ conferenceId, onSuccess, onError } = {}) => {
                     qr_code,
                     label,
                     is_active,
-                    map_id
+                    map_id,
+                    map:maps!inner(
+                        id,
+                        conference_id,
+                        is_active,
+                        location_id,
+                        location:locations(
+                            id,
+                            name
+                        )
+                    )
                 `)
                 .eq('qr_code', qrValue)
                 .eq('is_active', true)
+                .eq('map.conference_id', conferenceId)
+                .eq('map.is_active', true)
                 .maybeSingle();
 
             if (regionError) {
                 throw regionError;
             }
 
-            if (!region?.map_id) {
-                throw new Error('このQRコードに対応するマップが見つかりませんでした。');
+            if (!region?.map?.id) {
+                throw new Error('このQRコードに紐づくマップ情報が取得できませんでした。');
             }
 
-            const { data: map, error: mapError } = await supabase
-                .from('maps')
-                .select(`
-                    id,
-                    conference_id,
-                    is_active,
-                    location_id,
-                    location:locations(id, name)
-                `)
-                .eq('id', region.map_id)
-                .eq('conference_id', conferenceId)
-                .eq('is_active', true)
-                .maybeSingle();
-
-            if (mapError) {
-                throw mapError;
-            }
-
-            if (!map?.location_id || !map.location) {
+            if (!region.map.location_id || !region.map.location) {
                 throw new Error('このQRコードに紐づく場所情報が取得できませんでした。');
             }
 
             const location = {
-                id: map.location.id,
-                name: map.location.name
+                id: region.map.location.id,
+                name: region.map.location.name
             };
 
             const { data: participant, error: participantError } = await supabase
