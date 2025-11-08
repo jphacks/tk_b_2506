@@ -36,6 +36,7 @@ const HomeTab = ({
         isLoading={isLoading}
         error={error}
         onVisitParticipant={onVisitParticipant}
+        enablePagination
       />
     </div>
   );

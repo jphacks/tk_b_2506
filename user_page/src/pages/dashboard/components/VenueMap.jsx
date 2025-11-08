@@ -327,12 +327,14 @@ const VenueMap = ({
                                 mapRegionId={selectedLocation.mapRegionId}
                                 currentParticipant={currentParticipant}
                                 onOpenProfile={handleOpenProfile}
+                                enablePagination
+                                maxVisible={5}
                             />
                         </div>
                         <div className="flex gap-2">
                             {shouldShowMoveButton && (
                                 <Button
-                                    variant={hasMovedToDesk ? 'danger' : 'default'}
+                                    variant="default"
                                     className="h-12 text-base"
                                     iconName="MapPin"
                                     disabled={hasMovedToDesk}

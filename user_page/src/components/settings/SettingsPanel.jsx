@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import useConferences from '../../hooks/useConferences';
@@ -9,19 +9,19 @@ import { cn } from '../../utils/cn';
 import {
     deriveAffiliationFromProfile,
     deriveAffiliationOptionsFromResearchExperience,
+    deriveInterestTagRecommendations,
     deriveOccupation,
     deriveOccupationFromCareerEntry,
-    deriveInterestTagRecommendations,
     deriveResearcherName,
     normalizeResearcherId
 } from '../../utils/researchmap';
 import Icon from '../AppIcon';
+import AffiliationCandidates from '../researchmap/AffiliationCandidates';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import MultiSelect from '../ui/MultiSelect';
 import Select from '../ui/Select';
 import Textarea from '../ui/Textarea';
-import AffiliationCandidates from '../researchmap/AffiliationCandidates';
 
 const initialIntroForm = {
     name: '',
@@ -505,7 +505,7 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
         const normalizedId = normalizeResearcherId(researcherId);
 
         if (!normalizedId) {
-            setResearcherFetchError('researcher_idを入力してください。');
+            setResearcherFetchError('Researcher_idを入力してください。');
             setResearcherAffiliationOptions([]);
             setSelectedResearcherAffiliationOption('');
             return;
@@ -956,9 +956,6 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
 
                     <div className="flex-1 overflow-y-auto">
                         <section className="px-6 py-5 space-y-5 border-b border-border">
-                            <div>
-                                <h3 className="text-sm font-semibold text-foreground">自己紹介の編集</h3>
-                            </div>
 
                             {isIntroLoading ? (
                                 <div className="flex flex-col items-center justify-center space-y-3 py-8">
@@ -971,17 +968,22 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                                 </div>
                             ) : (
                                 <form className="space-y-4" onSubmit={handleSaveIntroduction}>
-                                    <div className="space-y-2">
-                                        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                                    <div className="space-y-3 rounded-2xl border border-border bg-muted/40 p-4">
+                                        <div className="space-y-1">
+                                            <p className="text-lg font-semibold text-foreground text-center">Researchmapから自動入力</p>
+                                            <p className="text-xs text-muted-foreground text-center">
+                                                Researchmap IDの入力で、氏名，所属，職業，興味・関心を一括入力できます
+                                            </p>
+                                        </div>
+                                        <div className="flex flex-col gap-2">
                                             <div className="sm:flex-1">
                                                 <Input
                                                     name="researcherId"
                                                     value={researcherId}
                                                     onChange={handleResearcherIdChange}
-                                                    label="researchmap研究者ID"
-                                                    description="researchmapの公開プロフィールURL末尾のresearcher_idを入力すると、氏名・所属・職業を自動入力します"
+                                                    label="Researchmap ID"
                                                     error={researcherFetchError}
-                                                    placeholder="例: example_researcher"
+                                                    placeholder="example_researcher"
                                                     autoComplete="off"
                                                     onKeyDown={(event) => {
                                                         if (event.key === 'Enter') {
@@ -1028,7 +1030,7 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                                         value={introForm.affiliation}
                                         onChange={handleIntroChange}
                                         label="所属"
-                                        placeholder="大学名・企業名など"
+                                        placeholder="○○大学 ××学部 △△研究室"
                                     />
                                     <Select
                                         name="occupation"
@@ -1056,7 +1058,7 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                                         value={introForm.researchTopic}
                                         onChange={handleIntroChange}
                                         label="研究テーマ"
-                                        placeholder="現在取り組んでいる研究分野"
+                                        placeholder="機械学習を用いた画像解析"
                                     />
                                     <MultiSelect
                                         label="興味・関心"
@@ -1075,6 +1077,7 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                                         onChange={handleIntroChange}
                                         label="一言コメント"
                                         description="120文字以内で入力してください"
+                                        placeholder="色々な方と交流できると嬉しいです！"
                                         error={introErrors.comment}
                                         rows={4}
                                     />
@@ -1091,7 +1094,7 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                                             disabled={isSavingIntro}
                                             fullWidth
                                             size="xl"
-                                            className="h-10"
+                                            className="w-full h-12 text-base"
                                         >
                                             自己紹介を保存
                                         </Button>
@@ -1106,9 +1109,11 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                             </div>
                             <div className="text-sm text-foreground flex flex-wrap items-center gap-2">
                                 <span className="font-medium text-muted-foreground">現在の位置情報：</span>
-                                <span>{isLoadingLocationInfo ? '取得中...' : currentLocationLabel}</span>
+                                <span className="font-medium text-muted-foreground">
+                                    {isLoadingLocationInfo ? '取得中...' : currentLocationLabel}
+                                </span>
                             </div>
-                            {locationStatus.message && (
+                            {locationStatus.type === 'error' && locationStatus.message && (
                                 <p className={`text-xs ${locationStatusClass}`}>
                                     {locationStatus.message}
                                 </p>
@@ -1118,16 +1123,16 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                                 variant="secondary"
                                 iconName="MapPin"
                                 iconPosition="left"
-                                className="w-full sm:w-auto h-10 text-sm"
+                                className="w-full h-12 text-base"
                                 onClick={handleClearLocation}
                                 loading={isClearingLocation}
                                 disabled={
                                     isClearingLocation ||
                                     !participantLocationInfo.participantId ||
-                                    locationStatus.type === 'success'
+                                    !participantLocationInfo.hasLocation
                                 }
                             >
-                                {locationStatus.type === 'success' ? '位置情報は削除済み' : '位置情報を削除'}
+                                {participantLocationInfo.hasLocation ? '位置情報を削除' : '位置情報削除済み'}
                             </Button>
                         </section>
 
@@ -1285,8 +1290,8 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                             )}
                         </div>
                     </div>
-                </div>
-            </div>
+                </div >
+            </div >
         </>,
         document.body
     );

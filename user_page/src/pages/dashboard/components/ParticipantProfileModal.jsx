@@ -264,7 +264,7 @@ const ParticipantProfileModal = ({
                                             {hasSent ? 'もう一度送信' : 'メッセージを送信'}
                                         </Button>
                                         <Button
-                                            variant={hasMoved ? 'danger' : 'default'}
+                                            variant="default"
                                             className="w-full h-12 text-base"
                                             iconName="MapPin"
                                             onClick={handleVisitParticipant}
@@ -294,7 +294,7 @@ const ParticipantProfileModal = ({
                                     </p>
                                     <div className="space-y-3">
                                         <Button
-                                            variant={hasMoved ? 'danger' : 'default'}
+                                            variant="default"
                                             className="w-full h-12 text-base"
                                             iconName="MapPin"
                                             onClick={handleVisitParticipant}

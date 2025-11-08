@@ -44,8 +44,12 @@ const ParticipantList = ({
     occupationFilter = 'all',
     onOccupationFilterChange,
     onVisitParticipant = () => { },
+    enablePagination = false,
+    maxVisible = Infinity
 }) => {
     const [selectedParticipant, setSelectedParticipant] = useState(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const PAGE_SIZE = 10;
 
     // Fetch hooks (有効時のみ)
     const confQuery = useParticipants(conferenceId, { enabled: Boolean(conferenceId) });
@@ -105,6 +109,23 @@ const ParticipantList = ({
         // console.log('[ParticipantList][debug] all participants ->', list.length);
         // if (error) console.warn('[ParticipantList][debug] error ->', error);
     }, [conferenceId, locationId, list.length, error]);
+
+    const totalCount = filtered.length;
+    const limitedPageSize = Number.isFinite(maxVisible)
+        ? Math.max(1, Number(maxVisible))
+        : PAGE_SIZE;
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [filtered.length, limitedPageSize, enablePagination]);
+
+    const shouldPaginate = enablePagination && totalCount > limitedPageSize;
+    const totalPages = shouldPaginate ? Math.ceil(totalCount / limitedPageSize) : 1;
+    const paginatedParticipants = shouldPaginate
+        ? filtered.slice((currentPage - 1) * limitedPageSize, currentPage * limitedPageSize)
+        : Number.isFinite(maxVisible)
+            ? filtered.slice(0, limitedPageSize)
+            : filtered;
 
     const handleOpenProfile = (participant) => setSelectedParticipant(participant);
     const handleCloseProfile = () => setSelectedParticipant(null);
@@ -192,7 +213,7 @@ const ParticipantList = ({
                 <div>
                     <h2 className="text-lg font-semibold text-foreground">参加者</h2>
                     <p className="text-sm text-muted-foreground">
-                        {filtered.length} 名
+                        {totalCount} 名
                     </p>
                 </div>
 
@@ -222,7 +243,7 @@ const ParticipantList = ({
             </div>
 
             <div className="space-y-3">
-                {filtered.map((participant) => {
+                {paginatedParticipants.map((participant) => {
                     const intro = participant?.introduction ?? {};
                     const location = participant?.location;
 
@@ -279,6 +300,32 @@ const ParticipantList = ({
                     );
                 })}
             </div>
+
+            {shouldPaginate && (
+                <div className="flex items-center justify-between pt-2 text-sm text-muted-foreground">
+                    {currentPage > 1 ? (
+                        <button
+                            type="button"
+                            className="rounded-md bg-white px-3 py-1 border border-border text-muted-foreground"
+                            onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                        >
+                            前へ
+                        </button>
+                    ) : <span />}
+                    <span>
+                        ページ {currentPage} / {totalPages}
+                    </span>
+                    {currentPage < totalPages ? (
+                        <button
+                            type="button"
+                            className="rounded-md bg-white px-3 py-1 border border-border text-muted-foreground"
+                            onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                        >
+                            次へ
+                        </button>
+                    ) : <span />}
+                </div>
+            )}
 
             {selectedParticipant && (
                 <ParticipantProfileModal

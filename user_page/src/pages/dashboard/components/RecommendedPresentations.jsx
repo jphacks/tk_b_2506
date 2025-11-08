@@ -107,7 +107,7 @@ const RecommendedPresentations = ({
                 </h2>
             </div>
 
-            <div className="space-y-3 max-h-[600px] overflow-y-auto">
+            <div className="space-y-3">
                 {presentations.map((presentation) => (
                     <div
                         key={presentation.id}
