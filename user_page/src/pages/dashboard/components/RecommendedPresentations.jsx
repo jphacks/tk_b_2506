@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 
@@ -8,12 +7,6 @@ const RecommendedPresentations = ({
     error = null,
     onRetry = () => { }
 }) => {
-    const [expandedId, setExpandedId] = useState(null);
-
-    const toggleExpand = (id) => {
-        setExpandedId(prev => prev === id ? null : id);
-    };
-
     const presentationTypeLabel = (type) => {
         return type === 'oral' ? '口頭発表' : 'ポスター';
     };
@@ -164,33 +157,10 @@ const RecommendedPresentations = ({
                         {/* Summary */}
                         {presentation.ai_summary && (
                             <div className="mb-2">
-                                <p
-                                    className={`text-xs text-muted-foreground ${expandedId === presentation.id ? '' : 'line-clamp-2'
-                                        }`}
-                                >
+                                <p className="text-xs text-muted-foreground whitespace-pre-wrap break-words">
                                     {presentation.ai_summary}
                                 </p>
                             </div>
-                        )}
-
-                        {/* Expand/Collapse Button */}
-                        {presentation.ai_summary && presentation.ai_summary.length > 100 && (
-                            <button
-                                onClick={() => toggleExpand(presentation.id)}
-                                className={`text-xs flex items-center gap-1 hover:underline ${expandedId === presentation.id ? 'text-success hover:text-success/80' : 'text-primary'}`}
-                            >
-                                {expandedId === presentation.id ? (
-                                    <>
-                                        <Icon name="ChevronUp" size={14} />
-                                        <span>閉じる</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Icon name="ChevronDown" size={14} />
-                                        <span>もっと見る</span>
-                                    </>
-                                )}
-                            </button>
                         )}
                     </div>
                 ))}
