@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 import Header from '../../components/ui/Header';
@@ -206,165 +206,165 @@ const AuthPage = () => {
 
     return (
         <>
-        <div className="min-h-screen bg-background">
-            <Header notifications={[]} onNotificationClick={() => { }} showSettings={false} />
-            <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
-                <div className="max-w-md mx-auto">
-                    {/* Auth Header */}
-                    <div className="text-center space-y-4 mb-8">
-                        <div className="flex justify-center">
-                            <div className="flex items-center justify-center w-16 h-16 bg-primary/10 rounded-2xl">
-                                <Icon
-                                    name={isLogin ? "LogIn" : "UserPlus"}
-                                    size={32}
-                                    color="var(--color-primary)"
-                                    strokeWidth={2}
-                                />
+            <div className="min-h-screen bg-background">
+                <Header notifications={[]} onNotificationClick={() => { }} showSettings={false} />
+                <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
+                    <div className="max-w-md mx-auto">
+                        {/* Auth Header */}
+                        <div className="text-center space-y-4 mb-8">
+                            <div className="flex justify-center">
+                                <div className="flex items-center justify-center w-16 h-16 bg-primary/10 rounded-2xl">
+                                    <Icon
+                                        name={isLogin ? "LogIn" : "UserPlus"}
+                                        size={32}
+                                        color="var(--color-primary)"
+                                        strokeWidth={2}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <h1 className="text-2xl sm:text-3xl font-heading font-semibold text-foreground">
+                                    {isLogin ? "ログイン" : "アカウント作成"}
+                                </h1>
+                                <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
+                                    {isLogin
+                                        ? "学会参加の準備を始めましょう"
+                                        : "新しいアカウントを作成して自己紹介を準備しましょう"
+                                    }
+                                </p>
                             </div>
                         </div>
 
-                        <div className="space-y-2">
-                            <h1 className="text-2xl sm:text-3xl font-heading font-semibold text-foreground">
-                                {isLogin ? "ログイン" : "アカウント作成"}
-                            </h1>
-                            <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
-                                {isLogin
-                                    ? "学会参加の準備を始めましょう"
-                                    : "新しいアカウントを作成して自己紹介を準備しましょう"
-                                }
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* Auth Form */}
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                        {statusMessage && (
-                            <div
-                                className={`px-4 py-3 rounded-lg border text-sm ${
-                                    statusType === 'error'
+                        {/* Auth Form */}
+                        <form onSubmit={handleSubmit} className="space-y-6">
+                            {statusMessage && (
+                                <div
+                                    className={`px-4 py-3 rounded-lg border text-sm ${statusType === 'error'
                                         ? 'border-error/30 bg-error/10 text-error'
                                         : 'border-primary/30 bg-primary/5 text-primary'
-                                }`}
-                            >
-                                {statusMessage}
+                                        }`}
+                                >
+                                    {statusMessage}
+                                </div>
+                            )}
+                            <div className="space-y-2 text-center">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="lg"
+                                    fullWidth
+                                    onClick={handleLineLogin}
+                                    loading={isLineLoginLoading}
+                                    disabled={isLoading || isLineLoginLoading}
+                                    iconPosition="left"
+                                    className="bg-[#06C755] hover:bg-[#05B64A] text-white border-[#06C755]"
+                                >
+                                    <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.348 0 .627.285.627.63 0 .349-.279.63-.627.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629h-1.754l-.84 1.275c-.104.156-.282.25-.464.25-.345 0-.63-.283-.63-.629 0-.24.143-.45.346-.555l1.422-.87-1.422-.87c-.203-.104-.346-.314-.346-.554 0-.346.285-.63.63-.63.182 0 .36.104.464.25l.84 1.274h1.755c.349 0 .63.285.63.63M7.423 15.052H4.227c-.346 0-.627-.285-.627-.63V8.108c0-.345.281-.63.63-.63.345 0 .63.285.63.63v5.684h2.563c.348 0 .629.283.629.63 0 .344-.282.63-.629.63" />
+                                    </svg>
+                                    LINEでログイン・新規登録
+                                </Button>
                             </div>
-                        )}
-                        <div className="bg-card border border-border rounded-xl p-6 shadow-soft space-y-4">
-                            {/* Email Field */}
-                            <Input
-                                type="email"
-                                label="メールアドレス"
-                                name="email"
-                                value={formData.email}
-                                onChange={handleInputChange}
-                                placeholder="example@university.ac.jp"
-                                required
-                                error={errors.email}
-                                description="学会参加用のメールアドレス"
-                            />
 
-                            {/* Password Field */}
-                            <Input
-                                type="password"
-                                label="パスワード"
-                                name="password"
-                                value={formData.password}
-                                onChange={handleInputChange}
-                                placeholder="••••••••"
-                                required
-                                error={errors.password}
-                                description="6文字以上のパスワード"
-                            />
+                            <div className="relative">
+                                <div className="absolute inset-0 flex items-center">
+                                    <div className="w-full border-t border-border"></div>
+                                </div>
+                                <div className="relative flex justify-center text-xs uppercase">
+                                    <span className="bg-card px-2 text-muted-foreground">または</span>
+                                </div>
+                            </div>
 
-                            {/* Confirm Password Field (Signup only) */}
-                            {!isLogin && (
+                            <div className="bg-card border border-border rounded-xl p-6 shadow-soft space-y-4">
+                                {/* Email Field */}
+                                <Input
+                                    type="email"
+                                    label="メールアドレス"
+                                    name="email"
+                                    value={formData.email}
+                                    onChange={handleInputChange}
+                                    placeholder="example@university.ac.jp"
+                                    required
+                                    error={errors.email}
+                                    description="学会参加用のメールアドレス"
+                                />
+
+                                {/* Password Field */}
                                 <Input
                                     type="password"
-                                    label="パスワード確認"
-                                    name="confirmPassword"
-                                    value={formData.confirmPassword}
+                                    label="パスワード"
+                                    name="password"
+                                    value={formData.password}
                                     onChange={handleInputChange}
                                     placeholder="••••••••"
                                     required
-                                    error={errors.confirmPassword}
-                                    description="パスワードを再入力してください"
+                                    error={errors.password}
+                                    description="6文字以上のパスワード"
                                 />
-                            )}
-                        </div>
 
-                        {/* Submit Button */}
-                        <Button
-                            type="submit"
-                            variant="default"
-                            size="lg"
-                            fullWidth
-                            loading={isLoading}
-                            disabled={isLoading || isLineLoginLoading}
-                            iconName={isLogin ? "LogIn" : "UserPlus"}
-                            iconPosition="left"
-                        >
-                            {isLoading
-                                ? (isLogin ? "ログイン中..." : "作成中...")
-                                : (isLogin ? "ログイン" : "アカウント作成")
-                            }
-                        </Button>
-
-                        {/* LINE Login Button */}
-                        <div className="relative">
-                            <div className="absolute inset-0 flex items-center">
-                                <div className="w-full border-t border-border"></div>
+                                {/* Confirm Password Field (Signup only) */}
+                                {!isLogin && (
+                                    <Input
+                                        type="password"
+                                        label="パスワード確認"
+                                        name="confirmPassword"
+                                        value={formData.confirmPassword}
+                                        onChange={handleInputChange}
+                                        placeholder="••••••••"
+                                        required
+                                        error={errors.confirmPassword}
+                                        description="パスワードを再入力してください"
+                                    />
+                                )}
                             </div>
-                            <div className="relative flex justify-center text-xs uppercase">
-                                <span className="bg-card px-2 text-muted-foreground">または</span>
-                            </div>
-                        </div>
 
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="lg"
-                            fullWidth
-                            onClick={handleLineLogin}
-                            loading={isLineLoginLoading}
-                            disabled={isLoading || isLineLoginLoading}
-                            iconPosition="left"
-                            className="bg-[#06C755] hover:bg-[#05B64A] text-white border-[#06C755]"
-                        >
-                            <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.348 0 .627.285.627.63 0 .349-.279.63-.627.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629h-1.754l-.84 1.275c-.104.156-.282.25-.464.25-.345 0-.63-.283-.63-.629 0-.24.143-.45.346-.555l1.422-.87-1.422-.87c-.203-.104-.346-.314-.346-.554 0-.346.285-.63.63-.63.182 0 .36.104.464.25l.84 1.274h1.755c.349 0 .63.285.63.63M7.423 15.052H4.227c-.346 0-.627-.285-.627-.63V8.108c0-.345.281-.63.63-.63.345 0 .63.285.63.63v5.684h2.563c.348 0 .629.283.629.63 0 .344-.282.63-.629.63" />
-                            </svg>
-                            LINEでログイン
-                        </Button>
-
-                        {/* Mode Toggle */}
-                        <div className="text-center">
-                            <button
-                                type="button"
-                                onClick={toggleMode}
-                                className="text-m text-muted-foreground hover:text-foreground transition-colors"
+                            {/* Submit Button */}
+                            <Button
+                                type="submit"
+                                variant="default"
+                                size="lg"
+                                fullWidth
+                                loading={isLoading}
+                                disabled={isLoading || isLineLoginLoading}
+                                iconName={isLogin ? "LogIn" : "UserPlus"}
+                                iconPosition="left"
                             >
-                                {isLogin
-                                    ? "アカウントをお持ちでない方はこちら"
-                                    : "既にアカウントをお持ちの方はこちら"
+                                {isLoading
+                                    ? (isLogin ? "ログイン中..." : "作成中...")
+                                    : (isLogin ? "メールアドレスでログイン" : "メールアドレスでアカウント作成")
                                 }
-                            </button>
-                        </div>
-                    </form>
+                            </Button>
 
-                </div>
-            </main>
-        </div>
-        {isLineLoginLoading && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-                <div className="bg-card rounded-2xl p-6 shadow-xl text-center space-y-4">
-                    <div
-                        className="mx-auto h-12 w-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin"
-                        aria-label="LINEでログイン処理中"
-                    />
-                    <p className="text-sm text-muted-foreground">LINEでログイン処理中です。しばらくお待ちください。</p>
-                </div>
+                            {/* Mode Toggle */}
+                            <div className="text-center">
+                                <button
+                                    type="button"
+                                    onClick={toggleMode}
+                                    className="text-m text-muted-foreground hover:text-foreground transition-colors"
+                                >
+                                    {isLogin
+                                        ? "メールアドレスで新規登録される方はこちら"
+                                        : "メールアドレスでログインされる方はこちら"
+                                    }
+                                </button>
+                            </div>
+                        </form>
+
+                    </div>
+                </main>
             </div>
-        )}
+            {isLineLoginLoading && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                    <div className="bg-card rounded-2xl p-6 shadow-xl text-center space-y-4">
+                        <div
+                            className="mx-auto h-12 w-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin"
+                            aria-label="LINEでログイン処理中"
+                        />
+                        <p className="text-sm text-muted-foreground">LINEでログイン処理中です。しばらくお待ちください。</p>
+                    </div>
+                </div>
+            )}
         </>
     );
 };

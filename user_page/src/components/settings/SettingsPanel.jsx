@@ -505,7 +505,7 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
         const normalizedId = normalizeResearcherId(researcherId);
 
         if (!normalizedId) {
-            setResearcherFetchError('researcher_idを入力してください。');
+            setResearcherFetchError('Researcher_idを入力してください。');
             setResearcherAffiliationOptions([]);
             setSelectedResearcherAffiliationOption('');
             return;
@@ -971,7 +971,7 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                                     <div className="space-y-3 rounded-2xl border border-border bg-muted/40 p-4">
                                         <div className="space-y-1">
                                             <p className="text-lg font-semibold text-foreground text-center">Researchmapから自動入力</p>
-                                            <p className="text-xs text-muted-foreground">
+                                            <p className="text-xs text-muted-foreground text-center">
                                                 Researchmap IDの入力で、氏名，所属，職業，興味・関心を一括入力できます
                                             </p>
                                         </div>
