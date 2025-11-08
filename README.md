@@ -1,7 +1,9 @@
 # SympoLink!
 
+[![SympoLink! デモ](./README_images/Title.png)](https://youtu.be/e0cuqXGakKY?si=VLCW21rrece_2k47)
+
 ## ユーザページ（デプロイ済）
-https://support-community.vercel.app/
+https://sympolink.vercel.app/
 
 ### ユーザ名
 
@@ -15,13 +17,8 @@ https://support-community.vercel.app/
 
 で使用可能です
 
-## デモ動画
-
-[![SympoLink! デモ](./README_images/user.png)](https://youtu.be/e0cuqXGakKY?si=VLCW21rrece_2k47)
-参加者ページのデモ動画！画像タップでYoutubeに飛びます！
-
-[![SympoLink! 管理者ページデモ](./README_images/admin.png)](./README_images/admin_play.gif)
-管理者ページのデモ動画！GIFで載せています！
+## 管理者ページ
+https://vercel.com/takosu9314-gmailcoms-projects/tk-b-2506
 
 ## 製品概要
 ### 背景(製品開発のきっかけ，課題等）
@@ -38,11 +35,11 @@ https://support-community.vercel.app/
 2. 続いて自己紹介カードを作成し，所属や研究テーマ・興味タグを入力してSupabaseの`introductions`・`tags`テーブルに保存する．
 3. ダッシュボード(`/dashboard/:conferenceId`)に進むと，QRコードで現在地を更新しながら会場マップや参加者リスト，興味に合う発表のレコメンドを閲覧でき，現地で話しかけるべき人やブースを瞬時に把握できる．
 
-### ワークフロー
+### システム構成図と工夫点
 
-以下の図に、管理者ページとユーザーページ，データベース，DIFY_APIの関係を示します！
+以下の図に、管理者ページとユーザーページ，supabase, 外部APIとの関係を以下に示します．
 
-![システム構成とデータフロー](./README_images/workflow.png)
+![システム構成とデータフロー](./README_images/architecture.png)
 
 補足説明（図の内容）
 - 管理者ページから抄録データ（PDF/テキスト）を送信し、DIFY APIで解析します。
