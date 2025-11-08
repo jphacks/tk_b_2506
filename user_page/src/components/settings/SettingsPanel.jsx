@@ -784,6 +784,9 @@ const SettingsPanel = ({ isOpen, onClose, user, onLogout, onConferenceSwitch, co
                 tagsUpdateFailed = true;
             }
 
+            // 保存成功後、ページをリロード
+            window.location.reload();
+
         } catch (error) {
             console.error('Failed to save introduction:', error);
         } finally {
