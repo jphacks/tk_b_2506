@@ -2,6 +2,14 @@
 
 [![SympoLink! デモ](./README_images/Title.png)](https://youtu.be/e0cuqXGakKY?si=VLCW21rrece_2k47)
 
+# 追加機能
+https://youtu.be/i-oigWWsAOg
+
+# 管理者ページ
+https://youtu.be/4IJA43175YQ
+
+---
+
 ## ユーザページ（デプロイ済）
 https://sympolink.vercel.app/
 
