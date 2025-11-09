@@ -1,5 +1,5 @@
 import liff from '@line/liff'; // 追加
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
@@ -18,7 +18,7 @@ import LocationTab from './components/LocationTab';
 import MessagesTab from './components/MessagesTab';
 import RecommendedTab from './components/RecommendedTab';
 
-const TABS_TRIGGERING_RELOAD = new Set(['home', 'recommended', 'location', 'messages']);
+const TABS_TRIGGERING_REFRESH = new Set(['home', 'recommended', 'location', 'messages']);
 
 function isLineInClient() {
     // LINEアプリ内検出: UA・LIFF環境どちらでもOK
@@ -50,7 +50,7 @@ const Dashboard = () => {
     const [statusMessage, setStatusMessage] = useState('');
     const [statusType, setStatusType] = useState('info');
     const notificationsLoadedRef = useRef(false);
-    const hasTabChangeTriggeredReloadRef = useRef(false);
+    const hasTabChangeTriggeredRefreshRef = useRef(false);
 
     const [occupationFilter, setOccupationFilter] = useState('all');
 
@@ -249,15 +249,39 @@ const Dashboard = () => {
         setSearchParams({ tab: tabId });
     };
 
-    useEffect(() => {
-        if (!hasTabChangeTriggeredReloadRef.current) {
-            hasTabChangeTriggeredReloadRef.current = true;
+    const refreshTabData = useCallback(async (tabId) => {
+        if (!tabId || !TABS_TRIGGERING_REFRESH.has(tabId)) {
             return;
         }
-        if (TABS_TRIGGERING_RELOAD.has(activeTab) && typeof window !== 'undefined') {
-            window.location.reload();
+
+        const refreshers = [];
+
+        if (tabId === 'home') {
+            refreshers.push(refetchParticipants(), refetchLocations(), refetchMaps());
+        } else if (tabId === 'recommended') {
+            refreshers.push(refetchPresentations());
+        } else if (tabId === 'location') {
+            refreshers.push(refetchLocations(), refetchMaps());
         }
-    }, [activeTab]);
+
+        if (refreshers.length === 0) {
+            return;
+        }
+
+        try {
+            await Promise.allSettled(refreshers);
+        } catch (error) {
+            console.error('Failed to refresh tab data:', error);
+        }
+    }, [refetchParticipants, refetchLocations, refetchMaps, refetchPresentations]);
+
+    useEffect(() => {
+        if (!hasTabChangeTriggeredRefreshRef.current) {
+            hasTabChangeTriggeredRefreshRef.current = true;
+            return;
+        }
+        refreshTabData(activeTab);
+    }, [activeTab, refreshTabData]);
 
     // タブ定義
     const tabs = useMemo(() => {
