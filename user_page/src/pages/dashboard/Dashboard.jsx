@@ -18,6 +18,8 @@ import LocationTab from './components/LocationTab';
 import MessagesTab from './components/MessagesTab';
 import RecommendedTab from './components/RecommendedTab';
 
+const TABS_TRIGGERING_RELOAD = new Set(['home', 'recommended', 'location', 'messages']);
+
 function isLineInClient() {
     // LINEアプリ内検出: UA・LIFF環境どちらでもOK
     return /line/i.test(navigator.userAgent) || (window.liff && liff.isInClient && liff.isInClient());
@@ -48,6 +50,7 @@ const Dashboard = () => {
     const [statusMessage, setStatusMessage] = useState('');
     const [statusType, setStatusType] = useState('info');
     const notificationsLoadedRef = useRef(false);
+    const hasTabChangeTriggeredReloadRef = useRef(false);
 
     const [occupationFilter, setOccupationFilter] = useState('all');
 
@@ -245,6 +248,16 @@ const Dashboard = () => {
         setActiveTab(tabId);
         setSearchParams({ tab: tabId });
     };
+
+    useEffect(() => {
+        if (!hasTabChangeTriggeredReloadRef.current) {
+            hasTabChangeTriggeredReloadRef.current = true;
+            return;
+        }
+        if (TABS_TRIGGERING_RELOAD.has(activeTab) && typeof window !== 'undefined') {
+            window.location.reload();
+        }
+    }, [activeTab]);
 
     // タブ定義
     const tabs = useMemo(() => {
