@@ -22,7 +22,7 @@ https://sympolink.vercel.app/
 ### 学会
 
 - 学会名：JP_HACKS2025
-- パスワード：JPHACKS2025
+- パスワード：a
 
 で使用可能です
 
